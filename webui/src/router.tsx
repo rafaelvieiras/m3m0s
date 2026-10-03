@@ -1,0 +1,40 @@
+// Builds the route tree (code-based routing, no file generation —
+// docs/implementation-plan.md Phase 5 only requires "real routes" +
+// code-splitting via lazyRouteComponent, not TanStack Router's file-based
+// codegen).
+import { createRouter } from "@tanstack/react-router";
+import { Route as RootRoute } from "./routes/__root";
+import { Route as LoginRoute } from "./routes/login";
+import { Route as IndexRoute } from "./routes/index";
+import { Route as AuthedRoute } from "./routes/_authed";
+import { Route as SearchRoute } from "./routes/search";
+import { Route as RecentRoute } from "./routes/recent";
+import { Route as StatsRoute } from "./routes/stats";
+import { Route as AddRoute } from "./routes/add";
+import { Route as EntryDetailRoute } from "./routes/entry-detail";
+import { Route as EntryEditRoute } from "./routes/entry-edit";
+import { Route as JobsRoute } from "./routes/jobs";
+import { Route as PreviewRoute } from "./routes/preview";
+
+const routeTree = RootRoute.addChildren([
+  LoginRoute,
+  IndexRoute,
+  AuthedRoute.addChildren([
+    SearchRoute,
+    RecentRoute,
+    StatsRoute,
+    AddRoute,
+    EntryDetailRoute,
+    EntryEditRoute,
+    JobsRoute,
+    PreviewRoute,
+  ]),
+]);
+
+export const router = createRouter({ routeTree, defaultPreload: "intent" });
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
+}

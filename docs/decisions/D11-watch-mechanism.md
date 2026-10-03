@@ -1,0 +1,13 @@
+# D11 — `m3m0s watch` mechanism (closes A4)
+
+**Status:** Accepted
+
+**Context:** A4 already had the default scope confirmed (memory/doc files only: `AGENTS.md`/`CLAUDE.md`/`MEMORY.md`/`docs/**/*.md`), but the mechanism itself was still undesigned — how an observed file becomes searchable memory — before starting Phase 2.
+
+**Decision, in 4 parts:**
+1. **Automatic domain per watched root:** `m3m0s watch <dir>` infers `domain = codigo:<basename(dir)>` from the given root directory, overridable via `--domain` (needed for projects that are not "code", e.g. a book directory in Markdown — `--domain escrita:book-x`). `source` is always `watch` (already in the suggested list in `docs/memory-schema.md`), and `agent` is absent.
+2. **Chunking by Markdown header:** each watched file is split by level-1 or level-2 header (`#`/`##`) — 1 section = 1 chunk = 1 memory. A file with no headers (or too short to have its own section) becomes a single chunk (the whole file). Each chunk carries `metadata.file_path` (path relative to the watched root) and `metadata.heading` (the section header text, absent for the single-chunk case) — this is how provenance "shows up in the search context block" (an item already promised in the Phase 2 plan): `apitypes.BuildContextBlock` now shows these two fields when present. The IDs of these chunks use the `chunk_` prefix (reserved since [D6](D6-getengram-analysis.md), never used until now because Phase 1 had nothing to chunk).
+3. **`memory_delete` leaves the Phase 1 "out of scope" list, but with a minimal scope:** just enough for cascading purge — `DELETE /memories/:id` and batch deletion by `domain` + `metadata.file_path` (to remove at once all chunks of a reindexed or deleted file). Arbitrary manual delete through a public API (e.g. a user asking "delete memory X") remains out of scope, with no dedicated UI/tool for it — it is only the internal mechanism that `watch` uses. Full detail in `docs/api-contract.md`.
+4. **1 `watch` process per watched root:** `m3m0s watch <dir>` covers only that directory; multiple projects = multiple processes (systemd/cron per project, on the host where the project lives). This keeps [D3](D3-decentralized-execution-core-vs-watch.md) ("watch runs on each machine/project") literal, without needing a multi-root config format now — if this proves limiting (many small projects on the same machine, the cost of N processes), re-evaluate later with real data instead of guessing now.
+
+**Why:** the 4 parts were real blockers for coding Phase 2 (without them, "reindex" has no precise definition of what a file-derived memory is). Confirmed with the maintainer on 15 Jul 2026 before implementing, following the same discipline used for A3/A5. Closes A4.

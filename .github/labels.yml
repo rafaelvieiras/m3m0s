@@ -1,0 +1,24 @@
+# Label definitions (apply with a label-sync tool or `gh label create --force`).
+- {name: bug, color: d73a4a, description: Something is not working}
+- {name: enhancement, color: a2eeef, description: New feature or improvement}
+- {name: decision, color: 5319e7, description: Architectural decision to be made or recorded}
+- {name: documentation, color: 0075ca, description: Improvements or additions to documentation}
+- {name: chore, color: ededed, description: Maintenance, tooling, repo hygiene}
+- {name: "area:core", color: 1d76db, description: Core memory model and logic}
+- {name: "area:mcp", color: 1d76db, description: MCP server and tools}
+- {name: "area:hooks", color: 1d76db, description: Agent hooks and capture}
+- {name: "area:webui", color: 1d76db, description: Embedded WebUI}
+- {name: "area:extraction", color: 1d76db, description: LLM fact extraction and classification}
+- {name: "area:storage", color: 1d76db, description: SQLite storage, search, embeddings}
+- {name: "area:deploy", color: 1d76db, description: Docker, CI, release, hosting}
+- {name: "phase:F1", color: c5def5, description: Reliable capture}
+- {name: "phase:F2", color: c5def5, description: Source identity and scope}
+- {name: "phase:F3", color: c5def5, description: Client integrations}
+- {name: "phase:F4", color: c5def5, description: Private hosting}
+- {name: "phase:F5", color: c5def5, description: Search and token savings}
+- {name: "phase:F6", color: c5def5, description: Self-correction}
+- {name: "priority:high", color: b60205, description: Should be done soon}
+- {name: "priority:low", color: 0e8a16, description: Nice to have}
+- {name: needs-decision, color: fbca04, description: Blocked on a decision}
+- {name: good first issue, color: 7057ff, description: Good for newcomers}
+- {name: help wanted, color: 008672, description: Extra attention is needed}

@@ -1,0 +1,22 @@
+# D19 — Forced JSON + per-chunk retry in extraction (found in production after D18 was already running)
+
+**Status:** Accepted
+
+**Context:** with [D18](D18-chunked-fact-extraction.md) in production, the maintainer found an entry without `metadata.source_content` at the top of the "recent" list (`mem_KHSZUohkoEuv`) and asked why. An investigation of the container logs showed that the slicing ([D18](D18-chunked-fact-extraction.md)) is working as designed — it isolates the failure to just the chunk that failed, without taking down the others — but the per-chunk success rate remained low even for 8,000-character chunks: in a round of 6 chunks, only 1 succeeded. The causes, looking at the logs, were mixed, not just volume:
+- `context deadline exceeded` (the fixed 20s timeout of `internal/extract`) — still the majority of cases.
+- `no JSON array in response: ""` — an empty response body.
+- `no JSON array in response: "The agent for the **manual import**..."` and `invalid character 'R'...` — the model sometimes ignores the instruction to answer only with the JSON array and returns loose prose (in one case, Chinese text even appeared in the middle of a Portuguese response).
+
+In other words: [D18](D18-chunked-fact-extraction.md) solved the "all or nothing" problem (a good side effect), but not the root cause — the configured model (`deepseek/deepseek-v4-flash` via OpenRouter) seems unstable for this load, not just slow.
+
+**Decision, in 2 parts, confirmed with the maintainer (the "Force JSON + retry" option among 4 alternatives presented):**
+
+1. **`response_format: {"type": "json_object"}`** in the `Extract` call (not in `Classify`, which returns a single loose word, not JSON) — `internal/extract/extract.go`. It attacks the slice of failures that were not timeouts: empty responses and loose prose instead of the requested format. The prompt also changed from "answer with a JSON array" to "answer with a JSON object `{"facts": [...]}`" — `response_format=json_object` requires a top-level object on OpenAI-compatible providers, not a bare array. `parseFacts` tries the new format (object) first and falls back to the old format (bare array, tolerant of markdown fences) if the object yields no facts — so a provider behind OpenRouter that ignores `response_format` does not break, it only loses the reinforcement.
+
+2. **Retry limited by budget, not by blind count** — `internal/store/extractchunk.go`, new `extractChunk`: up to `extractionMaxAttempts = 2` attempts per chunk, but the total span is bounded by `extractionChunkBudget = 25s` (a new `context.WithTimeout` per chunk, inside the received `ctx`). This avoids the obvious risk of "naive retry": if the 1st attempt is already a genuine ~20s timeout, a retry with no budget would double the worst case to ~40s — and the HTTP client that CLI/MCP/watch use for `POST /api/v1/memories` (`internal/client.Client`) has a 30s timeout, so that would worsen exactly the symptom that motivated [D18](D18-chunked-fact-extraction.md). With the 25s budget (`ctx.Err()` cuts the loop if there is no time left), the retry genuinely helps FAST-failure cases (empty response, malformed JSON) — which should now be rare with item 1 — without worsening the worst case of genuine timeouts, which stay pinned at ~1 budget, not 2.
+
+**Why not just raise the fixed timeout (rejected alternative):** it had already been discarded in [D18](D18-chunked-fact-extraction.md) for the same reason — it attacks only 1 of the 3 observed causes (timeout), does nothing for empty responses/loose prose, and eats the margin under the client's 30s ceiling without bringing the retry's gain for fast failures.
+
+**Why not switch models now:** switching `M3M0S_EXTRACT_MODEL` would require deciding on a replacement and validating cost/quality — outside the scope of this targeted fix; it stays as a future option if D19 is not enough (it did not become a formal open decision because it was not raised as a priority by the maintainer, only discarded as a 1st attempt).
+
+**Out of scope for this decision:** dedicated telemetry of success rate/attempts per chunk in `GET /stats` (the log already records each failure, including the reason); backoff between attempts (the retry is immediate, with no sleep, so as not to waste budget); making `extractionChunkBudget` configurable via env var (the same minimalist spirit as [D12](D12-llm-fact-extraction.md)/[D14](D14-claude-code-hook-auto-capture.md)/[D18](D18-chunked-fact-extraction.md)).

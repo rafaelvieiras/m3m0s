@@ -1,0 +1,47 @@
+# Local/self-hosted deployment of M3m0s. Builds the image locally from the
+# root Dockerfile — nothing is published to a registry.
+#
+# Start:
+#   cp .env.example .env   # then fill in OPENAI_API_KEY
+#   docker compose up --build -d
+#   docker compose logs -f   # the first run prints the generated API key —
+#                             # save it, it is not shown again (auth.go)
+#
+# The image is pure Go with no CGO, so it also builds and runs on small ARM
+# boards.
+
+services:
+  m3m0s:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: m3m0s
+    restart: unless-stopped
+    ports:
+      # HOST:CONTAINER — change the left side (or set M3M0S_HOST_PORT in
+      # .env) if 19234 is already in use on the host.
+      - "${M3M0S_HOST_PORT:-19234}:19234"
+    # Secrets (OPENAI_API_KEY required, M3M0S_EXTRACT_* optional) come from
+    # .env — gitignored, never committed nor logged. Create it with
+    # `cp .env.example .env`. The long form with `required: false` keeps
+    # `docker compose` from failing when .env does not exist (requires
+    # Docker Compose v2.24+).
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      # Data persisted in /data inside the container (chromem-go index +
+      # apikeys.json) — see the named volume below.
+      M3M0S_DATA_DIR: /data
+    volumes:
+      # NAMED volume (not a bind mount): Docker copies the owner/permissions
+      # of the image's /data (non-root user m3m0s, see Dockerfile) into the
+      # volume on first mount — avoids the pitfall of a bind mount being
+      # created root:root and the non-root process failing to write the
+      # index/apikeys.json.
+      - m3m0s-data:/data
+    # No healthcheck here on purpose: it inherits the HEALTHCHECK already
+    # defined in the Dockerfile (GET /health via busybox wget).
+
+volumes:
+  m3m0s-data:

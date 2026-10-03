@@ -1,0 +1,31 @@
+# Dependencies and artifacts that must NOT enter the build context.
+# The build must work without relying on anything already built locally: the
+# real WebUI dist is generated in the Dockerfile's builder-web stage, not
+# copied from the host.
+
+# Node
+node_modules/
+**/node_modules/
+
+# Local WebUI build: the placeholder/dist committed in the repo
+# (docs/decisions/ D13) must not leak into the context — the real dist comes
+# from stage 1 of the Dockerfile.
+webui/dist/
+
+# Git
+.git/
+.gitignore
+
+# Local data / secrets
+.env
+*.log
+data/
+
+# The packaging itself
+Dockerfile
+.dockerignore
+compose.yaml
+
+# docs/ is NOT excluded — since D25 (docs/decisions/) selfdocs.go embeds
+# AGENTS.md + the docs/ markdown files into the binary via go:embed, for
+# self-indexing of the project's own documentation at boot.

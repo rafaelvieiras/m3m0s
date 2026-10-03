@@ -1,0 +1,33 @@
+name: Decision
+description: Propose or discuss an architectural decision (becomes a record in docs/decisions/)
+title: "Decide: "
+labels: [decision]
+body:
+  - type: textarea
+    id: context
+    attributes:
+      label: Context
+      description: What forces the decision? Include relevant facts and constraints.
+    validations:
+      required: true
+  - type: textarea
+    id: options
+    attributes:
+      label: Options
+      description: The alternatives considered, with trade-offs.
+    validations:
+      required: true
+  - type: textarea
+    id: recommendation
+    attributes:
+      label: Recommendation
+  - type: textarea
+    id: decision
+    attributes:
+      label: Decision
+      description: Filled in by the maintainers when the discussion concludes.
+  - type: textarea
+    id: consequences
+    attributes:
+      label: Consequences
+      description: What changes, what gets harder, what follow-up work is needed.

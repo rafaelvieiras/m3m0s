@@ -1,0 +1,276 @@
+// Edit (PATCH /memories/:id, D13/api-contract.md) — TanStack Form + Zod,
+// pre-populated with the entry's CURRENT values (including the full metadata,
+// so metadata.source_content is not lost if the user only touches a tag —
+// see docs/api-contract.md, section memory_update). Only sends in the PATCH
+// the fields whose value actually changed relative to the pre-populated one
+// — the contract's key-presence semantics (omitted field = leave untouched).
+import { useState } from "react";
+import { z } from "zod";
+import { useForm } from "@tanstack/react-form";
+import { Link } from "@tanstack/react-router";
+import { Route } from "@/routes/entry-edit";
+import { ArrowLeft, Loader2, Save } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
+import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { useEntry, useUpdateMemory } from "@/hooks/useMemoryApi";
+import { domainSchema, metadataSchema, type Entry, type UpdatePayload } from "@/lib/schemas";
+
+interface EditFormShape {
+  content: string;
+  domain: string;
+  source: string;
+  agentText: string;
+  tagsText: string;
+  metadataText: string;
+}
+
+function parseTags(tagsText: string): string[] {
+  return tagsText
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
+export default function EntryEditPage() {
+  const { id } = Route.useParams();
+  const { data: entry, isError, error } = useEntry(id);
+
+  // useForm needs the entry's current values to pre-populate — it only mounts
+  // after the entry exists in the cache, so the form itself lives in a child
+  // component (avoids a conditional hook: EntryEditPage does not call useForm
+  // while entry is still undefined).
+  if (isError || !entry) {
+    return (
+      <Empty className="border">
+        <EmptyHeader>
+          <EmptyTitle>Memory not found</EmptyTitle>
+          <EmptyDescription>
+            {error?.message ?? "Go back to search/recent and open the memory again."}
+          </EmptyDescription>
+        </EmptyHeader>
+        <Button variant="outline" render={<Link to="/search" />}>
+          <ArrowLeft data-icon="inline-start" />
+          Back to search
+        </Button>
+      </Empty>
+    );
+  }
+
+  return <EditForm entry={entry} />;
+}
+
+function EditForm({ entry }: { entry: Entry }) {
+  const { id } = Route.useParams();
+  const navigate = Route.useNavigate();
+  const updateMemory = useUpdateMemory(id);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  const initial: EditFormShape = {
+    content: entry.content,
+    domain: entry.domain,
+    source: entry.source,
+    agentText: entry.agent ?? "",
+    tagsText: entry.tags.join(","),
+    metadataText: JSON.stringify(entry.metadata, null, 2),
+  };
+
+  const form = useForm({
+    defaultValues: initial,
+    onSubmit: async ({ value }) => {
+      setSubmitError(null);
+      const payload: UpdatePayload = {};
+
+      if (value.content !== initial.content) payload.content = value.content;
+      if (value.domain !== initial.domain) payload.domain = value.domain;
+      if (value.source !== initial.source) payload.source = value.source;
+
+      if (value.agentText !== initial.agentText) {
+        payload.agent = value.agentText.trim() === "" ? null : value.agentText.trim();
+      }
+
+      if (value.tagsText !== initial.tagsText) {
+        payload.tags = parseTags(value.tagsText);
+      }
+
+      if (value.metadataText !== initial.metadataText) {
+        try {
+          const parsed = JSON.parse(value.metadataText || "{}");
+          const result = metadataSchema.safeParse(parsed);
+          if (!result.success) {
+            setSubmitError("metadata must be a flat JSON object of string:string.");
+            return;
+          }
+          payload.metadata = result.data;
+        } catch {
+          setSubmitError("metadata must be valid JSON.");
+          return;
+        }
+      }
+
+      if (Object.keys(payload).length === 0) {
+        navigate({ to: "/entries/$id", params: { id } });
+        return;
+      }
+
+      try {
+        await updateMemory.mutateAsync(payload);
+        navigate({ to: "/entries/$id", params: { id } });
+      } catch (err) {
+        setSubmitError(err instanceof Error ? err.message : "Failed to save.");
+      }
+    },
+  });
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Button variant="ghost" size="sm" render={<Link to="/entries/$id" params={{ id }} />} className="self-start">
+        <ArrowLeft data-icon="inline-start" />
+        Cancel
+      </Button>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base font-mono text-sm">Editing {entry.id}</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+              form.handleSubmit();
+            }}
+          >
+            <FieldGroup>
+              <form.Field
+                name="content"
+                validators={{ onChange: z.string().min(1, "content is required") }}
+              >
+                {(field) => (
+                  <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
+                    <FieldLabel htmlFor={field.name}>Content</FieldLabel>
+                    <Textarea
+                      id={field.name}
+                      rows={6}
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                      aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                    />
+                    <FieldError errors={field.state.meta.errors.map((m) => ({ message: String(m) }))} />
+                  </Field>
+                )}
+              </form.Field>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <form.Field name="domain" validators={{ onChange: domainSchema }}>
+                  {(field) => (
+                    <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
+                      <FieldLabel htmlFor={field.name}>domain</FieldLabel>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                      />
+                      <FieldError errors={field.state.meta.errors.map((m) => ({ message: String(m) }))} />
+                    </Field>
+                  )}
+                </form.Field>
+
+                <form.Field
+                  name="source"
+                  validators={{
+                    onChange: z.string().min(1, "source cannot be empty"),
+                  }}
+                >
+                  {(field) => (
+                    <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
+                      <FieldLabel htmlFor={field.name}>source</FieldLabel>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                        aria-invalid={field.state.meta.errors.length > 0 || undefined}
+                      />
+                      <FieldError errors={field.state.meta.errors.map((m) => ({ message: String(m) }))} />
+                    </Field>
+                  )}
+                </form.Field>
+
+                <form.Field name="agentText">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>agent (empty clears)</FieldLabel>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
+
+                <form.Field name="tagsText">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>tags (comma-separated)</FieldLabel>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
+              </div>
+
+              <form.Field name="metadataText">
+                {(field) => (
+                  <Field>
+                    <FieldLabel htmlFor={field.name}>metadata (JSON)</FieldLabel>
+                    <Textarea
+                      id={field.name}
+                      rows={6}
+                      className="font-mono text-xs"
+                      value={field.state.value}
+                      onBlur={field.handleBlur}
+                      onChange={(e) => field.handleChange(e.target.value)}
+                    />
+                    <FieldDescription>
+                      Replaced as a whole on PATCH — if the entry had `source_content` (fact
+                      extraction), it is already pre-populated here. Delete it only if you really
+                      want to lose that provenance.
+                    </FieldDescription>
+                  </Field>
+                )}
+              </form.Field>
+
+              {submitError && <p className="text-sm text-destructive">{submitError}</p>}
+
+              <form.Subscribe selector={(state) => [state.canSubmit, state.isSubmitting] as const}>
+                {([canSubmit, isSubmitting]) => (
+                  <Button type="submit" disabled={!canSubmit || isSubmitting} className="self-start">
+                    {isSubmitting ? (
+                      <Loader2 data-icon="inline-start" className="animate-spin" />
+                    ) : (
+                      <Save data-icon="inline-start" />
+                    )}
+                    Save changes
+                  </Button>
+                )}
+              </form.Subscribe>
+            </FieldGroup>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}

@@ -1,0 +1,23 @@
+# Local secrets (OPENAI_API_KEY etc.) — see .env.example and compose.yaml.
+.env
+.env.*
+!.env.example
+
+# Local build/test binaries (e.g. go build -o ./m3m0s ...).
+/m3m0s
+*.test
+
+# Local data and databases.
+data/
+*.db
+*.db-shm
+*.db-wal
+
+# Agent tooling and browser-automation artifacts.
+.claude/
+.playwright-mcp/
+
+# Frontend build output: only the placeholder index.html is tracked so that
+# `go build` works on a fresh clone (webui/embed.go uses go:embed all:dist).
+webui/dist/*
+!webui/dist/index.html

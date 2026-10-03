@@ -1,0 +1,128 @@
+package httpapi
+
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+	"time"
+
+	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
+	"github.com/rafaelvieiras/m3m0s/internal/auth"
+	"github.com/rafaelvieiras/m3m0s/internal/store"
+)
+
+// fakeEmbedServer starts a minimal OpenAI-compatible embeddings fake; same
+// contract used in internal/store, a local version so this package does not
+// depend on test exports from another package.
+func fakeEmbedServer(t *testing.T) *httptest.Server {
+	t.Helper()
+	mux := http.NewServeMux()
+	mux.HandleFunc("POST /embeddings", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"data": []map[string]any{{"embedding": []float32{1, 0, 0, 0}}},
+		})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+// newTestServer creates a test Server with addSyncTimeout = 0, the D26 escape
+// hatch (docs/decisions/), which always waits for the Add to really finish.
+// Most tests in this package do not care about the asynchronous path; those
+// that need a short timeout to exercise the 202 use
+// newTestServerWithAddTimeout.
+func newTestServer(t *testing.T) (*Server, string) {
+	t.Helper()
+	return newTestServerWithAddTimeout(t, 0)
+}
+
+// newTestServerWithAddTimeout is newTestServer with a configurable
+// addSyncTimeout (D26); used by the handleAdd/handlePendingAdd tests that need
+// to force the synchronous path (long timeout/0) or the asynchronous one
+// (short timeout, extractor with a controllable delay).
+func newTestServerWithAddTimeout(t *testing.T, addSyncTimeout time.Duration) (*Server, string) {
+	t.Helper()
+	embed := fakeEmbedServer(t)
+	memStore, err := store.New(t.TempDir(), "fake-key", embed.URL)
+	if err != nil {
+		t.Fatalf("store.New: %v", err)
+	}
+	keyStore, err := auth.LoadStore(memStore.DB())
+	if err != nil {
+		t.Fatalf("auth.LoadStore: %v", err)
+	}
+	rawKey, _, err := keyStore.Create("test")
+	if err != nil {
+		t.Fatalf("keyStore.Create: %v", err)
+	}
+	return New(memStore, keyStore, nil, nil, addSyncTimeout, nil, nil), rawKey
+}
+
+// TestHandleStatsIncludesTelemetry checks that GET /stats returns the
+// telemetry field with the expected operational data: 1 key (the bootstrap
+// one created above), positive process memory and uptime, and zeroed token
+// counters (no extractor configured in this test).
+func TestHandleStatsIncludesTelemetry(t *testing.T) {
+	srv, rawKey := newTestServer(t)
+	httpSrv := httptest.NewServer(srv.Handler())
+	t.Cleanup(httpSrv.Close)
+
+	req, err := http.NewRequest(http.MethodGet, httpSrv.URL+"/api/v1/stats", nil)
+	if err != nil {
+		t.Fatalf("NewRequest: %v", err)
+	}
+	req.Header.Set("Authorization", "Bearer "+rawKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatalf("Do: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+
+	var out apitypes.StatsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+
+	if out.Telemetry.APIKeyCount != 1 {
+		t.Errorf("Telemetry.APIKeyCount = %d, want 1", out.Telemetry.APIKeyCount)
+	}
+	if out.Telemetry.MemoryUsageMB <= 0 {
+		t.Errorf("Telemetry.MemoryUsageMB = %v, want > 0", out.Telemetry.MemoryUsageMB)
+	}
+	if out.Telemetry.UptimeSeconds < 0 {
+		t.Errorf("Telemetry.UptimeSeconds = %v, want >= 0", out.Telemetry.UptimeSeconds)
+	}
+	if out.Telemetry.DatabaseSizeMB < 0 {
+		t.Errorf("Telemetry.DatabaseSizeMB = %v, want >= 0", out.Telemetry.DatabaseSizeMB)
+	}
+	if out.Telemetry.ExtractionTokensUsed != 0 {
+		t.Errorf("Telemetry.ExtractionTokensUsed = %d, want 0 without extractor", out.Telemetry.ExtractionTokensUsed)
+	}
+	if out.Telemetry.TokensSavedByCompaction != 0 {
+		t.Errorf("Telemetry.TokensSavedByCompaction = %d, want 0 without entries", out.Telemetry.TokensSavedByCompaction)
+	}
+}
+
+func TestBytesToMB(t *testing.T) {
+	cases := []struct {
+		bytes uint64
+		want  float64
+	}{
+		{0, 0},
+		{1024 * 1024, 1},
+		{1536 * 1024, 1.5},
+		{1024*1024*1 + 512*1024, 1.5},
+	}
+	for _, c := range cases {
+		if got := bytesToMB(c.bytes); got != c.want {
+			t.Errorf("bytesToMB(%d) = %v, want %v", c.bytes, got, c.want)
+		}
+	}
+}
