@@ -69,7 +69,7 @@ RUN CGO_ENABLED=0 go build -ldflags "-s -w" -o /m3m0s ./cmd/m3m0s
 # ---------------------------------------------------------------------------
 # Stage 3 — final: minimal image, no Node/Go toolchain.
 # ---------------------------------------------------------------------------
-FROM alpine:3.22 AS final
+FROM alpine:3.24 AS final
 
 # Dedicated non-root user.
 RUN addgroup -S m3m0s && adduser -S -G m3m0s -H -h /nonexistent m3m0s
