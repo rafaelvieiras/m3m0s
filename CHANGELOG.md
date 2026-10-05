@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- On-disk capture spool (`~/.m3m0s/spool`): payloads the server does not accept
+  are saved and replayed (oldest first, idempotent) by the next capture hook or
+  by `m3m0s doctor --replay`; capped at 500 files, 30-day retention, dead-letter
+  directory for payloads the server keeps rejecting.
+- `m3m0s doctor`: checks credentials, server, API key, Claude Code hooks, spool
+  and recent hook failures.
+- Timestamps in hook log lines.
+
+### Changed
+
+- Long session digests are split into chunks at message boundaries instead of
+  being truncated at 40000 characters.
+
+### Fixed
+
+- A failed capture no longer loses data: the per-session checkpoint advanced
+  before the POST, so a failure dropped those transcript lines for good.
+
 ## [0.1.0]
 
 Initial public release.

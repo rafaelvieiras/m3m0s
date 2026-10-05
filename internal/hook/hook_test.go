@@ -289,7 +289,7 @@ func TestRunMissingCredentialsSkipsSendAndLogs(t *testing.T) {
 	}
 }
 
-func TestRunTruncatesOversizedDigestAndLogsWarning(t *testing.T) {
+func TestRunChunksOversizedDigestWithoutLoss(t *testing.T) {
 	fake := &fakeServe{}
 	srv := fake.server()
 	defer srv.Close()
@@ -307,19 +307,22 @@ func TestRunTruncatesOversizedDigestAndLogsWarning(t *testing.T) {
 	writeTranscript(t, transcript, string(line))
 
 	home := t.TempDir()
-	deps, stderr := testDeps(t, home, srv)
+	deps, _ := testDeps(t, home, srv)
 
 	stdin := bytes.NewReader(payloadJSON(t, "sess-7", transcript, dir))
 	Run(context.Background(), stdin, deps)
 
-	if fake.callCount() != 1 {
-		t.Fatalf("expected 1 POST, got %d", fake.callCount())
+	if fake.callCount() != 2 {
+		t.Fatalf("expected 2 POSTs (chunks), got %d", fake.callCount())
 	}
-	req := fake.lastRequest()
-	if len([]rune(req.Content)) != maxDigestChars {
-		t.Errorf("len(Content) = %d, want %d (truncated)", len([]rune(req.Content)), maxDigestChars)
+	total := 0
+	for _, r := range fake.requests {
+		if len([]rune(r.Content)) > maxDigestChars {
+			t.Errorf("chunk has %d runes, above the limit", len([]rune(r.Content)))
+		}
+		total += strings.Count(r.Content, "y")
 	}
-	if !strings.Contains(stderr.String(), "truncated") {
-		t.Errorf("expected truncation warning in stderr, got: %q", stderr.String())
+	if total != len(bigText) {
+		t.Errorf("captured %d of %d characters", total, len(bigText))
 	}
 }
