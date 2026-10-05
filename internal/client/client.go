@@ -109,7 +109,7 @@ func (c *Client) do(ctx context.Context, method, path string, query url.Values, 
 	if err != nil {
 		return fmt.Errorf("m3m0s serve unreachable at %s: %w", c.baseURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode >= 400 {
 		var errBody apitypes.ErrorBody
@@ -143,7 +143,7 @@ func (c *Client) doRaw(ctx context.Context, method, path string, query url.Value
 	if err != nil {
 		return 0, nil, fmt.Errorf("m3m0s serve unreachable at %s: %w", c.baseURL, err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {

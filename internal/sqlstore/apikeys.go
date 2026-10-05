@@ -31,7 +31,7 @@ func (db *DB) ListAPIKeys(ctx context.Context) ([]APIKeyRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("list api keys: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []APIKeyRow
 	for rows.Next() {

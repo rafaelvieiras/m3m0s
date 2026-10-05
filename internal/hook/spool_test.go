@@ -56,8 +56,8 @@ func TestReplayStopsOnTransportErrorKeepingFiles(t *testing.T) {
 	url := srv.URL
 	srv.Close() // server down
 	now := time.Now()
-	Enqueue(home, apitypes.AddRequest{Content: "a", Domain: "code:x"}, nil, now)
-	Enqueue(home, apitypes.AddRequest{Content: "b", Domain: "code:x"}, nil, now.Add(1))
+	_, _ = Enqueue(home, apitypes.AddRequest{Content: "a", Domain: "code:x"}, nil, now)
+	_, _ = Enqueue(home, apitypes.AddRequest{Content: "b", Domain: "code:x"}, nil, now.Add(1))
 	res := Replay(context.Background(), home, client.New(url, "k"), 0, now)
 	if !res.Unreachable || res.Sent != 0 || Stats(home).Pending != 2 {
 		t.Errorf("res = %+v, pending = %d", res, Stats(home).Pending)
@@ -69,7 +69,7 @@ func TestReplayDropsExpired(t *testing.T) {
 	srv := (&fakeServe{}).server()
 	defer srv.Close()
 	old := time.Now().Add(-spoolRetention - time.Hour)
-	Enqueue(home, apitypes.AddRequest{Content: "stale", Domain: "code:x"}, nil, old)
+	_, _ = Enqueue(home, apitypes.AddRequest{Content: "stale", Domain: "code:x"}, nil, old)
 	res := Replay(context.Background(), home, client.New(srv.URL, "k"), 0, time.Now())
 	if res.Expired != 1 || Stats(home).Pending != 0 {
 		t.Errorf("res = %+v", res)
@@ -78,8 +78,8 @@ func TestReplayDropsExpired(t *testing.T) {
 
 func TestReplayQuarantinesCorruptFile(t *testing.T) {
 	home := t.TempDir()
-	os.MkdirAll(SpoolDir(home), 0o700)
-	os.WriteFile(filepath.Join(SpoolDir(home), "00000000000000000001-bad.json"), []byte("{nope"), 0o600)
+	_ = os.MkdirAll(SpoolDir(home), 0o700)
+	_ = os.WriteFile(filepath.Join(SpoolDir(home), "00000000000000000001-bad.json"), []byte("{nope"), 0o600)
 	srv := (&fakeServe{}).server()
 	defer srv.Close()
 	res := Replay(context.Background(), home, client.New(srv.URL, "k"), 0, time.Now())
@@ -122,7 +122,7 @@ func TestHookSpoolsWhenServerDownAndReplaysLater(t *testing.T) {
 func TestTimestampWriterPrefixesLines(t *testing.T) {
 	var b bytes.Buffer
 	w := TimestampWriter{W: &b, Now: func() time.Time { return time.Date(2026, 10, 5, 12, 0, 0, 0, time.UTC) }}
-	w.Write([]byte("failed\n"))
+	_, _ = w.Write([]byte("failed\n"))
 	if b.String() != "2026-10-05T12:00:00Z failed\n" {
 		t.Errorf("got %q", b.String())
 	}

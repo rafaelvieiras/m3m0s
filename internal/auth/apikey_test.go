@@ -12,7 +12,7 @@ func openTestDB(t *testing.T) *sqlstore.DB {
 	if err != nil {
 		t.Fatalf("sqlstore.Open: %v", err)
 	}
-	t.Cleanup(func() { db.Close() })
+	t.Cleanup(func() { _ = db.Close() })
 	return db
 }
 

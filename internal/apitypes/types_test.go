@@ -294,7 +294,7 @@ func TestUpdateRequestMarshalOmitsAbsentFields(t *testing.T) {
 // direct alias of schema.Entry (not enveloped in "entries"/"entry") — the
 // contract is explicit that memory_update always acts on exactly 1 entry.
 func TestUpdateResponseIsPlainEntryNotEnveloped(t *testing.T) {
-	var resp UpdateResponse = schema.Entry{ID: "mem_1", Content: "updated", Domain: "codigo:m3m0s"}
+	resp := UpdateResponse(schema.Entry{ID: "mem_1", Content: "updated", Domain: "codigo:m3m0s"})
 
 	b, err := json.Marshal(resp)
 	if err != nil {

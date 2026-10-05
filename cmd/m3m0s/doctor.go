@@ -144,7 +144,7 @@ func recentHookFailures(path string, window time.Duration) (int, string) {
 	if err != nil {
 		return 0, ""
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	cutoff := time.Now().Add(-window)
 	var n int
 	var last string

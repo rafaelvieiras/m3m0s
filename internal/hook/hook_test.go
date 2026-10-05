@@ -37,7 +37,7 @@ func (f *fakeServe) server() *httptest.Server {
 		resp := apitypes.AddResponse{
 			Entries: []apitypes.AddedEntry{{Entry: schema.Entry{ID: "mem_hooktest"}}},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 	return httptest.NewServer(mux)
 }
@@ -163,7 +163,7 @@ func TestRunIncrementalCheckpointAvoidsDuplicateSend(t *testing.T) {
 	if _, err := f.WriteString(`{"type":"assistant","message":{"role":"assistant","content":"second message, only this one is new"}}` + "\n"); err != nil {
 		t.Fatalf("append: %v", err)
 	}
-	f.Close()
+	_ = f.Close()
 
 	stdin3 := bytes.NewReader(payloadJSON(t, "sess-2", transcript, dir))
 	Run(context.Background(), stdin3, deps)

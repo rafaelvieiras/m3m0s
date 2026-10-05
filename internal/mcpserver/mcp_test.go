@@ -56,7 +56,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 			}},
 			Extracted: false,
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	mux.HandleFunc("POST /api/v1/search", func(w http.ResponseWriter, r *http.Request) {
@@ -67,7 +67,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 			Results:      []schema.Entry{{ID: "mem_test0002", Content: "search result", Domain: "codigo:m3m0s", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}},
 			ContextBlock: "## Relevant memories\n\n1. [0.90] codigo:m3m0s (manual, 2026-07-15)\n   search result",
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	mux.HandleFunc("GET /api/v1/recent", func(w http.ResponseWriter, r *http.Request) {
@@ -77,7 +77,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 		resp := apitypes.RecentResponse{
 			Results: []schema.Entry{{ID: "mem_test0003", Content: "recent memory", Domain: "codigo:m3m0s", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	mux.HandleFunc("GET /api/v1/stats", func(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +89,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 			Count: 3, CountByDomainCategory: map[string]int{"codigo": 3}, Backend: "fake", Model: "fake-model",
 			Extraction: apitypes.ExtractionInfo{Enabled: true, Model: &extractModel},
 		}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 
 	mux.HandleFunc("PATCH /api/v1/memories/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -103,7 +103,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 			ID: id, Content: "updated content", Domain: "codigo:m3m0s", DomainCategory: "codigo",
 			Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now,
 		}
-		json.NewEncoder(w).Encode(entry)
+		_ = json.NewEncoder(w).Encode(entry)
 	})
 
 	mux.HandleFunc("GET /api/v1/memories/{id}", func(w http.ResponseWriter, r *http.Request) {
@@ -116,14 +116,14 @@ func fakeServe(t *testing.T) *httptest.Server {
 			var body apitypes.ErrorBody
 			body.ErrorInfo.Code = "not_found"
 			body.ErrorInfo.Message = "memory not found: " + id
-			json.NewEncoder(w).Encode(body)
+			_ = json.NewEncoder(w).Encode(body)
 			return
 		}
 		entry := schema.Entry{
 			ID: id, Content: "content read via memory_get", Domain: "codigo:m3m0s", DomainCategory: "codigo",
 			Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now,
 		}
-		json.NewEncoder(w).Encode(entry)
+		_ = json.NewEncoder(w).Encode(entry)
 	})
 
 	return httptest.NewServer(mux)

@@ -11,7 +11,7 @@ func TestOpenRunsMigrations(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 }
 
 func TestUpsertEntryRoundTrip(t *testing.T) {
@@ -19,7 +19,7 @@ func TestUpsertEntryRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 	agent := "test-agent"
@@ -78,7 +78,7 @@ func TestUpsertEntryOverwritesExisting(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -117,7 +117,7 @@ func TestUpdateMetadataKeepsEmbedding(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -161,7 +161,7 @@ func TestDeleteEntry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	now := time.Now()
 	if err := db.UpsertEntry(ctx, EntryRow{ID: "mem_1", Content: "c", Domain: "code:test", DomainCategory: "code", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}); err != nil {
@@ -188,7 +188,7 @@ func TestDeleteEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	now := time.Now()
 	for _, id := range []string{"mem_1", "mem_2", "mem_3"} {
@@ -213,7 +213,7 @@ func TestSourceBlobs(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
 	if err := db.PutSourceBlob(ctx, "hash1", "original text"); err != nil {
@@ -245,7 +245,7 @@ func TestAPIKeys(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 	now := time.Now().UTC().Truncate(time.Second)
 
@@ -266,7 +266,7 @@ func TestJobIntervals(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
 	empty, err := db.LoadJobIntervals(ctx)
@@ -297,7 +297,7 @@ func TestTelemetry(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open: %v", err)
 	}
-	defer db.Close()
+	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
 	v, err := db.GetTelemetryInt64(ctx, "tokens_saved_by_compaction")

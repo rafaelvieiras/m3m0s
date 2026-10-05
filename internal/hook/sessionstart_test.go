@@ -47,7 +47,7 @@ func (f *fakeRecentServe) server(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		json.NewEncoder(w).Encode(apitypes.RecentResponse{Results: f.results})
+		_ = json.NewEncoder(w).Encode(apitypes.RecentResponse{Results: f.results})
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)

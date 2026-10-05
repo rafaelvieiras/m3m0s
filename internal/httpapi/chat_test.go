@@ -102,7 +102,7 @@ func doChatRequest(t *testing.T, httpSrv *httptest.Server, rawKey string, body a
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var out apitypes.ChatResponse
 	if resp.StatusCode == http.StatusOK {

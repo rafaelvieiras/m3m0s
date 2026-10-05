@@ -56,12 +56,12 @@ func Open(dataDir string) (*DB, error) {
 	sqlDB.SetMaxOpenConns(1) // modernc.org/sqlite: 1 writer at a time avoids lock contention beyond what busy_timeout already covers; reads are cheap enough at this scale not to need a pool.
 
 	if err := goose.SetDialect("sqlite"); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("goose dialect: %w", err)
 	}
 	goose.SetBaseFS(migrationsFS)
 	if err := goose.Up(sqlDB, "migrations"); err != nil {
-		sqlDB.Close()
+		_ = sqlDB.Close()
 		return nil, fmt.Errorf("run migrations: %w", err)
 	}
 

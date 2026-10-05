@@ -159,7 +159,7 @@ func serveIndexHTML(w http.ResponseWriter, r *http.Request, assets fs.FS) {
 		http.NotFound(w, r)
 		return
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	var modTime time.Time
 	if stat, err := f.Stat(); err == nil {

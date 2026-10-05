@@ -70,7 +70,7 @@ func (f *fakeServe) server() *httptest.Server {
 		f.mu.Unlock()
 
 		resp := apitypes.AddResponse{Entries: entries, Extracted: n > 1}
-		json.NewEncoder(w).Encode(resp)
+		_ = json.NewEncoder(w).Encode(resp)
 	})
 	mux.HandleFunc("DELETE /api/v1/memories", func(w http.ResponseWriter, r *http.Request) {
 		domain := r.URL.Query().Get("domain")
@@ -83,7 +83,7 @@ func (f *fakeServe) server() *httptest.Server {
 		delete(f.byFilePath, k)
 		f.mu.Unlock()
 
-		json.NewEncoder(w).Encode(apitypes.DeleteByFilePathResponse{DeletedCount: count})
+		_ = json.NewEncoder(w).Encode(apitypes.DeleteByFilePathResponse{DeletedCount: count})
 	})
 	return httptest.NewServer(mux)
 }

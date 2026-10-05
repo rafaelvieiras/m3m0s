@@ -56,7 +56,7 @@ func New(baseURL, apiKey, model string) Func {
 		if err != nil {
 			return nil, fmt.Errorf("send request: %w", err)
 		}
-		defer resp.Body.Close()
+		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
 			return nil, fmt.Errorf("embeddings API response: %s", resp.Status)

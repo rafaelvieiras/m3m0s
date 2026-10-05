@@ -225,10 +225,7 @@ func TestRunFilesIsolatesChunkFailureWithinAndAcrossFiles(t *testing.T) {
 	if err != nil {
 		t.Fatalf("2nd RunFiles: %v", err)
 	}
-	sawRetry := false
-	if result2.FilesFailed >= 1 || result2.FilesIndexed >= 1 {
-		sawRetry = true
-	}
+	sawRetry := result2.FilesFailed >= 1 || result2.FilesIndexed >= 1
 	if !sawRetry {
 		t.Fatalf("expected with-failure.md to be retried (hash did not advance in the 1st round), got %+v", result2)
 	}

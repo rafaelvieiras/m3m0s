@@ -74,7 +74,7 @@ type Deps struct {
 func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	payload, err := readPayload(stdin)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: invalid payload: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: invalid payload: %v\n", err)
 		return
 	}
 
@@ -100,12 +100,12 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 
 	cpPath, err := CheckpointPath(deps.HomeDir, payload.SessionID)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: resolving checkpoint: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: resolving checkpoint: %v\n", err)
 		return
 	}
 	cp, err := LoadCheckpoint(cpPath)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: corrupt checkpoint, reprocessing from the start: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: corrupt checkpoint, reprocessing from the start: %v\n", err)
 		cp = Checkpoint{}
 	}
 
@@ -133,7 +133,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	// reprocessing the same raw line again (PreCompact followed by
 	// SessionEnd in the same session must not duplicate the capture).
 	if err := SaveCheckpoint(cpPath, Checkpoint{LastLine: len(lines)}); err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: writing checkpoint: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: writing checkpoint: %v\n", err)
 	}
 
 	if len(messages) == 0 {
@@ -152,7 +152,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	if ok {
 		c = deps.NewClient(baseURL, apiKey)
 	} else {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: missing M3M0S_URL/M3M0S_API_KEY credentials (environment or ~/.m3m0s/hook.env), capture spooled\n")
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: missing M3M0S_URL/M3M0S_API_KEY credentials (environment or ~/.m3m0s/hook.env), capture spooled\n")
 	}
 
 	// Replay older spooled payloads first (chronological order), then send
@@ -174,10 +174,10 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 			continue
 		}
 		if _, err := Enqueue(deps.HomeDir, req, sendErr, now.Add(time.Duration(i))); err != nil {
-			fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: capture lost, spool write failed: %v\n", err)
+			_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: capture lost, spool write failed: %v\n", err)
 			continue
 		}
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: POST /api/v1/memories failed, chunk %d/%d spooled: %v\n", i+1, len(chunks), sendErr)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: POST /api/v1/memories failed, chunk %d/%d spooled: %v\n", i+1, len(chunks), sendErr)
 	}
 }
 

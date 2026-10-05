@@ -192,7 +192,7 @@ func (c *Client) Complete(ctx context.Context, messages []Message, tools []ToolD
 	if err != nil {
 		return Message{}, fmt.Errorf("chat request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

@@ -89,7 +89,7 @@ func TestHandleAddSyncWhenFast(t *testing.T) {
 		Content: "synchronous test content",
 		Domain:  "code:m3m0s",
 	})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
@@ -124,7 +124,7 @@ func TestHandleAddAsyncWhenSlowThenPollCompletes(t *testing.T) {
 		Content: "asynchronous test content",
 		Domain:  "code:m3m0s",
 	})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusAccepted {
 		t.Fatalf("status = %d, want 202", resp.StatusCode)
@@ -154,14 +154,14 @@ func TestHandleAddAsyncWhenSlowThenPollCompletes(t *testing.T) {
 			t.Fatalf("Do poll: %v", err)
 		}
 		if pollResp.StatusCode != http.StatusOK {
-			pollResp.Body.Close()
+			_ = pollResp.Body.Close()
 			t.Fatalf("poll status = %d, want 200", pollResp.StatusCode)
 		}
 		if err := json.NewDecoder(pollResp.Body).Decode(&final); err != nil {
-			pollResp.Body.Close()
+			_ = pollResp.Body.Close()
 			t.Fatalf("decode poll: %v", err)
 		}
-		pollResp.Body.Close()
+		_ = pollResp.Body.Close()
 
 		if final.Status != "pending" {
 			break
@@ -199,7 +199,7 @@ func TestHandleAddSyncTimeoutDisabledAlwaysWaits(t *testing.T) {
 		Content: "escape hatch test content",
 		Domain:  "code:m3m0s",
 	})
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200 (addSyncTimeout <= 0 should never return 202)", resp.StatusCode)
@@ -230,7 +230,7 @@ func TestHandlePendingAddNotFound(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusNotFound {
 		t.Fatalf("status = %d, want 404", resp.StatusCode)
 	}
