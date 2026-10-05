@@ -24,11 +24,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Search and dedup use an in-memory int8 vector index with exact re-ranking
+  (D31): 20x faster and 140x less allocation per query on a 27k-entry domain.
 - Long session digests are split into chunks at message boundaries instead of
   being truncated at 40000 characters.
 
 ### Fixed
 
+- Search no longer fails for a domain with more than ~32,700 entries (SQLite's
+  bound-variable limit).
 - A failed capture no longer loses data: the per-session checkpoint advanced
   before the POST, so a failure dropped those transcript lines for good.
 

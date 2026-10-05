@@ -139,6 +139,7 @@ type MemoryStore struct {
 
 	mu                      sync.RWMutex
 	index                   map[string]schema.Entry // in-memory cache, without embedding — reloaded from SQLite at boot
+	vecs                    *vecIndex               // compact int8 vector index for candidate selection (F5)
 	dataDir                 string
 	tokensSavedByCompaction int64 // telemetry (GET /stats) — see recordCompactionSavings
 }
@@ -307,10 +308,14 @@ func New(dataDir, apiKey, baseURL string) (*MemoryStore, error) {
 		db:        db,
 		embedFunc: embedFunc,
 		index:     make(map[string]schema.Entry),
+		vecs:      newVecIndex(),
 		dataDir:   dataDir,
 	}
 	if err := s.loadIndex(); err != nil {
 		return nil, fmt.Errorf("load index: %w", err)
+	}
+	if err := s.db.ForEachEmbedding(context.Background(), s.vecs.upsert); err != nil {
+		return nil, fmt.Errorf("load vector index: %w", err)
 	}
 	if err := s.loadTelemetry(); err != nil {
 		return nil, fmt.Errorf("load telemetry: %w", err)
@@ -625,6 +630,7 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 		return AddedEntry{}, err
 	}
 
+	s.vecs.upsert(entry.ID, entry.Domain, vec)
 	s.mu.Lock()
 	s.index[entry.ID] = entry
 	s.mu.Unlock()
@@ -850,44 +856,56 @@ type candidateScore struct {
 	similarity float64
 }
 
-// scoreDomainCandidates fetches, among the domain's entries in the
-// in-memory index, the corresponding embeddings
-// (sqlstore.EmbeddingsByIDs) and computes the cosine similarity of each
-// against queryVec — it returns them in descending order of similarity.
-// It replaces chromem-go's collection.Query (D28): domain filtering was
-// already done in Go before (Recent), now the "vector" search is too.
-func (s *MemoryStore) scoreDomainCandidates(ctx context.Context, domain string, queryVec []float32) ([]candidateScore, error) {
-	s.mu.RLock()
-	var candidates []schema.Entry
-	var ids []string
-	for _, e := range s.index {
-		if e.Domain != domain {
-			continue
+// initialCandidates is how many nearest candidates the vector index
+// proposes before filtering; collectCandidates doubles it while filters
+// (category, tags, expired, soft-deleted...) leave fewer than wanted.
+const initialCandidates = 200
+
+// collectCandidates returns up to limit entries accepted by accept, best
+// first, with their EXACT cosine similarity. Ranking comes from the int8
+// vector index (domain "" = every domain); the survivors are re-scored with
+// the float32 vectors from SQLite, so only a few hundred embeddings are read
+// per query instead of the whole domain (D28's brute force). When filters
+// reject too many candidates the window doubles until limit is reached or
+// the index is exhausted.
+func (s *MemoryStore) collectCandidates(ctx context.Context, domain string, queryVec []float32, limit int, accept func(schema.Entry) bool) ([]candidateScore, error) {
+	k := max(initialCandidates, limit*10)
+	for {
+		ids, more := s.vecs.top(domain, queryVec, k)
+		if len(ids) == 0 {
+			return nil, nil
 		}
-		candidates = append(candidates, e)
-		ids = append(ids, e.ID)
-	}
-	s.mu.RUnlock()
-
-	if len(candidates) == 0 {
-		return nil, nil
-	}
-
-	embeddings, err := s.db.EmbeddingsByIDs(ctx, ids)
-	if err != nil {
-		return nil, fmt.Errorf("fetch embeddings: %w", err)
-	}
-
-	scores := make([]candidateScore, 0, len(candidates))
-	for _, e := range candidates {
-		vec, ok := embeddings[e.ID]
-		if !ok {
-			continue
+		embeddings, err := s.db.EmbeddingsByIDs(ctx, ids)
+		if err != nil {
+			return nil, fmt.Errorf("fetch embeddings: %w", err)
 		}
-		scores = append(scores, candidateScore{entry: e, similarity: cosineSimilarity(queryVec, vec)})
+		scores := make([]candidateScore, 0, len(ids))
+		s.mu.RLock()
+		for _, id := range ids {
+			e, ok := s.index[id]
+			vec, hasVec := embeddings[id]
+			if !ok || !hasVec {
+				continue
+			}
+			scores = append(scores, candidateScore{entry: e, similarity: cosineSimilarity(queryVec, vec)})
+		}
+		s.mu.RUnlock()
+		sort.Slice(scores, func(i, j int) bool { return scores[i].similarity > scores[j].similarity })
+
+		out := make([]candidateScore, 0, limit)
+		for _, c := range scores {
+			if accept(c.entry) {
+				out = append(out, c)
+				if len(out) >= limit {
+					return out, nil
+				}
+			}
+		}
+		if !more {
+			return out, nil
+		}
+		k *= 2
 	}
-	sort.Slice(scores, func(i, j int) bool { return scores[i].similarity > scores[j].similarity })
-	return scores, nil
 }
 
 // findDuplicate finds the most similar memory within the same domain.
@@ -899,23 +917,18 @@ func (s *MemoryStore) findDuplicate(ctx context.Context, content, domain string)
 	if err != nil {
 		return nil, 0, fmt.Errorf("generate embedding: %w", err)
 	}
-	scores, err := s.scoreDomainCandidates(ctx, domain, queryVec)
+	// D22: a soft-deleted candidate should never silently absorb a new add via
+	// dedup/related — that would revive a memory the ForgetSweep decided to
+	// forget without going through Restore. It is skipped (the next candidate
+	// is considered instead).
+	scores, err := s.collectCandidates(ctx, domain, queryVec, 1, func(e schema.Entry) bool { return !isSoftDeleted(e) })
 	if err != nil {
 		return nil, 0, fmt.Errorf("dedup query: %w", err)
 	}
-	for _, c := range scores {
-		if isSoftDeleted(c.entry) {
-			// D22: a soft-deleted candidate should never silently absorb a new add
-			// via dedup/related — that would revive a memory the ForgetSweep decided
-			// to forget without going through Restore. Treated as "no duplicate"
-			// (skips to the next candidate — unlike pre-D28 behavior, which had no 2nd
-			// candidate available without another query; here the whole list is
-			// already in hand).
-			continue
-		}
-		return &c.entry, c.similarity, nil
+	if len(scores) == 0 {
+		return nil, 0, nil
 	}
-	return nil, 0, nil
+	return &scores[0].entry, scores[0].similarity, nil
 }
 
 // Filter gathers the exact filters common to search/recent, per
@@ -968,59 +981,32 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 		return nil, fmt.Errorf("generate embedding: %w", err)
 	}
 
-	domain := filter.Domain
-	var scores []candidateScore
-	if domain != "" {
-		scores, err = s.scoreDomainCandidates(ctx, domain, queryVec)
-		if err != nil {
-			return nil, fmt.Errorf("search query: %w", err)
+	// filter.Domain empty sweeps every domain in one pass of the vector
+	// index (docs/api-contract.md recommends always providing it).
+	scores, err := s.collectCandidates(ctx, filter.Domain, queryVec, limit, func(e schema.Entry) bool {
+		if filter.DomainCategory != "" && e.DomainCategory != filter.DomainCategory {
+			return false
 		}
-	} else {
-		// With no domain in the filter, the search has to sweep all domains —
-		// chromem-go did this for free (empty where = no filter); here it groups
-		// the index by domain and reuses scoreDomainCandidates per group, then
-		// merges and re-sorts. A rare path in practice (Search without domain —
-		// docs/api-contract.md recommends always providing it), not worth a
-		// different batch query just for this case.
-		s.mu.RLock()
-		domains := map[string]struct{}{}
-		for _, e := range s.index {
-			domains[e.Domain] = struct{}{}
+		if filter.Source != "" && e.Source != filter.Source {
+			return false
 		}
-		s.mu.RUnlock()
-		for d := range domains {
-			ds, err := s.scoreDomainCandidates(ctx, d, queryVec)
-			if err != nil {
-				return nil, fmt.Errorf("search query: %w", err)
-			}
-			scores = append(scores, ds...)
+		if filter.Agent != "" && e.AgentValue() != filter.Agent {
+			return false
 		}
-		sort.Slice(scores, func(i, j int) bool { return scores[i].similarity > scores[j].similarity })
+		if !matchesTags(e, filter.Tags) {
+			return false
+		}
+		return !isExpired(e, now) && !isSoftDeleted(e)
+	})
+	if err != nil {
+		return nil, fmt.Errorf("search query: %w", err)
 	}
 
 	out := make([]schema.Entry, 0, limit)
 	primaryIDs := make([]string, 0, limit)
 	seen := make(map[string]struct{}, limit)
 	for _, c := range scores {
-		if len(out) >= limit {
-			break
-		}
 		e := c.entry
-		if filter.DomainCategory != "" && e.DomainCategory != filter.DomainCategory {
-			continue
-		}
-		if filter.Source != "" && e.Source != filter.Source {
-			continue
-		}
-		if filter.Agent != "" && e.AgentValue() != filter.Agent {
-			continue
-		}
-		if !matchesTags(e, filter.Tags) {
-			continue
-		}
-		if isExpired(e, now) || isSoftDeleted(e) {
-			continue
-		}
 		score := c.similarity
 		e.Score = &score
 		out = append(out, e)
@@ -1108,6 +1094,7 @@ func (s *MemoryStore) Delete(ctx context.Context, id string) (bool, error) {
 	if err := s.db.DeleteEntry(ctx, id); err != nil {
 		return false, fmt.Errorf("delete entry: %w", err)
 	}
+	s.vecs.remove(id)
 	return true, nil
 }
 
@@ -1137,6 +1124,9 @@ func (s *MemoryStore) DeleteByFilePath(ctx context.Context, domain, filePath str
 	}
 	if err := s.db.DeleteEntries(ctx, ids); err != nil {
 		return 0, fmt.Errorf("delete entries: %w", err)
+	}
+	for _, id := range ids {
+		s.vecs.remove(id)
 	}
 	return len(ids), nil
 }
@@ -1277,6 +1267,7 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 		return schema.Entry{}, err
 	}
 
+	s.vecs.upsert(entry.ID, entry.Domain, vec)
 	s.mu.Lock()
 	s.index[entry.ID] = entry
 	s.mu.Unlock()
