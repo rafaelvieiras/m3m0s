@@ -2,6 +2,7 @@ package sqlstore
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 )
@@ -320,5 +321,26 @@ func TestTelemetry(t *testing.T) {
 	}
 	if v != 100 {
 		t.Errorf("v = %d, want 100", v)
+	}
+}
+
+// A candidate set larger than SQLite's bound-variable limit (32766) used to
+// fail the whole search with "too many SQL variables".
+func TestEmbeddingsByIDsHandlesMoreIDsThanSQLVariableLimit(t *testing.T) {
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	ids := make([]string, 40000)
+	for i := range ids {
+		ids[i] = fmt.Sprintf("missing-%d", i)
+	}
+	got, err := db.EmbeddingsByIDs(context.Background(), ids)
+	if err != nil {
+		t.Fatalf("EmbeddingsByIDs with 40000 ids: %v", err)
+	}
+	if len(got) != 0 {
+		t.Errorf("got %d embeddings for ids that do not exist", len(got))
 	}
 }

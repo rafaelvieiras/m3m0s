@@ -118,6 +118,7 @@ func (s *MemoryStore) ImportLegacyData(ctx context.Context) error {
 			log.Printf("m3m0s: legacy import: entry %s: %v", e.ID, err)
 			continue
 		}
+		s.vecs.upsert(e.ID, e.Domain, embedding)
 		imported++
 	}
 	log.Printf("m3m0s: legacy import: %d/%d entries imported from chromem-go+index.json into SQLite", imported, len(entries))

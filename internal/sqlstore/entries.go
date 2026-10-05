@@ -225,28 +225,58 @@ func (db *DB) CountEntries(ctx context.Context) (int, error) {
 // database at once (a relevant RAM saving for a small ARM host, D4).
 func (db *DB) EmbeddingsByIDs(ctx context.Context, ids []string) (map[string][]float32, error) {
 	out := make(map[string][]float32, len(ids))
-	if len(ids) == 0 {
-		return out, nil
-	}
-	placeholders := make([]string, len(ids))
-	args := make([]any, len(ids))
-	for i, id := range ids {
-		placeholders[i] = "?"
-		args[i] = id
-	}
-	rows, err := db.sql.QueryContext(ctx, `SELECT id, embedding FROM entries WHERE id IN (`+strings.Join(placeholders, ",")+`)`, args...)
-	if err != nil {
-		return nil, fmt.Errorf("embeddings by ids: %w", err)
-	}
-	defer func() { _ = rows.Close() }()
-
-	for rows.Next() {
-		var id string
-		var embedding []byte
-		if err := rows.Scan(&id, &embedding); err != nil {
+	// SQLite caps bound variables per statement (32766 in this driver):
+	// query in chunks so large candidate sets never fail.
+	const chunk = 500
+	for start := 0; start < len(ids); start += chunk {
+		end := min(start+chunk, len(ids))
+		part := ids[start:end]
+		placeholders := make([]string, len(part))
+		args := make([]any, len(part))
+		for i, id := range part {
+			placeholders[i] = "?"
+			args[i] = id
+		}
+		rows, err := db.sql.QueryContext(ctx, `SELECT id, embedding FROM entries WHERE id IN (`+strings.Join(placeholders, ",")+`)`, args...)
+		if err != nil {
+			return nil, fmt.Errorf("embeddings by ids: %w", err)
+		}
+		for rows.Next() {
+			var id string
+			var embedding []byte
+			if err := rows.Scan(&id, &embedding); err != nil {
+				_ = rows.Close()
+				return nil, err
+			}
+			out[id] = decodeEmbedding(embedding)
+		}
+		err = rows.Err()
+		_ = rows.Close()
+		if err != nil {
 			return nil, err
 		}
-		out[id] = decodeEmbedding(embedding)
 	}
-	return out, rows.Err()
+	return out, nil
+}
+
+// ForEachEmbedding streams every stored embedding (id, domain, vector) to fn
+// one row at a time, so building the in-memory vector index at boot never
+// holds all float32 vectors at once. Rows without an embedding are skipped.
+func (db *DB) ForEachEmbedding(ctx context.Context, fn func(id, domain string, vec []float32)) error {
+	rows, err := db.sql.QueryContext(ctx, `SELECT id, domain, embedding FROM entries WHERE embedding IS NOT NULL`)
+	if err != nil {
+		return fmt.Errorf("stream embeddings: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var id, domain string
+		var embedding []byte
+		if err := rows.Scan(&id, &domain, &embedding); err != nil {
+			return err
+		}
+		if vec := decodeEmbedding(embedding); len(vec) > 0 {
+			fn(id, domain, vec)
+		}
+	}
+	return rows.Err()
 }
