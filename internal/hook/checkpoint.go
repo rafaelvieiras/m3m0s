@@ -13,6 +13,9 @@ import (
 // already been seen).
 type Checkpoint struct {
 	LastLine int `json:"last_line"`
+	// Size is the transcript size in bytes at the last run; frequent events
+	// compare it with a stat to skip reading an unchanged transcript.
+	Size int64 `json:"size,omitempty"`
 }
 
 // CheckpointPath is ~/.m3m0s/hooks/claude-code/<sessionID>.json (D14); it

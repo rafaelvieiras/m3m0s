@@ -355,3 +355,47 @@ func TestStopWaitsForEnoughNewTextThenCaptures(t *testing.T) {
 		t.Fatalf("accumulated text should be captured once, including the earlier small turn; calls=%d", fake.callCount())
 	}
 }
+
+func eventPayload(t *testing.T, event, sessionID, transcriptPath, cwd string) []byte {
+	t.Helper()
+	b, _ := json.Marshal(Payload{SessionID: sessionID, TranscriptPath: transcriptPath, Cwd: cwd, HookEventName: event})
+	return b
+}
+
+func TestFrequentEventsSkipUntilTranscriptGrowsEnough(t *testing.T) {
+	for _, event := range []string{"PostToolUse", "UserPromptSubmit"} {
+		t.Run(event, func(t *testing.T) {
+			fake := &fakeServe{}
+			srv := fake.server()
+			defer srv.Close()
+			dir := t.TempDir()
+			tp := filepath.Join(dir, "s.jsonl")
+			line := func(text string) string {
+				b, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": text}})
+				return string(b)
+			}
+			deps, _ := testDeps(t, t.TempDir(), srv)
+
+			// First capture (a normal PreCompact) sets the checkpoint.
+			writeTranscript(t, tp, line("first"))
+			Run(context.Background(), bytes.NewReader(eventPayload(t, "PreCompact", "s", tp, dir)), deps)
+			if fake.callCount() != 1 {
+				t.Fatalf("setup capture: %d POSTs", fake.callCount())
+			}
+
+			// Tiny growth: no read, no POST.
+			writeTranscript(t, tp, line("first"), line("tiny"))
+			Run(context.Background(), bytes.NewReader(eventPayload(t, event, "s", tp, dir)), deps)
+			if fake.callCount() != 1 {
+				t.Fatalf("tiny growth should be skipped, got %d POSTs", fake.callCount())
+			}
+
+			// Enough growth and text: captured, including the tiny turn.
+			writeTranscript(t, tp, line("first"), line("tiny"), line(strings.Repeat("q", minGrowthBytes)))
+			Run(context.Background(), bytes.NewReader(eventPayload(t, event, "s", tp, dir)), deps)
+			if fake.callCount() != 2 || !strings.Contains(fake.lastRequest().Content, "tiny") {
+				t.Fatalf("grown transcript should be captured; POSTs=%d", fake.callCount())
+			}
+		})
+	}
+}
