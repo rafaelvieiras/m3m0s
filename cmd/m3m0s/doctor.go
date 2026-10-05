@@ -17,7 +17,7 @@ import (
 )
 
 // claudeHookEvents are the Claude Code events the capture path relies on.
-var claudeHookEvents = []string{"SessionStart", "PreCompact", "SessionEnd"}
+var claudeHookEvents = []string{"SessionStart", "PreCompact", "SessionEnd", "Stop"}
 
 // runDoctor is `m3m0s doctor`: it checks everything capture depends on and
 // prints actionable output. Hooks always exit 0 (they must never break the

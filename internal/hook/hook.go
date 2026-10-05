@@ -21,8 +21,21 @@ const ClaudeCodeSource = "claude-code"
 // large backlog never stalls the host agent.
 const replayPerHook = 5
 
+// minStopChars is the minimum amount of new transcript text (runes) that makes
+// a Stop event worth a capture; smaller turns accumulate until a later Stop,
+// PreCompact or SessionEnd.
+const minStopChars = 4000
+
+func newTextChars(messages []TranscriptMessage) int {
+	n := 0
+	for _, m := range messages {
+		n += len([]rune(m.Text))
+	}
+	return n
+}
+
 // Payload is the body Claude Code sends via stdin to the
-// PreCompact/SessionEnd/SessionStart hooks; only the fields used here.
+// PreCompact/SessionEnd/SessionStart/Stop hooks; only the fields used here.
 // trigger/reason/custom_instructions are deliberately ignored (D14, item 2:
 // PreCompact and SessionEnd are handled identically). Source only exists in
 // SessionStart ("startup"/"resume"/"clear"/"compact"), see D17.
@@ -106,6 +119,13 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		if msg, ok := ParseLine([]byte(raw)); ok {
 			messages = append(messages, msg)
 		}
+	}
+
+	// Stop fires after every assistant turn: capturing each one would run the
+	// fact extractor per turn. Wait until enough new text accumulated; the
+	// checkpoint is left untouched so the next event sees the same lines.
+	if payload.HookEventName == "Stop" && newTextChars(messages) < minStopChars {
+		return
 	}
 
 	// The checkpoint advances to the current total of lines even when they

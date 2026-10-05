@@ -326,3 +326,32 @@ func TestRunChunksOversizedDigestWithoutLoss(t *testing.T) {
 		t.Errorf("captured %d of %d characters", total, len(bigText))
 	}
 }
+
+func stopPayload(t *testing.T, sessionID, transcriptPath, cwd string) []byte {
+	t.Helper()
+	b, _ := json.Marshal(Payload{SessionID: sessionID, TranscriptPath: transcriptPath, Cwd: cwd, HookEventName: "Stop"})
+	return b
+}
+
+func TestStopWaitsForEnoughNewTextThenCaptures(t *testing.T) {
+	fake := &fakeServe{}
+	srv := fake.server()
+	defer srv.Close()
+	dir := t.TempDir()
+	tp := filepath.Join(dir, "s.jsonl")
+	small, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": "short turn"}})
+	writeTranscript(t, tp, string(small))
+	deps, _ := testDeps(t, t.TempDir(), srv)
+
+	Run(context.Background(), bytes.NewReader(stopPayload(t, "s-stop", tp, dir)), deps)
+	if fake.callCount() != 0 {
+		t.Fatalf("small Stop turn should not capture, got %d POST(s)", fake.callCount())
+	}
+
+	big, _ := json.Marshal(map[string]any{"type": "user", "message": map[string]any{"role": "user", "content": strings.Repeat("z", minStopChars)}})
+	writeTranscript(t, tp, string(small), string(big))
+	Run(context.Background(), bytes.NewReader(stopPayload(t, "s-stop", tp, dir)), deps)
+	if fake.callCount() != 1 || !strings.Contains(fake.lastRequest().Content, "short turn") {
+		t.Fatalf("accumulated text should be captured once, including the earlier small turn; calls=%d", fake.callCount())
+	}
+}
