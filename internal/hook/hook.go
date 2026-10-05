@@ -22,9 +22,18 @@ const ClaudeCodeSource = "claude-code"
 const replayPerHook = 5
 
 // minStopChars is the minimum amount of new transcript text (runes) that makes
-// a Stop event worth a capture; smaller turns accumulate until a later Stop,
+// a frequent event worth a capture; smaller turns accumulate until a later Stop,
 // PreCompact or SessionEnd.
 const minStopChars = 4000
+
+// frequentEvents fire many times per session and are only a safety net so an
+// abrupt end loses at most a few turns; PreCompact/SessionEnd always capture.
+var frequentEvents = map[string]bool{"Stop": true, "UserPromptSubmit": true, "PostToolUse": true}
+
+// minGrowthBytes is how much the transcript file must grow before a frequent
+// event even reads it (tool outputs inflate the file, so this is a cheap
+// first gate; minStopChars is the second one, on the extracted text).
+const minGrowthBytes = 16 * 1024
 
 func newTextChars(messages []TranscriptMessage) int {
 	n := 0
@@ -87,17 +96,6 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		return
 	}
 
-	data, err := os.ReadFile(payload.TranscriptPath)
-	if err != nil {
-		// transcript_path missing/inaccessible: exit silently (mechanism
-		// item 1: never fail the hook because of this).
-		return
-	}
-	lines := readLinesFromBytes(data)
-	if len(lines) == 0 {
-		return
-	}
-
 	cpPath, err := CheckpointPath(deps.HomeDir, payload.SessionID)
 	if err != nil {
 		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: resolving checkpoint: %v\n", err)
@@ -107,6 +105,28 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	if err != nil {
 		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: corrupt checkpoint, reprocessing from the start: %v\n", err)
 		cp = Checkpoint{}
+	}
+
+	frequent := frequentEvents[payload.HookEventName]
+	info, err := os.Stat(payload.TranscriptPath)
+	if err != nil {
+		// transcript_path missing/inaccessible: exit silently (mechanism
+		// item 1: never fail the hook because of this).
+		return
+	}
+	// Frequent events (a tool call, a prompt, a turn) fire many times per
+	// session: a stat is all they pay until the transcript grew enough.
+	if frequent && cp.Size > 0 && info.Size()-cp.Size < minGrowthBytes {
+		return
+	}
+
+	data, err := os.ReadFile(payload.TranscriptPath)
+	if err != nil {
+		return
+	}
+	lines := readLinesFromBytes(data)
+	if len(lines) == 0 {
+		return
 	}
 
 	start := cp.LastLine
@@ -121,10 +141,10 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		}
 	}
 
-	// Stop fires after every assistant turn: capturing each one would run the
-	// fact extractor per turn. Wait until enough new text accumulated; the
+	// Frequent events fire many times per session: capturing each one would
+	// run the fact extractor every time. Wait until enough new text accumulated; the
 	// checkpoint is left untouched so the next event sees the same lines.
-	if payload.HookEventName == "Stop" && newTextChars(messages) < minStopChars {
+	if frequent && newTextChars(messages) < minStopChars {
 		return
 	}
 
@@ -132,7 +152,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	// hold no useful text (mechanism item 3): what matters is never
 	// reprocessing the same raw line again (PreCompact followed by
 	// SessionEnd in the same session must not duplicate the capture).
-	if err := SaveCheckpoint(cpPath, Checkpoint{LastLine: len(lines)}); err != nil {
+	if err := SaveCheckpoint(cpPath, Checkpoint{LastLine: len(lines), Size: int64(len(data))}); err != nil {
 		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: writing checkpoint: %v\n", err)
 	}
 

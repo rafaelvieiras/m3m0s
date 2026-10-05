@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `m3m0s doctor`: checks credentials, server, API key, Claude Code hooks, spool
   and recent hook failures.
 - Timestamps in hook log lines.
+- `Stop`, `UserPromptSubmit` and `PostToolUse` capture events as a safety net
+  for abrupt session ends: they only stat the transcript until it grew by 16 KB
+  and holds 4000+ characters of new text.
+- `doctor` reports whether `m3m0s` is configured as an MCP server in Claude Code
+  and opencode, and which optional hook events are missing.
 
 ### Changed
 
