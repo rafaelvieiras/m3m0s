@@ -302,7 +302,12 @@ func New(dataDir, apiKey, baseURL string) (*MemoryStore, error) {
 	if resolvedBase == "" {
 		resolvedBase = embed.DefaultBaseURL
 	}
-	embedFunc := embed.New(resolvedBase, apiKey, "text-embedding-3-small")
+	// No API key = keyword-only mode (F5): entries are stored without an
+	// embedding, dedup falls back to exact content match and search to FTS5.
+	var embedFunc embed.Func
+	if apiKey != "" {
+		embedFunc = embed.New(resolvedBase, apiKey, "text-embedding-3-small")
+	}
 
 	s := &MemoryStore{
 		db:        db,
@@ -590,7 +595,7 @@ func similarityBand(similarity float64) string {
 // not a duplicate but is in the "related" band, linkRelated decides the
 // related_to/valid_until.
 func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, now time.Time) (AddedEntry, error) {
-	candidate, similarity, err := s.findDuplicate(ctx, content, in.Domain)
+	candidate, similarity, contentVec, err := s.findDuplicate(ctx, content, in.Domain)
 	if err != nil {
 		return AddedEntry{}, err
 	}
@@ -622,9 +627,12 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 	}
 	entry.Metadata = internalMD
 
-	vec, err := s.embedFunc(ctx, truncateForEmbedding(entry.Content))
-	if err != nil {
-		return AddedEntry{}, fmt.Errorf("generate embedding: %w", err)
+	vec := contentVec
+	if entry.Content != content || vec == nil {
+		vec, err = s.embedText(ctx, entry.Content)
+		if err != nil && !errors.Is(err, errNoEmbedding) {
+			return AddedEntry{}, fmt.Errorf("generate embedding: %w", err)
+		}
 	}
 	if err := s.db.UpsertEntry(ctx, entryToRow(entry, vec)); err != nil {
 		return AddedEntry{}, err
@@ -856,41 +864,114 @@ type candidateScore struct {
 	similarity float64
 }
 
-// initialCandidates is how many nearest candidates the vector index
-// proposes before filtering; collectCandidates doubles it while filters
-// (category, tags, expired, soft-deleted...) leave fewer than wanted.
+// initialCandidates is how many nearest candidates each ranker proposes
+// before filtering; collectCandidates doubles it while filters (category,
+// tags, expired, soft-deleted...) leave fewer results than wanted.
 const initialCandidates = 200
 
+// Ranking modes of Search (Filter.Mode).
+const (
+	ModeHybrid  = "hybrid"
+	ModeVector  = "vector"
+	ModeKeyword = "keyword"
+)
+
+// rrfK is the reciprocal-rank-fusion constant (the usual 60): an entry's
+// fused score is the sum of 1/(rrfK+rank) over the rankers that returned it.
+const rrfK = 60
+
+// keywordFusionDepth is how many keyword (bm25) hits take part in hybrid
+// fusion. Keyword search earns its place by promoting exact terms
+// (identifiers, names, numbers) that embeddings blur, not by adding recall:
+// letting deeper, weaker keyword hits into the fusion pushed correct vector
+// hits out of the top results on the golden set (see D32).
+const keywordFusionDepth = 3
+
 // collectCandidates returns up to limit entries accepted by accept, best
-// first, with their EXACT cosine similarity. Ranking comes from the int8
-// vector index (domain "" = every domain); the survivors are re-scored with
-// the float32 vectors from SQLite, so only a few hundred embeddings are read
-// per query instead of the whole domain (D28's brute force). When filters
-// reject too many candidates the window doubles until limit is reached or
-// the index is exhausted.
-func (s *MemoryStore) collectCandidates(ctx context.Context, domain string, queryVec []float32, limit int, accept func(schema.Entry) bool) ([]candidateScore, error) {
+// first. The vector side ranks with the int8 index; the keyword side with
+// FTS5 bm25; hybrid fuses both with reciprocal-rank fusion. Every returned
+// entry carries its EXACT cosine similarity (0 when it has no embedding or
+// the query could not be embedded), which stays the public Score. If the
+// query cannot be embedded (provider down or not configured) hybrid and
+// vector degrade to keyword instead of failing. When filters reject too
+// many candidates the window doubles until limit is reached or both rankers
+// are exhausted.
+func (s *MemoryStore) collectCandidates(ctx context.Context, domain, text string, queryVec []float32, limit int, mode string, accept func(schema.Entry) bool) ([]candidateScore, error) {
+	useVec := mode != ModeKeyword && queryVec != nil
+	useFTS := mode != ModeVector && text != ""
 	k := max(initialCandidates, limit*10)
 	for {
-		ids, more := s.vecs.top(domain, queryVec, k)
-		if len(ids) == 0 {
-			return nil, nil
+		var vecIDs, ftsIDs []string
+		var moreVec bool
+		if useVec {
+			vecIDs, moreVec = s.vecs.top(domain, queryVec, k)
 		}
-		embeddings, err := s.db.EmbeddingsByIDs(ctx, ids)
-		if err != nil {
-			return nil, fmt.Errorf("fetch embeddings: %w", err)
-		}
-		scores := make([]candidateScore, 0, len(ids))
-		s.mu.RLock()
-		for _, id := range ids {
-			e, ok := s.index[id]
-			vec, hasVec := embeddings[id]
-			if !ok || !hasVec {
-				continue
+		if useFTS {
+			var err error
+			ftsIDs, err = s.db.SearchFTS(ctx, domain, text, k)
+			if err != nil {
+				return nil, err
 			}
-			scores = append(scores, candidateScore{entry: e, similarity: cosineSimilarity(queryVec, vec)})
+		}
+		fusedFTS := ftsIDs
+		if useVec {
+			// Depth counts hits the filters accept, so expired, soft-deleted or
+			// filtered-out entries do not use up the few keyword slots.
+			fusedFTS = make([]string, 0, keywordFusionDepth)
+			s.mu.RLock()
+			for _, id := range ftsIDs {
+				if e, ok := s.index[id]; ok && accept(e) {
+					fusedFTS = append(fusedFTS, id)
+					if len(fusedFTS) == keywordFusionDepth {
+						break
+					}
+				}
+			}
+			s.mu.RUnlock()
+		}
+
+		// Exact vectors for every candidate of both rankers. The int8 index
+		// only selects candidates: its internal order is approximate, so the
+		// vector list is re-sorted by exact cosine BEFORE fusion (fusing the
+		// approximate ranks measurably hurt recall on the golden set).
+		var embeddings map[string][]float32
+		if queryVec != nil {
+			var err error
+			if embeddings, err = s.db.EmbeddingsByIDs(ctx, append(append([]string(nil), vecIDs...), fusedFTS...)); err != nil {
+				return nil, fmt.Errorf("fetch embeddings: %w", err)
+			}
+			sort.SliceStable(vecIDs, func(i, j int) bool {
+				return cosineSimilarity(queryVec, embeddings[vecIDs[i]]) > cosineSimilarity(queryVec, embeddings[vecIDs[j]])
+			})
+		}
+		// Rejected entries (expired, soft-deleted, filtered out) must not hold
+		// rank positions in the vector list either.
+		accepted := vecIDs[:0:0]
+		s.mu.RLock()
+		for _, id := range vecIDs {
+			if e, ok := s.index[id]; ok && accept(e) {
+				accepted = append(accepted, id)
+			}
 		}
 		s.mu.RUnlock()
-		sort.Slice(scores, func(i, j int) bool { return scores[i].similarity > scores[j].similarity })
+		ranked := fuse(accepted, fusedFTS)
+		if len(ranked) == 0 {
+			return nil, nil
+		}
+		scores := make([]candidateScore, 0, len(ranked))
+		s.mu.RLock()
+		for _, id := range ranked {
+			e, ok := s.index[id]
+			if !ok {
+				continue
+			}
+			scores = append(scores, candidateScore{entry: e, similarity: cosineSimilarity(queryVec, embeddings[id])})
+		}
+		s.mu.RUnlock()
+		// Pure vector mode orders by exact cosine; the others keep fusion order.
+		if mode == ModeVector {
+			sort.SliceStable(scores, func(i, j int) bool { return scores[i].similarity > scores[j].similarity })
+		}
 
 		out := make([]candidateScore, 0, limit)
 		for _, c := range scores {
@@ -901,35 +982,81 @@ func (s *MemoryStore) collectCandidates(ctx context.Context, domain string, quer
 				}
 			}
 		}
-		if !more {
+		moreFTS := useFTS && len(ftsIDs) >= k
+		if !moreVec && !moreFTS {
 			return out, nil
 		}
 		k *= 2
 	}
 }
 
-// findDuplicate finds the most similar memory within the same domain.
-// Finding nothing is not an error — in that case it returns (nil, 0, nil).
-// A soft-deleted candidate (D22) is never returned as a duplicate — see
-// the comment further below.
-func (s *MemoryStore) findDuplicate(ctx context.Context, content, domain string) (*schema.Entry, float64, error) {
-	queryVec, err := s.embedFunc(ctx, truncateForEmbedding(content))
+// fuse merges up to two ranked id lists with reciprocal-rank fusion and
+// returns the union, best first (ties keep the first list's order).
+func fuse(lists ...[]string) []string {
+	score := map[string]float64{}
+	var order []string
+	for _, l := range lists {
+		for rank, id := range l {
+			if _, seen := score[id]; !seen {
+				order = append(order, id)
+			}
+			score[id] += 1.0 / float64(rrfK+rank+1)
+		}
+	}
+	sort.SliceStable(order, func(i, j int) bool { return score[order[i]] > score[order[j]] })
+	return order
+}
+
+// findDuplicate finds the most similar memory within the same domain and
+// returns the content's embedding so addOne does not embed it a second time.
+// Finding nothing is not an error — it returns (nil, 0, vec, nil). A
+// soft-deleted candidate (D22) is never returned as a duplicate. Without an
+// embedding provider only an exact content match counts as a duplicate.
+func (s *MemoryStore) findDuplicate(ctx context.Context, content, domain string) (*schema.Entry, float64, []float32, error) {
+	queryVec, err := s.embedText(ctx, content)
+	if errors.Is(err, errNoEmbedding) {
+		s.mu.RLock()
+		defer s.mu.RUnlock()
+		for _, e := range s.index {
+			if e.Domain == domain && e.Content == content && !isSoftDeleted(e) {
+				c := e
+				return &c, 1, nil, nil
+			}
+		}
+		return nil, 0, nil, nil
+	}
 	if err != nil {
-		return nil, 0, fmt.Errorf("generate embedding: %w", err)
+		return nil, 0, nil, fmt.Errorf("generate embedding: %w", err)
 	}
 	// D22: a soft-deleted candidate should never silently absorb a new add via
 	// dedup/related — that would revive a memory the ForgetSweep decided to
 	// forget without going through Restore. It is skipped (the next candidate
 	// is considered instead).
-	scores, err := s.collectCandidates(ctx, domain, queryVec, 1, func(e schema.Entry) bool { return !isSoftDeleted(e) })
+	scores, err := s.collectCandidates(ctx, domain, "", queryVec, 1, ModeVector, func(e schema.Entry) bool { return !isSoftDeleted(e) })
 	if err != nil {
-		return nil, 0, fmt.Errorf("dedup query: %w", err)
+		return nil, 0, nil, fmt.Errorf("dedup query: %w", err)
 	}
 	if len(scores) == 0 {
-		return nil, 0, nil
+		return nil, 0, queryVec, nil
 	}
-	return &scores[0].entry, scores[0].similarity, nil
+	return &scores[0].entry, scores[0].similarity, queryVec, nil
 }
+
+// errNoEmbedding means no embedding provider is configured (keyword-only
+// mode); callers treat it as "skip the vector side", not as a failure.
+var errNoEmbedding = errors.New("no embedding provider configured")
+
+// embedText embeds text (truncated to maxEmbedChars), or returns
+// errNoEmbedding when the server runs keyword-only.
+func (s *MemoryStore) embedText(ctx context.Context, text string) ([]float32, error) {
+	if s.embedFunc == nil {
+		return nil, errNoEmbedding
+	}
+	return s.embedFunc(ctx, truncateForEmbedding(text))
+}
+
+// HasEmbeddings reports whether vector search is available.
+func (s *MemoryStore) HasEmbeddings() bool { return s.embedFunc != nil }
 
 // Filter gathers the exact filters common to search/recent, per
 // docs/api-contract.md.
@@ -939,6 +1066,9 @@ type Filter struct {
 	Source         string
 	Agent          string
 	Tags           []string
+	// Mode selects the ranking for Search: "" or "hybrid" (default: vector +
+	// keyword fused with RRF), "vector" or "keyword". Ignored by Recent.
+	Mode string
 }
 
 func (f Filter) matchesIndexEntry(e schema.Entry) bool {
@@ -976,14 +1106,31 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 		limit = 5
 	}
 
-	queryVec, err := s.embedFunc(ctx, truncateForEmbedding(query))
-	if err != nil {
-		return nil, fmt.Errorf("generate embedding: %w", err)
+	mode := filter.Mode
+	if mode == "" {
+		mode = ModeHybrid
+	}
+	var queryVec []float32
+	if mode != ModeKeyword {
+		var err error
+		queryVec, err = s.embedText(ctx, query)
+		if err != nil {
+			if errors.Is(err, errNoEmbedding) || mode == ModeHybrid {
+				// Keyword-only server, or the provider failed: keep answering
+				// from the keyword side instead of failing the search.
+				if !errors.Is(err, errNoEmbedding) {
+					log.Printf("m3m0s: embedding failed, searching by keyword only: %v", err)
+				}
+				queryVec, mode = nil, ModeKeyword
+			} else {
+				return nil, fmt.Errorf("generate embedding: %w", err)
+			}
+		}
 	}
 
 	// filter.Domain empty sweeps every domain in one pass of the vector
 	// index (docs/api-contract.md recommends always providing it).
-	scores, err := s.collectCandidates(ctx, filter.Domain, queryVec, limit, func(e schema.Entry) bool {
+	scores, err := s.collectCandidates(ctx, filter.Domain, query, queryVec, limit, mode, func(e schema.Entry) bool {
 		if filter.DomainCategory != "" && e.DomainCategory != filter.DomainCategory {
 			return false
 		}
@@ -1007,8 +1154,10 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 	seen := make(map[string]struct{}, limit)
 	for _, c := range scores {
 		e := c.entry
-		score := c.similarity
-		e.Score = &score
+		if queryVec != nil { // keyword-only results have no cosine score
+			score := c.similarity
+			e.Score = &score
+		}
 		out = append(out, e)
 		seen[e.ID] = struct{}{}
 		primaryIDs = append(primaryIDs, e.ID)
@@ -1259,8 +1408,8 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 	}
 	entry.Metadata = internalMD
 
-	vec, err := s.embedFunc(ctx, truncateForEmbedding(entry.Content))
-	if err != nil {
+	vec, err := s.embedText(ctx, entry.Content)
+	if err != nil && !errors.Is(err, errNoEmbedding) {
 		return schema.Entry{}, fmt.Errorf("generate embedding: %w", err)
 	}
 	if err := s.db.UpsertEntry(ctx, entryToRow(entry, vec)); err != nil {

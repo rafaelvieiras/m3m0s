@@ -45,6 +45,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D29 | Context-injection preview in the WebUI, before implementing new hooks/integrations | Accepted | [D29-injection-context-preview.md](D29-injection-context-preview.md) |
 | D30 | Memory evaluation with a small scope: golden queries + `recall@k` (closes A10) | Accepted | [D30-memory-evaluation-recall-at-k.md](D30-memory-evaluation-recall-at-k.md) |
 | D31 | In-memory int8 vector index with exact re-ranking | Accepted | [D31-int8-vector-index-exact-rerank.md](D31-int8-vector-index-exact-rerank.md) |
+| D32 | Hybrid search, optional embeddings and an injection token budget | Accepted | [D32-hybrid-search-and-token-budget.md](D32-hybrid-search-and-token-budget.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |
 | A8 | Phase 7 (light KG + temporal fact) | Closed (16 Jul 2026), see [D15](D15-light-kg-temporal-fact.md) | [A8-light-kg-temporal-fact.md](A8-light-kg-temporal-fact.md) |

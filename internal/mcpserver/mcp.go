@@ -338,7 +338,7 @@ var toolDefs = []map[string]any{
 	},
 	{
 		"name":        "memory_search",
-		"description": "Semantic search over M3m0s memories. The response text comes ready for prompt injection (contextBlock).",
+		"description": "Hybrid (semantic + keyword) search over M3m0s memories. The response text comes ready for prompt injection (contextBlock); maxTokens caps its size.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
@@ -349,6 +349,8 @@ var toolDefs = []map[string]any{
 				"source":         map[string]any{"type": "string"},
 				"agent":          map[string]any{"type": "string"},
 				"tags":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
+				"mode":           map[string]any{"type": "string", "enum": []string{"hybrid", "vector", "keyword"}, "default": "hybrid"},
+				"maxTokens":      map[string]any{"type": "integer", "description": "cap on the estimated tokens of the response (0 = no cap)"},
 			},
 			"required": []string{"query"},
 		},

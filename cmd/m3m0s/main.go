@@ -28,6 +28,8 @@ func main() {
 		err = runWatch(ctx, os.Args[2:])
 	case "hook":
 		err = runHook(ctx, os.Args[2:])
+	case "eval":
+		err = runEval(ctx, os.Args[2:])
 	case "doctor":
 		err = runDoctor(ctx, os.Args[2:])
 	case "add":
@@ -69,6 +71,7 @@ commands:
   mcp      stdio<->HTTP bridge for MCP hosts (Claude Code, OpenCode, pi)
   watch    watches a project root and reindexes memory/doc files
   hook     auto-capture hooks for agent tools (e.g. "claude-code")
+  eval     runs a golden dataset and prints recall@k per ranking mode (D30)
   doctor   checks server, key, hooks and the capture spool (--replay resends it)
   add      stores a memory
   search   semantic search

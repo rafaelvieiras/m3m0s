@@ -2,8 +2,10 @@ package httpapi
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -124,5 +126,45 @@ func TestBytesToMB(t *testing.T) {
 		if got := bytesToMB(c.bytes); got != c.want {
 			t.Errorf("bytesToMB(%d) = %v, want %v", c.bytes, got, c.want)
 		}
+	}
+}
+
+func TestHandleSearchModesAndTokenBudget(t *testing.T) {
+	srv, rawKey := newTestServer(t)
+	httpSrv := httptest.NewServer(srv.Handler())
+	defer httpSrv.Close()
+
+	post := func(body string) (*http.Response, apitypes.SearchResponse) {
+		req, _ := http.NewRequest("POST", httpSrv.URL+"/api/v1/search", strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+rawKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		var out apitypes.SearchResponse
+		_ = json.NewDecoder(resp.Body).Decode(&out)
+		return resp, out
+	}
+	for i, c := range []string{"alpha notes: servers reboot nightly", "!!! 12345 alpha notes ### 67890", "zzzz qqqq alpha notes xxxx jjjj"} {
+		req, _ := http.NewRequest("POST", httpSrv.URL+"/api/v1/memories", strings.NewReader(fmt.Sprintf(`{"content":%q,"domain":"codigo:t%d","source":"t"}`, c+strings.Repeat(" pad", i*6), i)))
+		req.Header.Set("Authorization", "Bearer "+rawKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil || resp.StatusCode >= 300 {
+			t.Fatalf("seed %d: %v %v", i, err, resp)
+		}
+		_ = resp.Body.Close()
+	}
+
+	resp, out := post(`{"query":"alpha notes","mode":"keyword","limit":5}`)
+	if resp.StatusCode != 200 || len(out.Results) != 3 || out.EstimatedTokens == 0 {
+		t.Fatalf("keyword search: status %d, %d results, %d tokens", resp.StatusCode, len(out.Results), out.EstimatedTokens)
+	}
+	_, capped := post(`{"query":"alpha notes","mode":"keyword","limit":5,"maxTokens":30}`)
+	if len(capped.Results) >= 3 || capped.EstimatedTokens > 30 {
+		t.Errorf("maxTokens 30: %d results, ~%d tokens", len(capped.Results), capped.EstimatedTokens)
+	}
+	if resp, _ := post(`{"query":"x","mode":"bogus"}`); resp.StatusCode != 400 {
+		t.Errorf("invalid mode: status %d, want 400", resp.StatusCode)
 	}
 }

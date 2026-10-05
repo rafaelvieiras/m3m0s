@@ -9,6 +9,7 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
@@ -65,11 +66,20 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 
 	filter := store.Filter{Domain: domain}
 	now := time.Now()
+	budget := hook.DefaultInjectTokenBudget
+	if v := q.Get("max_tokens"); v != "" {
+		n, err := strconv.Atoi(v)
+		if err != nil || n < 0 {
+			writeError(w, http.StatusBadRequest, "invalid_max_tokens", "max_tokens must be a non-negative integer")
+			return
+		}
+		budget = n
+	}
 
 	switch mode {
 	case apitypes.PreviewInjectionModeHook:
 		results := s.store.Recent(hook.SessionStartFetchLimit, filter, now)
-		extracted := hook.InjectableEntries(results)
+		extracted := apitypes.FitTokenBudget(hook.InjectableEntries(results), budget)
 
 		var out hookSessionStartOutput
 		out.HookSpecificOutput.HookEventName = "SessionStart"
@@ -87,9 +97,11 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 				"before every new session or /clear, synchronous, 5s timeout. It is the only " +
 				"automatic injection mechanism that exists today; no other tool " +
 				"has an equivalent hook yet.",
-			EntriesFetched: len(results),
-			EntriesUsed:    len(extracted),
-			Raw:            string(raw),
+			EntriesFetched:  len(results),
+			EntriesUsed:     len(extracted),
+			EstimatedTokens: apitypes.EstimateTokens(out.HookSpecificOutput.AdditionalContext),
+			TokenBudget:     budget,
+			Raw:             string(raw),
 		})
 
 	case apitypes.PreviewInjectionModeMCP:
@@ -113,9 +125,10 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 				"No hook at all: a generic MCP client (pi, OpenCode) only sees this if the " +
 				"model itself decides to call the tool during the conversation; nothing is injected " +
 				"automatically at the start of the session.",
-			EntriesFetched: len(results),
-			EntriesUsed:    len(results),
-			Raw:            string(raw),
+			EntriesFetched:  len(results),
+			EntriesUsed:     len(results),
+			EstimatedTokens: apitypes.EstimateTokens(string(raw)),
+			Raw:             string(raw),
 		})
 
 	case apitypes.PreviewInjectionModeManual:
@@ -128,9 +141,10 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 			Mechanism: "Raw text (apitypes.BuildContextBlock), with no hook or MCP envelope; " +
 				"what one would paste by hand into the system prompt of a tool with no hook " +
 				"or MCP integration at all (scripts, cron, a new agent not plugged in yet).",
-			EntriesFetched: len(results),
-			EntriesUsed:    len(results),
-			Raw:            block,
+			EntriesFetched:  len(results),
+			EntriesUsed:     len(results),
+			EstimatedTokens: apitypes.EstimateTokens(block),
+			Raw:             block,
 		})
 
 	default:

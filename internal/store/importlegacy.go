@@ -106,7 +106,7 @@ func (s *MemoryStore) ImportLegacyData(ctx context.Context) error {
 			// discarding the entry. It costs 1 extra API call per orphan entry, but
 			// that only happens in this rare case; never silently losing data is more
 			// important than saving that call in an import that runs only once.
-			vec, err := s.embedFunc(ctx, truncateForEmbedding(e.Content))
+			vec, err := s.embedText(ctx, e.Content)
 			if err != nil {
 				log.Printf("m3m0s: legacy import: %s has no legacy embedding and recomputing failed, skipping: %v", e.ID, err)
 				continue

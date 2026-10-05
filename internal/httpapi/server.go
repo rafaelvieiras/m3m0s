@@ -346,6 +346,13 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Source:         req.Source,
 		Agent:          req.Agent,
 		Tags:           req.Tags,
+		Mode:           req.Mode,
+	}
+	switch req.Mode {
+	case "", store.ModeHybrid, store.ModeVector, store.ModeKeyword:
+	default:
+		writeError(w, http.StatusBadRequest, "invalid_mode", "invalid mode: "+req.Mode+" (expected hybrid, vector or keyword)")
+		return
 	}
 	results, err := s.store.Search(r.Context(), req.Query, req.Limit, filter, time.Now())
 	if err != nil {
@@ -353,9 +360,12 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	results = apitypes.FitTokenBudget(results, req.MaxTokens)
+	block := apitypes.BuildContextBlock(results)
 	writeJSON(w, http.StatusOK, apitypes.SearchResponse{
-		Results:      results,
-		ContextBlock: apitypes.BuildContextBlock(results),
+		Results:         results,
+		ContextBlock:    block,
+		EstimatedTokens: apitypes.EstimateTokens(block),
 	})
 }
 

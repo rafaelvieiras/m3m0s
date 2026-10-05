@@ -26,7 +26,7 @@ func runServe(args []string) error {
 	fs := flag.NewFlagSet("serve", flag.ExitOnError)
 	port := fs.String("port", firstNonEmpty(os.Getenv("M3M0S_PORT"), "19234"), "HTTP port")
 	dataDir := fs.String("data", firstNonEmpty(os.Getenv("M3M0S_DATA_DIR"), "~/.m3m0s/data"), "directory for persisted data")
-	apiKey := fs.String("key", os.Getenv("OPENAI_API_KEY"), "OpenAI API key, used for embedding (required)")
+	apiKey := fs.String("key", os.Getenv("OPENAI_API_KEY"), "OpenAI API key, used for embedding — when absent the server runs keyword-only (FTS5 search, exact-match dedup)")
 	openaiBase := fs.String("openai-base", os.Getenv("M3M0S_OPENAI_BASE_URL"), "OpenAI-compatible base URL, optional")
 	extractKey := fs.String("extract-key", os.Getenv("M3M0S_EXTRACT_API_KEY"), "OpenRouter API key for fact extraction (Phase 4, D12) — when absent, extraction is disabled")
 	extractBase := fs.String("extract-base", firstNonEmpty(os.Getenv("M3M0S_EXTRACT_BASE_URL"), extract.DefaultBaseURL), "OpenAI-compatible base URL for fact extraction")
@@ -43,7 +43,7 @@ func runServe(args []string) error {
 	}
 
 	if *apiKey == "" {
-		return fmt.Errorf("OPENAI_API_KEY is required (env var or -key)")
+		log.Printf("OPENAI_API_KEY not set: running keyword-only (no embeddings; search uses FTS5, dedup is exact-match)")
 	}
 
 	dataDirExpanded, err := expandHome(*dataDir)

@@ -311,3 +311,25 @@ func TestUpdateResponseIsPlainEntryNotEnveloped(t *testing.T) {
 		t.Errorf("expected id=mem_1 at the object's root level, got: %s", b)
 	}
 }
+
+func TestFitTokenBudgetKeepsRankedPrefix(t *testing.T) {
+	mk := func(n int) schema.Entry { return schema.Entry{Content: strings.Repeat("x", n)} }
+	entries := []schema.Entry{mk(100), mk(100), mk(100)}
+	per := EntryTokens(entries[0]) // 25 + overhead
+	if got := FitTokenBudget(entries, 0); len(got) != 3 {
+		t.Errorf("no cap: %d entries, want 3", len(got))
+	}
+	if got := FitTokenBudget(entries, per*2); len(got) != 2 {
+		t.Errorf("budget for two: %d entries, want 2", len(got))
+	}
+	if got := FitTokenBudget(entries, per-1); len(got) != 0 {
+		t.Errorf("budget below one entry: %d entries, want 0", len(got))
+	}
+}
+
+func TestEntryTokensCapsAtRenderedSnippet(t *testing.T) {
+	long := schema.Entry{Content: strings.Repeat("x", 5000)}
+	if got := EntryTokens(long); got > 90 {
+		t.Errorf("long entry costs %d tokens, but only a 240-char snippet is rendered", got)
+	}
+}
