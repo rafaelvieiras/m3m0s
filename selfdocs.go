@@ -7,7 +7,7 @@
 // side (D24 was the development-only version of this; this one is the
 // version that works in production). See D25 in docs/decisions/.
 //
-// go:embed does not accept ".." in the pattern — patterns are always
+// The embed directive does not accept ".." in the pattern — patterns are always
 // relative to the directory of the .go file that carries the directive.
 // Since AGENTS.md and docs/ live at the repo ROOT, this file must also be
 // at the root (a path that only exists above a subdirectory cannot be

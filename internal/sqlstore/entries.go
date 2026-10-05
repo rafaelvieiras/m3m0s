@@ -193,7 +193,7 @@ func (db *DB) LoadAllEntries(ctx context.Context) ([]EntryRow, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load all entries: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var out []EntryRow
 	for rows.Next() {
@@ -238,7 +238,7 @@ func (db *DB) EmbeddingsByIDs(ctx context.Context, ids []string) (map[string][]f
 	if err != nil {
 		return nil, fmt.Errorf("embeddings by ids: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		var id string

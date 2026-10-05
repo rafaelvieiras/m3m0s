@@ -3,10 +3,11 @@ package hook
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"os"
-	"strings"
+	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
@@ -16,8 +17,25 @@ import (
 // by this hook (D14).
 const ClaudeCodeSource = "claude-code"
 
+// replayPerHook bounds how many spooled payloads one hook run retries, so a
+// large backlog never stalls the host agent.
+const replayPerHook = 5
+
+// minStopChars is the minimum amount of new transcript text (runes) that makes
+// a Stop event worth a capture; smaller turns accumulate until a later Stop,
+// PreCompact or SessionEnd.
+const minStopChars = 4000
+
+func newTextChars(messages []TranscriptMessage) int {
+	n := 0
+	for _, m := range messages {
+		n += len([]rune(m.Text))
+	}
+	return n
+}
+
 // Payload is the body Claude Code sends via stdin to the
-// PreCompact/SessionEnd/SessionStart hooks; only the fields used here.
+// PreCompact/SessionEnd/SessionStart/Stop hooks; only the fields used here.
 // trigger/reason/custom_instructions are deliberately ignored (D14, item 2:
 // PreCompact and SessionEnd are handled identically). Source only exists in
 // SessionStart ("startup"/"resume"/"clear"/"compact"), see D17.
@@ -56,7 +74,7 @@ type Deps struct {
 func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	payload, err := readPayload(stdin)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: invalid payload: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: invalid payload: %v\n", err)
 		return
 	}
 
@@ -82,12 +100,12 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 
 	cpPath, err := CheckpointPath(deps.HomeDir, payload.SessionID)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: resolving checkpoint: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: resolving checkpoint: %v\n", err)
 		return
 	}
 	cp, err := LoadCheckpoint(cpPath)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: corrupt checkpoint, reprocessing from the start: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: corrupt checkpoint, reprocessing from the start: %v\n", err)
 		cp = Checkpoint{}
 	}
 
@@ -103,40 +121,63 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		}
 	}
 
+	// Stop fires after every assistant turn: capturing each one would run the
+	// fact extractor per turn. Wait until enough new text accumulated; the
+	// checkpoint is left untouched so the next event sees the same lines.
+	if payload.HookEventName == "Stop" && newTextChars(messages) < minStopChars {
+		return
+	}
+
 	// The checkpoint advances to the current total of lines even when they
 	// hold no useful text (mechanism item 3): what matters is never
 	// reprocessing the same raw line again (PreCompact followed by
 	// SessionEnd in the same session must not duplicate the capture).
 	if err := SaveCheckpoint(cpPath, Checkpoint{LastLine: len(lines)}); err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: writing checkpoint: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: writing checkpoint: %v\n", err)
 	}
 
 	if len(messages) == 0 {
 		return
 	}
 
-	digest, truncated := BuildDigest(messages)
-	if strings.TrimSpace(digest) == "" {
-		return
-	}
-	if truncated {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: digest truncated to %d characters (session %s)\n", maxDigestChars, payload.SessionID)
-	}
-
-	baseURL, apiKey, ok := ResolveCredentials(deps.Getenv, deps.HomeDir)
-	if !ok {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: missing M3M0S_URL/M3M0S_API_KEY credentials (environment or ~/.m3m0s/hook.env), capture skipped\n")
+	chunks := BuildDigests(messages)
+	if len(chunks) == 0 {
 		return
 	}
 
-	c := deps.NewClient(baseURL, apiKey)
 	domain := deps.Domain(payload.Cwd)
-	if _, err := c.Add(ctx, apitypes.AddRequest{
-		Content: digest,
-		Domain:  domain,
-		Source:  ClaudeCodeSource,
-	}); err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: POST /api/v1/memories failed: %v\n", err)
+	now := time.Now()
+	baseURL, apiKey, ok := ResolveCredentials(deps.Getenv, deps.HomeDir)
+	var c *client.Client
+	if ok {
+		c = deps.NewClient(baseURL, apiKey)
+	} else {
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: missing M3M0S_URL/M3M0S_API_KEY credentials (environment or ~/.m3m0s/hook.env), capture spooled\n")
+	}
+
+	// Replay older spooled payloads first (chronological order), then send
+	// this run's chunks; whatever the server does not accept is spooled, so
+	// the checkpoint advancing above never loses data.
+	down := !ok
+	if ok {
+		down = Replay(ctx, deps.HomeDir, c, replayPerHook, now).Unreachable
+	}
+	for i, chunk := range chunks {
+		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: ClaudeCodeSource}
+		var sendErr error
+		if down {
+			sendErr = errors.New("server unavailable")
+		} else if _, sendErr = c.Add(ctx, req); sendErr != nil && isTransport(sendErr) {
+			down = true
+		}
+		if sendErr == nil {
+			continue
+		}
+		if _, err := Enqueue(deps.HomeDir, req, sendErr, now.Add(time.Duration(i))); err != nil {
+			_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: capture lost, spool write failed: %v\n", err)
+			continue
+		}
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: POST /api/v1/memories failed, chunk %d/%d spooled: %v\n", i+1, len(chunks), sendErr)
 	}
 }
 

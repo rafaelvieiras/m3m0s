@@ -180,7 +180,7 @@ func Run(ctx context.Context, c *client.Client, cfg Config, state *State) error 
 	if err != nil {
 		return fmt.Errorf("create fsnotify watcher: %w", err)
 	}
-	defer watcher.Close()
+	defer func() { _ = watcher.Close() }()
 
 	if err := addDirsRecursive(watcher, cfg, cfg.Root); err != nil {
 		return fmt.Errorf("add directories to watcher: %w", err)

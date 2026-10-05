@@ -12,7 +12,7 @@ func (db *DB) LoadJobIntervals(ctx context.Context) (map[string]int64, error) {
 	if err != nil {
 		return nil, fmt.Errorf("load job intervals: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	out := map[string]int64{}
 	for rows.Next() {

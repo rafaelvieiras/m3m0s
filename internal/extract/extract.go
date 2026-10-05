@@ -197,7 +197,7 @@ func (e *Extractor) Extract(ctx context.Context, content, domain string) ([]stri
 	if err != nil {
 		return nil, fmt.Errorf("extract request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
@@ -267,7 +267,7 @@ func (e *Extractor) Classify(ctx context.Context, newFact, existingFact string) 
 	if err != nil {
 		return "", fmt.Errorf("classify request: %w", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {

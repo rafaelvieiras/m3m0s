@@ -117,7 +117,7 @@ func TestHandlePreviewInjectionHookModeFiltersRawEntries(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("status = %d, want 200", resp.StatusCode)
 	}
@@ -161,7 +161,7 @@ func TestHandlePreviewInjectionMCPModeReturnsToolResultEnvelope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var out apitypes.PreviewInjectionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -190,7 +190,7 @@ func TestHandlePreviewInjectionManualModeReturnsRawBlock(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	var out apitypes.PreviewInjectionResponse
 	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
@@ -216,7 +216,7 @@ func TestHandlePreviewInjectionRejectsInvalidMode(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	defer resp.Body.Close()
+	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400", resp.StatusCode)

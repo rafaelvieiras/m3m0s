@@ -45,7 +45,7 @@ func runHookClaudeCode(ctx context.Context) error {
 
 	deps := hook.Deps{
 		Stdout:    os.Stdout,
-		Stderr:    os.Stderr,
+		Stderr:    hook.TimestampWriter{W: os.Stderr},
 		HomeDir:   home,
 		Getenv:    os.Getenv,
 		Domain:    hookDomainFromCwd,

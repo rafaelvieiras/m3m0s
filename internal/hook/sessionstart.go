@@ -79,7 +79,7 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 
 	baseURL, apiKey, ok := ResolveCredentials(deps.Getenv, deps.HomeDir)
 	if !ok {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: missing M3M0S_URL/M3M0S_API_KEY credentials (environment or ~/.m3m0s/hook.env), context injection skipped\n")
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: missing M3M0S_URL/M3M0S_API_KEY credentials (environment or ~/.m3m0s/hook.env), context injection skipped\n")
 		return
 	}
 
@@ -94,7 +94,7 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 		Limit:  SessionStartFetchLimit,
 	})
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: GET /api/v1/recent failed: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: GET /api/v1/recent failed: %v\n", err)
 		return
 	}
 
@@ -109,10 +109,10 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 
 	data, err := json.Marshal(out)
 	if err != nil {
-		fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: marshaling additionalContext failed: %v\n", err)
+		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: marshaling additionalContext failed: %v\n", err)
 		return
 	}
-	fmt.Fprintln(deps.Stdout, string(data))
+	_, _ = fmt.Fprintln(deps.Stdout, string(data))
 }
 
 // InjectableEntries filters to keep only entries that actually went through

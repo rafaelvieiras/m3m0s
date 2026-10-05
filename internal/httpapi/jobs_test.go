@@ -59,7 +59,7 @@ func doJobsRequest(t *testing.T, httpSrv *httptest.Server, rawKey, method, path 
 	if err != nil {
 		t.Fatalf("Do: %v", err)
 	}
-	t.Cleanup(func() { resp.Body.Close() })
+	t.Cleanup(func() { _ = resp.Body.Close() })
 	return resp
 }
 
