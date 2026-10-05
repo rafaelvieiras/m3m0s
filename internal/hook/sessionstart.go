@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
@@ -40,6 +41,23 @@ const SessionStartRecentLimit = 15
 // filtering gives the filter room not to empty the result needlessly.
 // Exported (D29) for the same reason as SessionStartRecentLimit.
 const SessionStartFetchLimit = 40
+
+// DefaultInjectTokenBudget caps the estimated tokens of the context injected
+// at session start (F5). Override per client with M3M0S_INJECT_MAX_TOKENS
+// (0 disables the cap). Exported so the WebUI injection preview applies the
+// same default.
+const DefaultInjectTokenBudget = 1000
+
+// injectTokenBudget reads M3M0S_INJECT_MAX_TOKENS (a non-negative integer),
+// falling back to DefaultInjectTokenBudget.
+func injectTokenBudget(getenv func(string) string) int {
+	if v := getenv("M3M0S_INJECT_MAX_TOKENS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			return n
+		}
+	}
+	return DefaultInjectTokenBudget
+}
 
 // injectableSources are the Payload.Source values for which injecting
 // context makes sense (D17): "startup" (new session) and "clear" (/clear)
@@ -98,14 +116,18 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 		return
 	}
 
-	extracted := InjectableEntries(resp.Results)
+	budget := injectTokenBudget(deps.Getenv)
+	extracted := apitypes.FitTokenBudget(InjectableEntries(resp.Results), budget)
 	if len(extracted) == 0 {
 		return
 	}
 
+	block := apitypes.BuildContextBlock(extracted)
+	_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: injected %d memories, ~%d tokens (budget %d) for %s\n", len(extracted), apitypes.EstimateTokens(block), budget, domain)
+
 	var out sessionStartOutput
 	out.HookSpecificOutput.HookEventName = "SessionStart"
-	out.HookSpecificOutput.AdditionalContext = apitypes.BuildContextBlock(extracted)
+	out.HookSpecificOutput.AdditionalContext = block
 
 	data, err := json.Marshal(out)
 	if err != nil {

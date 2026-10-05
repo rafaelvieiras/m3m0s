@@ -120,6 +120,8 @@ func runSearch(ctx context.Context, args []string) error {
 	domainCategory := fs.String("domain-category", "", "exact domain_category filter")
 	source := fs.String("source", "", "exact source filter")
 	agent := fs.String("agent", "", "exact agent filter")
+	mode := fs.String("mode", "", "ranking: hybrid (default), vector or keyword")
+	maxTokens := fs.Int("max-tokens", 0, "cap the estimated tokens of the results (0 = no cap)")
 	jsonOut := fs.Bool("json", false, "print raw results as JSON instead of the contextBlock")
 	var tags stringSlice
 	fs.Var(&tags, "tag", "post-filter by tag, AND across repetitions")
@@ -138,6 +140,8 @@ func runSearch(ctx context.Context, args []string) error {
 		Source:         *source,
 		Agent:          *agent,
 		Tags:           tags,
+		Mode:           *mode,
+		MaxTokens:      *maxTokens,
 	})
 	if err != nil {
 		return err

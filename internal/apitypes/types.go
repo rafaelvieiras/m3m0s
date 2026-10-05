@@ -88,12 +88,20 @@ type SearchRequest struct {
 	Source         string   `json:"source,omitempty"`
 	Agent          string   `json:"agent,omitempty"`
 	Tags           []string `json:"tags,omitempty"`
+	// Mode selects the ranking: "hybrid" (default: vector + keyword fused),
+	// "vector" or "keyword".
+	Mode string `json:"mode,omitempty"`
+	// MaxTokens caps the estimated tokens of the returned results (content
+	// only, 0 = no cap); lower-ranked results are dropped first.
+	MaxTokens int `json:"maxTokens,omitempty"`
 }
 
 // SearchResponse is the 200 response of POST /search.
 type SearchResponse struct {
 	Results      []schema.Entry `json:"results"`
 	ContextBlock string         `json:"contextBlock"`
+	// EstimatedTokens is the estimated token cost of ContextBlock.
+	EstimatedTokens int `json:"estimatedTokens"`
 }
 
 // RecentParams are the query params of GET /recent.
@@ -357,11 +365,53 @@ const MetadataKeySourceContent = "source_content"
 // RelatedVia) do not take part in the normal numbering: they appear marked
 // as "↳ related to <id>" right after the result that brought them in.
 func BuildContextBlock(entries []schema.Entry) string {
+	return buildContextBlock(entries)
+}
+
+// contextSnippetChars is how much of an entry's content BuildContextBlock
+// renders; EntryTokens uses the same cut so the budget matches the output.
+const contextSnippetChars = 240
+
+// contextEntryOverhead is the estimated token cost of the numbering, domain,
+// source and date line around each rendered snippet.
+const contextEntryOverhead = 12
+
+// EstimateTokens is a cheap token estimate (about 4 characters per token),
+// good enough to enforce a budget without a tokenizer dependency.
+func EstimateTokens(s string) int { return (len([]rune(s)) + 3) / 4 }
+
+// EntryTokens estimates the tokens one entry adds to a context block.
+func EntryTokens(e schema.Entry) int {
+	n := len([]rune(e.Content))
+	if n > contextSnippetChars {
+		n = contextSnippetChars + 3
+	}
+	return (n+3)/4 + contextEntryOverhead
+}
+
+// FitTokenBudget keeps the longest ranked prefix of entries whose estimated
+// context cost fits maxTokens (0 or negative = no cap). Lower-ranked entries
+// are dropped first, so the budget never reorders results.
+func FitTokenBudget(entries []schema.Entry, maxTokens int) []schema.Entry {
+	if maxTokens <= 0 {
+		return entries
+	}
+	used := 0
+	for i, e := range entries {
+		used += EntryTokens(e)
+		if used > maxTokens {
+			return entries[:i]
+		}
+	}
+	return entries
+}
+
+func buildContextBlock(entries []schema.Entry) string {
 	if len(entries) == 0 {
 		return "## Relevant memories\n\n(no relevant memories found)"
 	}
 
-	const maxContentChars = 240
+	const maxContentChars = contextSnippetChars
 	var b strings.Builder
 	b.WriteString("## Relevant memories\n\n")
 	num := 0
@@ -435,5 +485,9 @@ type PreviewInjectionResponse struct {
 	Mechanism      string               `json:"mechanism"`
 	EntriesFetched int                  `json:"entriesFetched"`
 	EntriesUsed    int                  `json:"entriesUsed"`
-	Raw            string               `json:"raw"`
+	// EstimatedTokens is the estimated token cost of what this mechanism
+	// injects; TokenBudget is the cap applied (0 = none).
+	EstimatedTokens int    `json:"estimatedTokens"`
+	TokenBudget     int    `json:"tokenBudget"`
+	Raw             string `json:"raw"`
 }

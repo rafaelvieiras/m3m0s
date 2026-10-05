@@ -217,17 +217,31 @@ survive a restart of `m3m0s serve` (D26).
 
 ### `memory_search` · `POST /api/v1/search` · `m3m0s search`
 
-Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "tags"?: string[] }`
+Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "tags"?: string[], "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0 }`
 
-`domain` restricts the candidate set before the cosine computation (D28);
-`domainCategory`/`source`/`agent`/`tags` are a Go post-filter over the already
-scored candidates (exact match, implicit AND — see `memory-schema.md`).
+`domain` restricts the candidate set before ranking (D28, D31);
+`domainCategory`/`source`/`agent`/`tags` are a Go post-filter over the ranked
+candidates (exact match, implicit AND — see `memory-schema.md`).
+
+`mode` selects the ranking (D32): `vector` (embedding similarity), `keyword`
+(SQLite FTS5 bm25, accent- and case-insensitive) or `hybrid` (default: the
+vector ranking, with the 3 best keyword hits fused in by reciprocal rank so
+exact terms such as identifiers and names are promoted). If the query cannot
+be embedded (provider down, or the server runs keyword-only without an
+embedding key) `hybrid` degrades to `keyword`; an explicit `vector` request
+returns the error instead. `score` is the exact cosine similarity and is
+absent on results that were ranked without an embedding.
+
+`maxTokens` caps the estimated token cost of the returned context (about 4
+characters per token; only the 240-character snippet that `contextBlock`
+renders is counted). Lower-ranked results are dropped first; `0` means no cap.
 
 Response:
 ```json
 {
   "results": [ { "...MemoryEntry...": "...", "score": 0.87 } ],
-  "contextBlock": "## Relevant memories\n\n1. ..."
+  "contextBlock": "## Relevant memories\n\n1. ...",
+  "estimatedTokens": 312
 }
 ```
 The MCP tool returns `contextBlock` as the main text of the result (reducing
@@ -235,7 +249,7 @@ the tokens the calling LLM would spend parsing raw JSON — the original goal of
 the Phase 1 "formatted context block" item) and embeds `results` as auxiliary
 structured content for callers that need the raw data.
 
-CLI: `m3m0s search "<query>" [--limit 5] [--domain codigo:m3m0s] [--json]` —
+CLI: `m3m0s search "<query>" [--limit 5] [--domain codigo:m3m0s] [--mode hybrid] [--max-tokens 0] [--json]` —
 without `--json` it prints the context block; with it, it prints raw `results`.
 
 ### `memory_recent` · `GET /api/v1/recent` · `m3m0s recent`

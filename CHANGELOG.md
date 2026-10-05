@@ -9,6 +9,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- `m3m0s eval <golden.json>`: recall@k, mean injected tokens and latency per
+  ranking mode over a golden dataset (D30).
+- SQLite FTS5 index over memory content (migration 00002, backfilled on first start).
 - On-disk capture spool (`~/.m3m0s/spool`): payloads the server does not accept
   are saved and replayed (oldest first, idempotent) by the next capture hook or
   by `m3m0s doctor --replay`; capped at 500 files, 30-day retention, dead-letter
@@ -24,6 +27,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- Hybrid search (D32): the default `mode` fuses the vector ranking with the 3 best
+  FTS5 keyword hits; `vector` and `keyword` remain selectable. Recall on the
+  maintainer's 38-query golden set: recall@1 0.71 → 0.84, recall@3 0.84 → 0.90,
+  recall@5 and @10 unchanged. Search falls back to keyword if the embedding
+  provider fails.
+- `Add` embeds the content once instead of twice.
+- The OpenAI key is optional: without it the server runs keyword-only.
+- `search` accepts `mode` and `maxTokens`; responses carry `estimatedTokens`.
+  The SessionStart injection is capped at `M3M0S_INJECT_MAX_TOKENS` (default
+  1000, `0` = no cap) and the WebUI preview reports its token estimate.
 - Search and dedup use an in-memory int8 vector index with exact re-ranking
   (D31): 20x faster and 140x less allocation per query on a 27k-entry domain.
 - Long session digests are split into chunks at message boundaries instead of

@@ -368,3 +368,41 @@ func TestRunDispatchesSessionStartFromPayload(t *testing.T) {
 		t.Errorf("stdout does not contain the expected additionalContext: %q", stdout.String())
 	}
 }
+
+func TestRunSessionStartHonorsTokenBudget(t *testing.T) {
+	var results []schema.Entry
+	for i := 0; i < 10; i++ {
+		results = append(results, extractedEntry(fmt.Sprintf("mem_%d", i), strings.Repeat("fact ", 40)))
+	}
+	run := func(budget string) (count int, stderr string) {
+		fake := &fakeRecentServe{results: results}
+		srv := fake.server(t)
+		var out, errBuf bytes.Buffer
+		deps := sessionStartDeps(t.TempDir(), srv, &out, &errBuf)
+		base := deps.Getenv
+		deps.Getenv = func(k string) string {
+			if k == "M3M0S_INJECT_MAX_TOKENS" {
+				return budget
+			}
+			return base(k)
+		}
+		RunSessionStart(context.Background(), Payload{HookEventName: "SessionStart", Source: "startup", Cwd: "/x/some-repo"}, deps)
+		var o sessionStartOutput
+		if err := json.Unmarshal(out.Bytes(), &o); err != nil {
+			t.Fatalf("budget %q: no JSON output: %v (stderr %s)", budget, err, errBuf.String())
+		}
+		return strings.Count(o.HookSpecificOutput.AdditionalContext, "\n   fact"), errBuf.String()
+	}
+
+	full, _ := run("0")
+	capped, log := run("200")
+	if full != 10 {
+		t.Errorf("no cap: %d entries, want 10", full)
+	}
+	if capped >= full || capped == 0 {
+		t.Errorf("budget 200 should keep fewer entries but not none: %d", capped)
+	}
+	if !strings.Contains(log, "budget 200") {
+		t.Errorf("injection should be logged with its budget, got %q", log)
+	}
+}
