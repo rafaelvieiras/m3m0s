@@ -54,7 +54,7 @@ gain at this scale, and keeping the column avoids reopening the
 `schema.Entry` contract for no reason. It is still an **implementation
 detail, not a 5th product decision**.
 
-### Provenance: `source`, `model`, `project` (D33)
+### Provenance: `source`, `model`, `project` (D33, D34)
 
 - `source` already identifies the tool that wrote the entry (`claude-code`,
   `opencode`, `openwebui`, ...), so no separate `source_tool` column exists.
@@ -63,8 +63,13 @@ detail, not a 5th product decision**.
   other clients send it when they know it.
 - `project` scopes an entry to one project; `NULL` is the global memory. There
   is still **one memory per user**: `project` is a filter, not a separate
-  instance, and an exact `project` filter returns only that project's entries
-  (combining "global + this project" in one recall is a later step).
+  instance. `project=X` recalls global plus X's entries, `scope=project-only`
+  only X's and `scope=global` only entries without a project (D34).
+- A project entry that supersedes a global one records its id in the reserved
+  `metadata.overrides`; layered recall hides the overridden global entry (it
+  stays valid everywhere else). Changing an entry's project drops `overrides`.
+- Sessions find their project via `M3M0S_PROJECT` or `~/.m3m0s/projects.json`
+  (`m3m0s project set <slug> [dir]`).
 - Clients set the fields; the server does not infer them from the API key.
 - Dedup compares entries of the same project only, so a project memory never
   merges into the global one.

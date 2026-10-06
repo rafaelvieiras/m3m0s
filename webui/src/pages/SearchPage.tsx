@@ -24,6 +24,7 @@ export default function SearchPage() {
     agent: search.agent,
     model: search.model,
     project: search.project,
+    scope: search.scope,
     tags: search.tags,
   });
 
@@ -37,6 +38,7 @@ export default function SearchPage() {
         agent: nextFilters.agent,
         model: nextFilters.model,
         project: nextFilters.project,
+        scope: nextFilters.scope,
         tags: nextFilters.tags,
       },
     });
@@ -53,6 +55,7 @@ export default function SearchPage() {
             agent: search.agent,
             model: search.model,
             project: search.project,
+            scope: search.scope,
             tags: search.tags,
           }),
           tags: tagsStringToArray(search.tags),

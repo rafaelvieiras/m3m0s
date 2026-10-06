@@ -135,6 +135,12 @@ Input (MCP tool schema / HTTP body):
 }
 ```
 
+Project scope (D34): `project=X` recalls the global entries plus X's (never
+another project's), `scope=project-only` only X's, `scope=global` only entries
+with no project; with neither, no project filter applies. An invalid
+combination is a `400` (`invalid_scope`). Related-entry expansion obeys the
+same rule. `GET /stats` adds `countByProject`.
+
 Provenance (D33): `source` is the tool that wrote the entry, `model` the LLM
 that produced the content and `project` an optional scope (absent/`null` =
 global). An invalid `model` or `project` is a `400` (`invalid_model`/
@@ -226,7 +232,7 @@ survive a restart of `m3m0s serve` (D26).
 
 ### `memory_search` · `POST /api/v1/search` · `m3m0s search`
 
-Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "model"?: string, "project"?: string, "tags"?: string[], "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0 }`
+Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "model"?: string, "project"?: string, "scope"?: "global" | "project-only", "tags"?: string[], "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0 }`
 
 `domain` restricts the candidate set before ranking (D28, D31);
 `domainCategory`/`source`/`agent`/`model`/`project`/`tags` are a Go post-filter over the ranked
@@ -263,7 +269,7 @@ without `--json` it prints the context block; with it, it prints raw `results`.
 
 ### `memory_recent` · `GET /api/v1/recent` · `m3m0s recent`
 
-Input: `limit` (default 10), `domain`, `domainCategory`, `source`, `agent`, `model`, `project` —
+Input: `limit` (default 10), `domain`, `domainCategory`, `source`, `agent`, `model`, `project`, `scope` —
 the same exact filters as `search`, without a similarity `query`; ordered by
 `createdAt` descending.
 

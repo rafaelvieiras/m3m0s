@@ -11,6 +11,7 @@ export const recentSearchSchema = z.object({
   agent: z.string().catch("").default(""),
   model: z.string().catch("").default(""),
   project: z.string().catch("").default(""),
+  scope: z.enum(["", "global", "project-only"]).catch("").default(""),
 });
 
 export const Route = createRoute({

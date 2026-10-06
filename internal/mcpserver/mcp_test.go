@@ -428,3 +428,22 @@ func TestMalformedJSONLineReturnsParseError(t *testing.T) {
 		t.Errorf("code = %v, want %d", errObj["code"], errParseError)
 	}
 }
+
+func TestDefaultScopeFollowsSessionProject(t *testing.T) {
+	defer func(old string) { sessionProject = old }(sessionProject)
+
+	sessionProject = ""
+	if p, sc := defaultScope("", ""); p != "" || sc != "global" {
+		t.Errorf("no session project: %q %q, want global scope", p, sc)
+	}
+	sessionProject = "proj-a"
+	if p, sc := defaultScope("", ""); p != "proj-a" || sc != "" {
+		t.Errorf("session project: %q %q, want layered proj-a", p, sc)
+	}
+	if p, sc := defaultScope("other", ""); p != "other" || sc != "" {
+		t.Errorf("explicit project must win: %q %q", p, sc)
+	}
+	if p, sc := defaultScope("", "project-only"); p != "" || sc != "project-only" {
+		t.Errorf("explicit scope must win: %q %q", p, sc)
+	}
+}

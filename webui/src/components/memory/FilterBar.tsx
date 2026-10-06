@@ -14,6 +14,7 @@ export interface FilterValues {
   agent: string;
   model: string;
   project: string;
+  scope: "" | "global" | "project-only";
   tags: string;
 }
 
@@ -24,6 +25,7 @@ export const emptyFilters: FilterValues = {
   agent: "",
   model: "",
   project: "",
+  scope: "",
   tags: "",
 };
 
@@ -47,7 +49,7 @@ export function FilterBar({ value, onChange, onApply, showTags = false }: Filter
         onApply();
       }}
     >
-      <FieldGroup className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+      <FieldGroup className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         <Field>
           <FieldLabel htmlFor="filter-domain">domain</FieldLabel>
           <Input
@@ -102,6 +104,19 @@ export function FilterBar({ value, onChange, onApply, showTags = false }: Filter
             onChange={(e) => set("project", e.target.value)}
           />
         </Field>
+        <Field>
+          <FieldLabel htmlFor="filter-scope">project scope</FieldLabel>
+          <select
+            id="filter-scope"
+            className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
+            value={value.scope}
+            onChange={(e) => set("scope", e.target.value as FilterValues["scope"])}
+          >
+            <option value="">project + global (or everything)</option>
+            <option value="project-only">project only</option>
+            <option value="global">global only</option>
+          </select>
+        </Field>
         {showTags && (
           <Field>
             <FieldLabel htmlFor="filter-tags">tags (comma-separated)</FieldLabel>
@@ -132,6 +147,7 @@ export function filtersToParams(f: FilterValues) {
     agent: f.agent.trim() || undefined,
     model: f.model.trim() || undefined,
     project: f.project.trim() || undefined,
+    scope: f.scope || undefined,
   };
 }
 

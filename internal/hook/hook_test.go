@@ -14,6 +14,7 @@ import (
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
+	"github.com/rafaelvieiras/m3m0s/internal/project"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
@@ -426,6 +427,18 @@ func TestRunTagsCaptureWithModelAndProject(t *testing.T) {
 	req := fake.lastRequest()
 	if req.Model != "claude-sonnet-5-5" || req.Project != "m3m0s" {
 		t.Errorf("Model=%q Project=%q", req.Model, req.Project)
+	}
+
+	// A directory mapping scopes the capture too.
+	m := project.Map{}
+	_ = m.Set("/path/to/repo", "mapped-proj")
+	_ = m.Save(deps.HomeDir)
+	delete(env, "M3M0S_PROJECT")
+	transcript3 := filepath.Join(dir, "s3.jsonl")
+	writeTranscript(t, transcript3, `{"type":"user","message":{"role":"user","content":"mapped question"}}`)
+	Run(context.Background(), bytes.NewReader(payloadJSON(t, "sess-prov3", transcript3, "/path/to/repo/r")), deps)
+	if req := fake.lastRequest(); req.Project != "mapped-proj" {
+		t.Errorf("mapped capture project = %q", req.Project)
 	}
 
 	env["M3M0S_PROJECT"] = "Not A Slug"

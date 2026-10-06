@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
+	"github.com/rafaelvieiras/m3m0s/internal/project"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
@@ -107,11 +108,22 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 	ctx, cancel := context.WithTimeout(ctx, sessionStartTimeout)
 	defer cancel()
 
+	// Layered recall: global memory plus the session's project; a session
+	// with no project sees only global memory, never other projects' (D34).
+	proj := deps.Getenv("M3M0S_INJECT_PROJECT")
+	if proj == "" {
+		proj = project.Resolve(deps.Getenv, deps.HomeDir, payload.Cwd)
+	}
+	scope := ""
+	if proj == "" {
+		scope = "global"
+	}
 	resp, err := c.Recent(ctx, apitypes.RecentParams{
 		Domain:  domain,
 		Limit:   SessionStartFetchLimit,
 		Source:  deps.Getenv("M3M0S_INJECT_SOURCE"),
-		Project: deps.Getenv("M3M0S_INJECT_PROJECT"),
+		Project: proj,
+		Scope:   scope,
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: GET /api/v1/recent failed: %v\n", err)

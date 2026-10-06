@@ -18,6 +18,7 @@ export default function RecentPage() {
     agent: search.agent,
     model: search.model,
     project: search.project,
+    scope: search.scope,
     tags: "",
   });
 
@@ -30,6 +31,7 @@ export default function RecentPage() {
         agent: filters.agent,
         model: filters.model,
         project: filters.project,
+        scope: filters.scope,
       },
     });
   }
@@ -42,6 +44,7 @@ export default function RecentPage() {
     agent: search.agent || undefined,
     model: search.model || undefined,
     project: search.project || undefined,
+    scope: search.scope || undefined,
   });
 
   return (

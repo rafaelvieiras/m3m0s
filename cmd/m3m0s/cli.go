@@ -125,7 +125,8 @@ func runSearch(ctx context.Context, args []string) error {
 	source := fs.String("source", "", "exact source filter")
 	agent := fs.String("agent", "", "exact agent filter")
 	model := fs.String("model", "", "exact model filter")
-	project := fs.String("project", "", "only entries of this project")
+	project := fs.String("project", "", "recall global memory plus this project's")
+	scope := fs.String("scope", "", `"global" (no project) or "project-only" (only --project)`)
 	mode := fs.String("mode", "", "ranking: hybrid (default), vector or keyword")
 	maxTokens := fs.Int("max-tokens", 0, "cap the estimated tokens of the results (0 = no cap)")
 	jsonOut := fs.Bool("json", false, "print raw results as JSON instead of the contextBlock")
@@ -147,6 +148,7 @@ func runSearch(ctx context.Context, args []string) error {
 		Agent:          *agent,
 		Model:          *model,
 		Project:        *project,
+		Scope:          *scope,
 		Tags:           tags,
 		Mode:           *mode,
 		MaxTokens:      *maxTokens,
@@ -170,7 +172,8 @@ func runRecent(ctx context.Context, args []string) error {
 	source := fs.String("source", "", "exact source filter")
 	agent := fs.String("agent", "", "exact agent filter")
 	model := fs.String("model", "", "exact model filter")
-	project := fs.String("project", "", "only entries of this project")
+	project := fs.String("project", "", "recall global memory plus this project's")
+	scope := fs.String("scope", "", `"global" (no project) or "project-only" (only --project)`)
 	jsonOut := fs.Bool("json", false, "print the raw response as JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -184,6 +187,7 @@ func runRecent(ctx context.Context, args []string) error {
 		Agent:          *agent,
 		Model:          *model,
 		Project:        *project,
+		Scope:          *scope,
 	})
 	if err != nil {
 		return err

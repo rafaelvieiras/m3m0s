@@ -256,6 +256,9 @@ func (c *Client) Recent(ctx context.Context, p apitypes.RecentParams) (apitypes.
 	if p.Project != "" {
 		q.Set("project", p.Project)
 	}
+	if p.Scope != "" {
+		q.Set("scope", p.Scope)
+	}
 
 	var out apitypes.RecentResponse
 	err := c.do(ctx, http.MethodGet, apiPrefix+"/recent", q, nil, &out)

@@ -73,6 +73,7 @@ export const searchFormSchema = z.object({
   agent: z.string().optional(),
   model: z.string().optional(),
   project: z.string().optional(),
+  scope: z.enum(["global", "project-only"]).optional(),
   tags: z.array(z.string()).optional(),
 });
 export type SearchFormValues = z.infer<typeof searchFormSchema>;

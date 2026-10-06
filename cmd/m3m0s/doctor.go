@@ -14,6 +14,7 @@ import (
 
 	"github.com/rafaelvieiras/m3m0s/internal/client"
 	"github.com/rafaelvieiras/m3m0s/internal/hook"
+	"github.com/rafaelvieiras/m3m0s/internal/project"
 )
 
 // claudeHookEvents are the Claude Code events the capture path relies on.
@@ -91,6 +92,17 @@ func runDoctor(ctx context.Context, args []string) error {
 		}
 		if st.Dead > 0 {
 			note("dead-lettered payloads were rejected %d times by the server: inspect %s", 5, filepath.Join(hook.SpoolDir(home), "dead"))
+		}
+	}
+
+	if m, err := project.Load(home); err != nil {
+		report(false, "projects: %v", err)
+	} else {
+		cwd, _ := os.Getwd()
+		if p := project.Resolve(os.Getenv, home, cwd); p != "" {
+			info("project: %s (%d directories mapped)", p, len(m))
+		} else {
+			info("project: none for the current directory (%d directories mapped)", len(m))
 		}
 	}
 

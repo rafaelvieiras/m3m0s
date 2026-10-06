@@ -85,15 +85,18 @@ type PendingAddResponse struct {
 
 // SearchRequest is the body of POST /search.
 type SearchRequest struct {
-	Query          string   `json:"query"`
-	Limit          int      `json:"limit,omitempty"`
-	Domain         string   `json:"domain,omitempty"`
-	DomainCategory string   `json:"domainCategory,omitempty"`
-	Source         string   `json:"source,omitempty"`
-	Agent          string   `json:"agent,omitempty"`
-	Model          string   `json:"model,omitempty"`
-	Project        string   `json:"project,omitempty"`
-	Tags           []string `json:"tags,omitempty"`
+	Query          string `json:"query"`
+	Limit          int    `json:"limit,omitempty"`
+	Domain         string `json:"domain,omitempty"`
+	DomainCategory string `json:"domainCategory,omitempty"`
+	Source         string `json:"source,omitempty"`
+	Agent          string `json:"agent,omitempty"`
+	Model          string `json:"model,omitempty"`
+	Project        string `json:"project,omitempty"`
+	// Scope is "global" or "project-only"; with a project and no scope the
+	// recall is global + that project (D34).
+	Scope string   `json:"scope,omitempty"`
+	Tags  []string `json:"tags,omitempty"`
 	// Mode selects the ranking: "hybrid" (default: vector + keyword fused),
 	// "vector" or "keyword".
 	Mode string `json:"mode,omitempty"`
@@ -119,6 +122,7 @@ type RecentParams struct {
 	Agent          string
 	Model          string
 	Project        string
+	Scope          string
 }
 
 // RecentResponse is the 200 response of GET /recent.
@@ -130,10 +134,12 @@ type RecentResponse struct {
 type StatsResponse struct {
 	Count                 int            `json:"count"`
 	CountByDomainCategory map[string]int `json:"countByDomainCategory"`
-	Backend               string         `json:"backend"`
-	Model                 string         `json:"model"`
-	Extraction            ExtractionInfo `json:"extraction"`
-	Telemetry             TelemetryInfo  `json:"telemetry"`
+	// CountByProject lists only projects; global entries are the remainder.
+	CountByProject map[string]int `json:"countByProject,omitempty"`
+	Backend        string         `json:"backend"`
+	Model          string         `json:"model"`
+	Extraction     ExtractionInfo `json:"extraction"`
+	Telemetry      TelemetryInfo  `json:"telemetry"`
 }
 
 // TelemetryInfo is the `telemetry` field of GET /stats — operational metrics
