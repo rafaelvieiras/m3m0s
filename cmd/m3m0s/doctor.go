@@ -198,8 +198,17 @@ func recentHookFailures(path string, window time.Duration) (int, string) {
 		if !ok || ts.Before(cutoff) {
 			continue
 		}
+		if isInfoLogLine(line) {
+			continue
+		}
 		n++
 		last = line
 	}
 	return n, last
+}
+
+// isInfoLogLine reports whether a timestamped hook log line is informational
+// (a successful SessionStart injection) and not a failure.
+func isInfoLogLine(line string) bool {
+	return strings.Contains(line, "hook claude-code: injected ")
 }
