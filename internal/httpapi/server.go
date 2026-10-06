@@ -42,6 +42,7 @@ const Backend = "sqlite + OpenAI embeddings"
 type Server struct {
 	store       *store.MemoryStore
 	keys        *auth.Store
+	accounts    *auth.Accounts // username/password accounts (D35)
 	webUIAssets fs.FS
 	chat        *chat.Client // nil disables POST /api/v1/chat (D23)
 	startTime   time.Time    // used by GET /stats (telemetry, uptimeSeconds)
@@ -79,6 +80,7 @@ func New(memStore *store.MemoryStore, keyStore *auth.Store, webUIAssets fs.FS, c
 	return &Server{
 		store:          memStore,
 		keys:           keyStore,
+		accounts:       auth.NewAccounts(memStore.DB()),
 		webUIAssets:    webUIAssets,
 		chat:           chatClient,
 		startTime:      time.Now(),
@@ -113,6 +115,17 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/jobs", s.withAuth(s.handleJobsList))
 	mux.HandleFunc("POST /api/v1/jobs/{name}/run", s.withAuth(s.handleJobRun))
 	mux.HandleFunc("PATCH /api/v1/jobs/{name}", s.withAuth(s.handleJobSetInterval))
+	mux.HandleFunc("GET /api/v1/auth/status", s.handleAuthStatus)
+	mux.HandleFunc("POST /api/v1/auth/onboard", s.handleOnboard)
+	mux.HandleFunc("POST /api/v1/auth/login", s.handleLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", s.handleLogout)
+	mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
+	mux.HandleFunc("GET /api/v1/auth/reset", s.handleResetInfo)
+	mux.HandleFunc("POST /api/v1/auth/reset", s.handleResetPassword)
+	mux.HandleFunc("GET /api/v1/users", s.withAPIKey(s.handleUsersList))
+	mux.HandleFunc("POST /api/v1/users", s.withAPIKey(s.handleUserCreate))
+	mux.HandleFunc("POST /api/v1/users/{username}/reset", s.withAPIKey(s.handleUserReset))
+	mux.HandleFunc("DELETE /api/v1/users/{username}", s.withAPIKey(s.handleUserDelete))
 	if s.webUIAssets != nil {
 		// No withAuth: the static assets (HTML/JS/CSS) are public; auth
 		// happens client-side via Authorization: Bearer against /api/v1/*
@@ -201,12 +214,33 @@ func withCORS(next http.Handler) http.Handler {
 	})
 }
 
-// withAuth requires a valid "Authorization: Bearer <api_key>", as per the
-// Auth section of docs/api-contract.md. /health is deliberately left out.
+// withAuth requires a valid "Authorization: Bearer <api_key>" or, for the
+// WebUI, a valid session cookie (D35; state-changing requests authenticated by
+// the cookie must also carry the csrfHeader). See the Auth section of
+// docs/api-contract.md. /health is deliberately left out.
 func (s *Server) withAuth(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		token, ok := auth.BearerToken(r.Header.Get("Authorization"))
-		if !ok || !s.keys.Verify(token) {
+		if s.validAPIKey(r) {
+			next(w, r)
+			return
+		}
+		if _, ok := s.accounts.SessionUser(r.Context(), sessionToken(r)); ok {
+			if !safeMethod(r.Method) && !hasCSRF(r) {
+				writeError(w, http.StatusForbidden, "csrf", "missing "+csrfHeader+" header")
+				return
+			}
+			next(w, r)
+			return
+		}
+		writeError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid API key or session")
+	}
+}
+
+// withAPIKey is withAuth restricted to API keys: account administration is
+// never reachable with a browser session.
+func (s *Server) withAPIKey(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if !s.validAPIKey(r) {
 			writeError(w, http.StatusUnauthorized, "unauthorized", "missing or invalid API key")
 			return
 		}

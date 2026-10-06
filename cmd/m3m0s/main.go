@@ -32,6 +32,8 @@ func main() {
 		err = runEval(ctx, os.Args[2:])
 	case "doctor":
 		err = runDoctor(ctx, os.Args[2:])
+	case "user":
+		err = runUser(ctx, os.Args[2:])
 	case "project":
 		err = runProject(os.Args[2:])
 	case "add":
@@ -76,6 +78,7 @@ commands:
   eval     runs a golden dataset and prints recall@k per ranking mode (D30)
   doctor   checks server, key, hooks and the capture spool (--replay resends it)
   project  maps directories to project scopes (show|list|set|unset)
+  user     accounts for the WebUI: list, add, reset (password link), delete
   add      stores a memory
   search   semantic search
   recent   lists recent memories
