@@ -51,7 +51,7 @@ func TestProvenanceOverHTTP(t *testing.T) {
 
 	// Filters on search and recent.
 	call("POST", "/api/v1/memories", `{"content":"beta fact about deploys","domain":"codigo:t","source":"claude-code"}`)
-	_, raw = call("POST", "/api/v1/search", `{"query":"fact about deploys","mode":"keyword","project":"m3m0s"}`)
+	_, raw = call("POST", "/api/v1/search", `{"query":"fact about deploys","mode":"keyword","project":"m3m0s","scope":"project-only"}`)
 	var sr apitypes.SearchResponse
 	_ = json.Unmarshal(raw, &sr)
 	if len(sr.Results) != 1 || sr.Results[0].ID != e.ID {
@@ -75,5 +75,30 @@ func TestProvenanceOverHTTP(t *testing.T) {
 	_ = json.Unmarshal(raw, &up)
 	if resp.StatusCode != 200 || up.Project != nil {
 		t.Fatalf("patch clearing project: %d %s", resp.StatusCode, raw)
+	}
+
+	// Scope validation and layered recall over HTTP.
+	for _, c := range []struct{ method, path, body string }{
+		{"POST", "/api/v1/search", `{"query":"x","scope":"bogus"}`},
+		{"POST", "/api/v1/search", `{"query":"x","scope":"project-only"}`},
+		{"POST", "/api/v1/search", `{"query":"x","scope":"global","project":"p"}`},
+		{"GET", "/api/v1/recent?scope=project-only", ""},
+		{"GET", "/api/v1/preview/injection?scope=nope", ""},
+	} {
+		if resp, raw := call(c.method, c.path, c.body); resp.StatusCode != 400 || !strings.Contains(string(raw), "invalid_scope") {
+			t.Errorf("%s %s: %d %s, want 400 invalid_scope", c.method, c.path, resp.StatusCode, raw)
+		}
+	}
+	call("PATCH", "/api/v1/memories/"+e.ID, `{"project":"m3m0s"}`)
+	_, raw = call("GET", "/api/v1/recent?project=other-proj", "")
+	_ = json.Unmarshal(raw, &rr)
+	if len(rr.Results) != 1 || rr.Results[0].Project != nil {
+		t.Errorf("layered recall of another project must show only global entries: %+v", rr.Results)
+	}
+	_, raw = call("GET", "/api/v1/stats", "")
+	var st apitypes.StatsResponse
+	_ = json.Unmarshal(raw, &st)
+	if st.CountByProject["m3m0s"] != 1 {
+		t.Errorf("countByProject = %v", st.CountByProject)
 	}
 }

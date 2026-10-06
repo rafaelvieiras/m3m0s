@@ -52,7 +52,7 @@ func TestProvenanceIsStoredAndFilterable(t *testing.T) {
 	if got := ids(Filter{}); len(got) != 2 {
 		t.Fatalf("no filter: %v", got)
 	}
-	if got := ids(Filter{Project: "m3m0s"}); len(got) != 1 || got[0] != a.Entry.ID {
+	if got := ids(Filter{Project: "m3m0s", Scope: ScopeProjectOnly}); len(got) != 1 || got[0] != a.Entry.ID {
 		t.Errorf("project filter: %v", got)
 	}
 	if got := ids(Filter{Model: "claude-sonnet-5-5"}); len(got) != 1 || got[0] != a.Entry.ID {
@@ -61,7 +61,7 @@ func TestProvenanceIsStoredAndFilterable(t *testing.T) {
 	if got := ids(Filter{Source: "opencode"}); len(got) != 1 || got[0] != b.Entry.ID {
 		t.Errorf("source filter: %v", got)
 	}
-	if got := s.Recent(10, Filter{Project: "m3m0s"}, time.Now()); len(got) != 1 || got[0].ID != a.Entry.ID {
+	if got := s.Recent(10, Filter{Project: "m3m0s", Scope: ScopeProjectOnly}, time.Now()); len(got) != 1 || got[0].ID != a.Entry.ID {
 		t.Errorf("recent project filter: %v", got)
 	}
 }

@@ -21,10 +21,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
+	"github.com/rafaelvieiras/m3m0s/internal/project"
 )
 
 const protocolVersion = "2024-11-05"
@@ -81,6 +83,11 @@ type toolCallResult struct {
 // protocol/tool errors become normal JSON-RPC responses.
 func Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	c := client.NewFromEnv()
+	// The MCP server runs in the session's working directory, so it can
+	// resolve the session project once (D34).
+	home, _ := os.UserHomeDir()
+	cwd, _ := os.Getwd()
+	sessionProject = project.Resolve(os.Getenv, home, cwd)
 
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
@@ -95,6 +102,23 @@ func Run(ctx context.Context, in io.Reader, out io.Writer) error {
 		}
 	}
 	return scanner.Err()
+}
+
+// sessionProject is the project of the session this MCP server runs in ("" =
+// none). memory_search/memory_recent default to it: global memory plus the
+// project's, or only global memory when there is none, so a session never
+// recalls another project's memories unless it asks explicitly.
+var sessionProject string
+
+// defaultScope fills project/scope for a recall that specified neither.
+func defaultScope(project, scope string) (string, string) {
+	if project != "" || scope != "" {
+		return project, scope
+	}
+	if sessionProject != "" {
+		return sessionProject, ""
+	}
+	return "", "global"
 }
 
 func handleLine(ctx context.Context, c *client.Client, line []byte, out io.Writer) error {
@@ -161,6 +185,7 @@ func dispatchTool(ctx context.Context, c *client.Client, name string, args json.
 		if err := unmarshalArgs(args, &in); err != nil {
 			return errorResult(err)
 		}
+		in.Project, in.Scope = defaultScope(in.Project, in.Scope)
 		resp, err := c.Search(ctx, in)
 		if err != nil {
 			return errorResult(err)
@@ -172,6 +197,7 @@ func dispatchTool(ctx context.Context, c *client.Client, name string, args json.
 		if err := unmarshalArgs(args, &in); err != nil {
 			return errorResult(err)
 		}
+		in.Project, in.Scope = defaultScope(in.Project, in.Scope)
 		resp, err := c.Recent(ctx, in)
 		if err != nil {
 			return errorResult(err)
@@ -351,7 +377,8 @@ var toolDefs = []map[string]any{
 				"source":         map[string]any{"type": "string"},
 				"agent":          map[string]any{"type": "string"},
 				"model":          map[string]any{"type": "string"},
-				"project":        map[string]any{"type": "string", "description": "only entries of this project (omit for no project filter)"},
+				"project":        map[string]any{"type": "string", "description": "recall global memory plus this project's; defaults to the session project when one is configured"},
+				"scope":          map[string]any{"type": "string", "enum": []string{"global", "project-only"}, "description": "global = only memories without a project; project-only = only the given project"},
 				"tags":           map[string]any{"type": "array", "items": map[string]any{"type": "string"}},
 				"mode":           map[string]any{"type": "string", "enum": []string{"hybrid", "vector", "keyword"}, "default": "hybrid"},
 				"maxTokens":      map[string]any{"type": "integer", "description": "cap on the estimated tokens of the response (0 = no cap)"},
@@ -372,6 +399,7 @@ var toolDefs = []map[string]any{
 				"agent":          map[string]any{"type": "string"},
 				"model":          map[string]any{"type": "string"},
 				"project":        map[string]any{"type": "string"},
+				"scope":          map[string]any{"type": "string", "enum": []string{"global", "project-only"}},
 			},
 		},
 	},

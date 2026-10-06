@@ -354,8 +354,13 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Agent:          req.Agent,
 		Model:          req.Model,
 		Project:        req.Project,
+		Scope:          req.Scope,
 		Tags:           req.Tags,
 		Mode:           req.Mode,
+	}
+	if err := filter.Validate(); err != nil {
+		writeStoreError(w, err)
+		return
 	}
 	switch req.Mode {
 	case "", store.ModeHybrid, store.ModeVector, store.ModeKeyword:
@@ -395,10 +400,26 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 		Agent:          q.Get("agent"),
 		Model:          q.Get("model"),
 		Project:        q.Get("project"),
+		Scope:          q.Get("scope"),
+	}
+	if err := filter.Validate(); err != nil {
+		writeStoreError(w, err)
+		return
 	}
 
 	results := s.store.Recent(limit, filter, time.Now())
 	writeJSON(w, http.StatusOK, apitypes.RecentResponse{Results: results})
+}
+
+// writeStoreError answers a filter/validation error from the store as a 400
+// with its code.
+func writeStoreError(w http.ResponseWriter, err error) {
+	var verr *store.ValidationError
+	if errors.As(err, &verr) {
+		writeError(w, http.StatusBadRequest, verr.Code, verr.Message)
+		return
+	}
+	writeError(w, http.StatusBadRequest, "invalid_filter", err.Error())
 }
 
 // ── /stats ──
@@ -426,6 +447,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, apitypes.StatsResponse{
 		Count:                 count,
 		CountByDomainCategory: byCategory,
+		CountByProject:        s.store.ProjectCounts(),
 		Backend:               Backend,
 		Model:                 EmbeddingModel,
 		Extraction: apitypes.ExtractionInfo{

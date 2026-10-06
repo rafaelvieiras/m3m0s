@@ -652,6 +652,9 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 			return AddedEntry{}, err
 		}
 		setProvenance(&entry, in.Model, in.Project)
+		if id, ok := s.findOverridden(ctx, entry, contentVec, now); ok {
+			entry.Metadata = withOverrides(entry.Metadata, id)
+		}
 		if band == "related" {
 			if err := s.linkRelated(ctx, &entry, candidate, now); err != nil {
 				return AddedEntry{}, err
@@ -829,7 +832,7 @@ func (s *MemoryStore) expandRelated(primary []schema.Entry, seen map[string]stru
 				continue
 			}
 			related, ok := s.index[id]
-			if !ok || isExpired(related, now) || isSoftDeleted(related) || !matchesTags(related, filter.Tags) {
+			if !ok || isExpired(related, now) || isSoftDeleted(related) || !matchesTags(related, filter.Tags) || !filter.matchesProject(related) {
 				continue
 			}
 			via := e.ID
@@ -1109,10 +1112,12 @@ type Filter struct {
 	Agent          string
 	Model          string
 	// Project, when set, keeps only entries of that project; empty applies no
-	// project filter (global and every project). Layering global + project is
-	// a later step (issue #9).
+	// project filter. With a Project and no Scope the recall is layered:
+	// global entries plus that project's (D34).
 	Project string
-	Tags    []string
+	// Scope is "", ScopeGlobal or ScopeProjectOnly.
+	Scope string
+	Tags  []string
 	// Mode selects the ranking for Search: "" or "hybrid" (default: vector +
 	// keyword fused with RRF), "vector" or "keyword". Ignored by Recent.
 	Mode string
@@ -1134,7 +1139,7 @@ func (f Filter) matchesIndexEntry(e schema.Entry) bool {
 	if f.Model != "" && e.ModelValue() != f.Model {
 		return false
 	}
-	if f.Project != "" && e.ProjectValue() != f.Project {
+	if !f.matchesProject(e) {
 		return false
 	}
 	return matchesTags(e, f.Tags)
@@ -1196,7 +1201,7 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 		if filter.Model != "" && e.ModelValue() != filter.Model {
 			return false
 		}
-		if filter.Project != "" && e.ProjectValue() != filter.Project {
+		if !filter.matchesProject(e) {
 			return false
 		}
 		if !matchesTags(e, filter.Tags) {
@@ -1226,6 +1231,9 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 	s.mu.RLock()
 	out = s.expandRelated(out, seen, filter, now)
 	s.mu.RUnlock()
+	if filter.layered() {
+		out = dropOverridden(out)
+	}
 
 	// Reinforcement (D22): only the PRIMARY results of the search count as
 	// "access" — entries brought in by 1-hop expansion were not deliberately
@@ -1268,6 +1276,9 @@ func (s *MemoryStore) Recent(limit int, filter Filter, now time.Time) []schema.E
 	s.mu.RLock()
 	out := s.expandRelated(all, seen, filter, now)
 	s.mu.RUnlock()
+	if filter.layered() {
+		out = dropOverridden(out)
+	}
 	return s.externalizeEntries(context.Background(), out)
 }
 
@@ -1457,8 +1468,13 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 		if err := validateProvenance(model, project); err != nil {
 			return schema.Entry{}, err
 		}
+		scopeChanged := project != entry.ProjectValue()
 		entry.Model, entry.Project = nil, nil
 		setProvenance(&entry, model, project)
+		if scopeChanged {
+			// overrides only make sense for the project they were decided in
+			entry.Metadata = withoutKey(entry.Metadata, metadataKeyOverrides)
+		}
 	}
 
 	if patch.Tags != nil {
@@ -1498,4 +1514,29 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 	s.mu.Unlock()
 
 	return s.externalizeEntry(ctx, entry), nil
+}
+
+// withoutKey returns a copy of base without key.
+func withoutKey(base map[string]string, key string) map[string]string {
+	md := make(map[string]string, len(base))
+	for k, v := range base {
+		if k != key {
+			md[k] = v
+		}
+	}
+	return md
+}
+
+// ProjectCounts returns how many entries each project holds (global entries
+// are not listed).
+func (s *MemoryStore) ProjectCounts() map[string]int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := map[string]int{}
+	for _, e := range s.index {
+		if p := e.ProjectValue(); p != "" {
+			out[p]++
+		}
+	}
+	return out
 }

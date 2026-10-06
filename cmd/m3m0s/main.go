@@ -32,6 +32,8 @@ func main() {
 		err = runEval(ctx, os.Args[2:])
 	case "doctor":
 		err = runDoctor(ctx, os.Args[2:])
+	case "project":
+		err = runProject(os.Args[2:])
 	case "add":
 		err = runAdd(ctx, os.Args[2:])
 	case "search":
@@ -67,12 +69,13 @@ func usage() {
 	fmt.Fprint(os.Stderr, `usage: m3m0s <command> [flags]
 
 commands:
-  serve    starts the central daemon (HTTP) — the only one that talks to chromem-go
-  mcp      stdio<->HTTP bridge for MCP hosts (Claude Code, OpenCode, pi)
+  serve    starts the central daemon (HTTP) — the only one that talks to the database
+  mcp      stdio<->HTTP bridge for MCP hosts (Claude Code, OpenCode, ...)
   watch    watches a project root and reindexes memory/doc files
   hook     auto-capture hooks for agent tools (e.g. "claude-code")
   eval     runs a golden dataset and prints recall@k per ranking mode (D30)
   doctor   checks server, key, hooks and the capture spool (--replay resends it)
+  project  maps directories to project scopes (show|list|set|unset)
   add      stores a memory
   search   semantic search
   recent   lists recent memories

@@ -14,6 +14,7 @@ import (
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
+	"github.com/rafaelvieiras/m3m0s/internal/project"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
@@ -23,6 +24,8 @@ import (
 type fakeRecentServe struct {
 	results     []schema.Entry
 	lastDomain  string
+	lastProject string
+	lastScope   string
 	lastLimit   string
 	delay       time.Duration
 	callCount   int
@@ -35,6 +38,8 @@ func (f *fakeRecentServe) server(t *testing.T) *httptest.Server {
 	mux.HandleFunc("GET /api/v1/recent", func(w http.ResponseWriter, r *http.Request) {
 		f.callCount++
 		f.lastDomain = r.URL.Query().Get("domain")
+		f.lastProject = r.URL.Query().Get("project")
+		f.lastScope = r.URL.Query().Get("scope")
 		f.lastLimit = r.URL.Query().Get("limit")
 		if f.delay > 0 {
 			select {
@@ -404,5 +409,40 @@ func TestRunSessionStartHonorsTokenBudget(t *testing.T) {
 	}
 	if !strings.Contains(log, "budget 200") {
 		t.Errorf("injection should be logged with its budget, got %q", log)
+	}
+}
+
+// Recall scope (D34): a session with no project sees only global memory; a
+// mapped directory (or M3M0S_PROJECT) recalls global plus that project.
+func TestRunSessionStartScopesRecallByProject(t *testing.T) {
+	fake := &fakeRecentServe{results: []schema.Entry{extractedEntry("mem_1", "any fact")}}
+	srv := fake.server(t)
+	home := t.TempDir()
+	payload := Payload{HookEventName: "SessionStart", Source: "startup", Cwd: "/path/to/repo/some-repo"}
+
+	var stdout, stderr bytes.Buffer
+	deps := sessionStartDeps(home, srv, &stdout, &stderr)
+	RunSessionStart(context.Background(), payload, deps)
+	if fake.lastProject != "" || fake.lastScope != "global" {
+		t.Errorf("no project: project=%q scope=%q, want global scope", fake.lastProject, fake.lastScope)
+	}
+
+	m := project.Map{}
+	if err := m.Set("/path/to/repo", "mapped-proj"); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Save(home); err != nil {
+		t.Fatal(err)
+	}
+	RunSessionStart(context.Background(), payload, deps)
+	if fake.lastProject != "mapped-proj" || fake.lastScope != "" {
+		t.Errorf("mapped dir: project=%q scope=%q, want layered mapped-proj", fake.lastProject, fake.lastScope)
+	}
+
+	env := map[string]string{"M3M0S_URL": srv.URL, "M3M0S_API_KEY": "test-key", "M3M0S_INJECT_PROJECT": "forced"}
+	deps.Getenv = func(k string) string { return env[k] }
+	RunSessionStart(context.Background(), payload, deps)
+	if fake.lastProject != "forced" {
+		t.Errorf("M3M0S_INJECT_PROJECT: project=%q", fake.lastProject)
 	}
 }

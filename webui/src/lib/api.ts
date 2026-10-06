@@ -125,6 +125,7 @@ export interface SearchParams {
   agent?: string;
   model?: string;
   project?: string;
+  scope?: "global" | "project-only";
   tags?: string[];
 }
 
@@ -144,6 +145,7 @@ export interface RecentParams {
   agent?: string;
   model?: string;
   project?: string;
+  scope?: "global" | "project-only";
 }
 
 export function recent(params: RecentParams): Promise<RecentResponse> {
@@ -155,6 +157,7 @@ export function recent(params: RecentParams): Promise<RecentResponse> {
   if (params.agent) qs.set("agent", params.agent);
   if (params.model) qs.set("model", params.model);
   if (params.project) qs.set("project", params.project);
+  if (params.scope) qs.set("scope", params.scope);
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return request(`/recent${suffix}`, { method: "GET" }, recentResponseSchema);
 }

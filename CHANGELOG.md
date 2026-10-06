@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Project scope (D34): `project=X` recalls global memory plus that project's,
+  `scope=project-only|global` narrows it, project entries can override a
+  contradicted global entry inside the project only, and `PATCH project` promotes
+  or moves entries. `m3m0s project set|unset|list|show` maps directories to
+  projects (`~/.m3m0s/projects.json`); the hooks and the MCP server use it, and
+  sessions with no project recall only global memory. `GET /stats` adds
+  `countByProject`.
 - Provenance fields (D33, migration 00003): optional `model` and `project` on entries,
   accepted and returned by the API, MCP tools, CLI and WebUI, and usable as exact
   filters in search, recent and the injection preview. The Claude Code hook records
