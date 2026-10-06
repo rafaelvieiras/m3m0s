@@ -16,6 +16,8 @@ export default function RecentPage() {
     domainCategory: search.domainCategory,
     source: search.source,
     agent: search.agent,
+    model: search.model,
+    project: search.project,
     tags: "",
   });
 
@@ -26,6 +28,8 @@ export default function RecentPage() {
         domainCategory: filters.domainCategory,
         source: filters.source,
         agent: filters.agent,
+        model: filters.model,
+        project: filters.project,
       },
     });
   }
@@ -36,6 +40,8 @@ export default function RecentPage() {
     domainCategory: search.domainCategory || undefined,
     source: search.source || undefined,
     agent: search.agent || undefined,
+    model: search.model || undefined,
+    project: search.project || undefined,
   });
 
   return (

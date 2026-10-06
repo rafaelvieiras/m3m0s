@@ -399,3 +399,40 @@ func TestFrequentEventsSkipUntilTranscriptGrowsEnough(t *testing.T) {
 		})
 	}
 }
+
+// Provenance: the model comes from the latest assistant line that names one
+// ("<synthetic>" does not count) and the project from M3M0S_PROJECT; an
+// invalid project slug is ignored so the capture is never rejected.
+func TestRunTagsCaptureWithModelAndProject(t *testing.T) {
+	fake := &fakeServe{}
+	srv := fake.server()
+	defer srv.Close()
+
+	dir := t.TempDir()
+	transcript := filepath.Join(dir, "session.jsonl")
+	writeTranscript(t, transcript,
+		`{"type":"user","message":{"role":"user","content":"question"}}`,
+		`{"type":"assistant","message":{"role":"assistant","model":"claude-sonnet-5-5","content":[{"type":"text","text":"answer"}]}}`,
+		`{"type":"assistant","message":{"role":"assistant","model":"<synthetic>","content":[{"type":"text","text":"injected"}]}}`,
+	)
+	deps, stderr := testDeps(t, t.TempDir(), srv)
+	env := map[string]string{"M3M0S_URL": srv.URL, "M3M0S_API_KEY": "test-key", "M3M0S_PROJECT": "m3m0s"}
+	deps.Getenv = func(k string) string { return env[k] }
+
+	Run(context.Background(), bytes.NewReader(payloadJSON(t, "sess-prov", transcript, "/path/to/repo/r")), deps)
+	if fake.callCount() != 1 {
+		t.Fatalf("expected 1 POST (stderr: %s)", stderr.String())
+	}
+	req := fake.lastRequest()
+	if req.Model != "claude-sonnet-5-5" || req.Project != "m3m0s" {
+		t.Errorf("Model=%q Project=%q", req.Model, req.Project)
+	}
+
+	env["M3M0S_PROJECT"] = "Not A Slug"
+	transcript2 := filepath.Join(dir, "s2.jsonl")
+	writeTranscript(t, transcript2, `{"type":"user","message":{"role":"user","content":"another question"}}`)
+	Run(context.Background(), bytes.NewReader(payloadJSON(t, "sess-prov2", transcript2, "/path/to/repo/r")), deps)
+	if req := fake.lastRequest(); req.Project != "" || req.Model != "" {
+		t.Errorf("invalid project must be dropped, model absent: %+v", req)
+	}
+}

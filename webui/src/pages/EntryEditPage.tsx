@@ -24,6 +24,8 @@ interface EditFormShape {
   domain: string;
   source: string;
   agentText: string;
+  modelText: string;
+  projectText: string;
   tagsText: string;
   metadataText: string;
 }
@@ -74,6 +76,8 @@ function EditForm({ entry }: { entry: Entry }) {
     domain: entry.domain,
     source: entry.source,
     agentText: entry.agent ?? "",
+    modelText: entry.model ?? "",
+    projectText: entry.project ?? "",
     tagsText: entry.tags.join(","),
     metadataText: JSON.stringify(entry.metadata, null, 2),
   };
@@ -90,6 +94,14 @@ function EditForm({ entry }: { entry: Entry }) {
 
       if (value.agentText !== initial.agentText) {
         payload.agent = value.agentText.trim() === "" ? null : value.agentText.trim();
+      }
+
+      if (value.modelText !== initial.modelText) {
+        payload.model = value.modelText.trim() === "" ? null : value.modelText.trim();
+      }
+
+      if (value.projectText !== initial.projectText) {
+        payload.project = value.projectText.trim() === "" ? null : value.projectText.trim();
       }
 
       if (value.tagsText !== initial.tagsText) {
@@ -207,6 +219,34 @@ function EditForm({ entry }: { entry: Entry }) {
                   {(field) => (
                     <Field>
                       <FieldLabel htmlFor={field.name}>agent (empty clears)</FieldLabel>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
+
+                <form.Field name="modelText">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>model (empty clears)</FieldLabel>
+                      <Input
+                        id={field.name}
+                        value={field.state.value}
+                        onBlur={field.handleBlur}
+                        onChange={(e) => field.handleChange(e.target.value)}
+                      />
+                    </Field>
+                  )}
+                </form.Field>
+
+                <form.Field name="projectText">
+                  {(field) => (
+                    <Field>
+                      <FieldLabel htmlFor={field.name}>project (empty = global)</FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}

@@ -69,6 +69,8 @@ export function ExtractionPreview({
                   <Badge variant="secondary">{entry.domain}</Badge>
                   <Badge variant="outline">{entry.source}</Badge>
                   {entry.agent && <Badge variant="outline">@{entry.agent}</Badge>}
+                  {entry.project && <Badge variant="outline">project:{entry.project}</Badge>}
+                  {entry.model && <Badge variant="outline">{entry.model}</Badge>}
                   <span className="font-mono">{entry.id}</span>
                 </div>
               </CardContent>

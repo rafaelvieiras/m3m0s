@@ -336,6 +336,8 @@ func rowToEntry(r sqlstore.EntryRow) schema.Entry {
 		DomainCategory: r.DomainCategory,
 		Source:         r.Source,
 		Agent:          r.Agent,
+		Model:          r.Model,
+		Project:        r.Project,
 		Tags:           r.Tags,
 		Metadata:       r.Metadata,
 		CreatedAt:      r.CreatedAt,
@@ -351,6 +353,8 @@ func entryToRow(e schema.Entry, embedding []float32) sqlstore.EntryRow {
 		DomainCategory: e.DomainCategory,
 		Source:         e.Source,
 		Agent:          e.Agent,
+		Model:          e.Model,
+		Project:        e.Project,
 		Tags:           e.Tags,
 		Metadata:       e.Metadata,
 		CreatedAt:      e.CreatedAt,
@@ -393,10 +397,14 @@ func (s *MemoryStore) loadTelemetry() error {
 
 // AddInput are the input fields of an `add`, before redaction/dedup.
 type AddInput struct {
-	Content  string
-	Domain   string
-	Source   string
-	Agent    string
+	Content string
+	Domain  string
+	Source  string
+	Agent   string
+	// Model is the LLM that produced the content (provenance, optional).
+	Model string
+	// Project scopes the memory to a project; empty = global.
+	Project  string
 	Tags     []string
 	Metadata map[string]string
 	// IDPrefix is optional (default "mem", see schema.DefaultIDPrefix) —
@@ -404,6 +412,32 @@ type AddInput struct {
 	// the memory came from a reindexed file chunk. Only used when the memory
 	// is new; on a duplicate (dedup) the existing ID is preserved.
 	IDPrefix string
+}
+
+// validateProvenance checks the optional model/project of an add or update;
+// empty values are valid (unknown model, global entry).
+func validateProvenance(model, project string) error {
+	if model != "" {
+		if err := schema.ValidateModel(model); err != nil {
+			return &ValidationError{Code: "invalid_model", Message: err.Error()}
+		}
+	}
+	if project != "" {
+		if err := schema.ValidateProject(project); err != nil {
+			return &ValidationError{Code: "invalid_project", Message: err.Error()}
+		}
+	}
+	return nil
+}
+
+// setProvenance stores model/project on e, leaving a field nil when empty.
+func setProvenance(e *schema.Entry, model, project string) {
+	if model != "" {
+		e.Model = &model
+	}
+	if project != "" {
+		e.Project = &project
+	}
 }
 
 // AddedEntry is 1 fact/entry of the Add pipeline result — before Phase 4
@@ -442,6 +476,9 @@ type AddOutput struct {
 // process for the extraction provider) → dedup check → insert or update.
 func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddOutput, error) {
 	if err := schema.ValidateDomain(in.Domain); err != nil {
+		return AddOutput{}, err
+	}
+	if err := validateProvenance(in.Model, in.Project); err != nil {
 		return AddOutput{}, err
 	}
 
@@ -595,7 +632,7 @@ func similarityBand(similarity float64) string {
 // not a duplicate but is in the "related" band, linkRelated decides the
 // related_to/valid_until.
 func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, now time.Time) (AddedEntry, error) {
-	candidate, similarity, contentVec, err := s.findDuplicate(ctx, content, in.Domain)
+	candidate, similarity, contentVec, err := s.findDuplicate(ctx, content, in.Domain, in.Project)
 	if err != nil {
 		return AddedEntry{}, err
 	}
@@ -614,6 +651,7 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 		if err != nil {
 			return AddedEntry{}, err
 		}
+		setProvenance(&entry, in.Model, in.Project)
 		if band == "related" {
 			if err := s.linkRelated(ctx, &entry, candidate, now); err != nil {
 				return AddedEntry{}, err
@@ -843,6 +881,10 @@ func mergeForDedup(existing schema.Entry, newContent string, in AddInput, now ti
 	}
 
 	updated := existing
+	if in.Model != "" {
+		model := in.Model
+		updated.Model = &model
+	}
 	updated.Content = newContent
 	updated.Source = source
 	updated.Tags = tags
@@ -1012,13 +1054,13 @@ func fuse(lists ...[]string) []string {
 // Finding nothing is not an error — it returns (nil, 0, vec, nil). A
 // soft-deleted candidate (D22) is never returned as a duplicate. Without an
 // embedding provider only an exact content match counts as a duplicate.
-func (s *MemoryStore) findDuplicate(ctx context.Context, content, domain string) (*schema.Entry, float64, []float32, error) {
+func (s *MemoryStore) findDuplicate(ctx context.Context, content, domain, project string) (*schema.Entry, float64, []float32, error) {
 	queryVec, err := s.embedText(ctx, content)
 	if errors.Is(err, errNoEmbedding) {
 		s.mu.RLock()
 		defer s.mu.RUnlock()
 		for _, e := range s.index {
-			if e.Domain == domain && e.Content == content && !isSoftDeleted(e) {
+			if e.Domain == domain && e.ProjectValue() == project && e.Content == content && !isSoftDeleted(e) {
 				c := e
 				return &c, 1, nil, nil
 			}
@@ -1032,7 +1074,7 @@ func (s *MemoryStore) findDuplicate(ctx context.Context, content, domain string)
 	// dedup/related — that would revive a memory the ForgetSweep decided to
 	// forget without going through Restore. It is skipped (the next candidate
 	// is considered instead).
-	scores, err := s.collectCandidates(ctx, domain, "", queryVec, 1, ModeVector, func(e schema.Entry) bool { return !isSoftDeleted(e) })
+	scores, err := s.collectCandidates(ctx, domain, "", queryVec, 1, ModeVector, func(e schema.Entry) bool { return e.ProjectValue() == project && !isSoftDeleted(e) })
 	if err != nil {
 		return nil, 0, nil, fmt.Errorf("dedup query: %w", err)
 	}
@@ -1065,7 +1107,12 @@ type Filter struct {
 	DomainCategory string
 	Source         string
 	Agent          string
-	Tags           []string
+	Model          string
+	// Project, when set, keeps only entries of that project; empty applies no
+	// project filter (global and every project). Layering global + project is
+	// a later step (issue #9).
+	Project string
+	Tags    []string
 	// Mode selects the ranking for Search: "" or "hybrid" (default: vector +
 	// keyword fused with RRF), "vector" or "keyword". Ignored by Recent.
 	Mode string
@@ -1082,6 +1129,12 @@ func (f Filter) matchesIndexEntry(e schema.Entry) bool {
 		return false
 	}
 	if f.Agent != "" && e.AgentValue() != f.Agent {
+		return false
+	}
+	if f.Model != "" && e.ModelValue() != f.Model {
+		return false
+	}
+	if f.Project != "" && e.ProjectValue() != f.Project {
 		return false
 	}
 	return matchesTags(e, f.Tags)
@@ -1138,6 +1191,12 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 			return false
 		}
 		if filter.Agent != "" && e.AgentValue() != filter.Agent {
+			return false
+		}
+		if filter.Model != "" && e.ModelValue() != filter.Model {
+			return false
+		}
+		if filter.Project != "" && e.ProjectValue() != filter.Project {
 			return false
 		}
 		if !matchesTags(e, filter.Tags) {
@@ -1333,6 +1392,8 @@ type UpdatePatch struct {
 	Domain   *string
 	Source   *string
 	Agent    *string // present and "" clears the agent (equivalent to "agent": null in the body)
+	Model    *string // present and "" clears the model
+	Project  *string // present and "" makes the entry global
 	Tags     *[]string
 	Metadata *map[string]string
 }
@@ -1383,6 +1444,21 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 			agent := *patch.Agent
 			entry.Agent = &agent
 		}
+	}
+
+	if patch.Model != nil || patch.Project != nil {
+		model, project := entry.ModelValue(), entry.ProjectValue()
+		if patch.Model != nil {
+			model = *patch.Model
+		}
+		if patch.Project != nil {
+			project = *patch.Project
+		}
+		if err := validateProvenance(model, project); err != nil {
+			return schema.Entry{}, err
+		}
+		entry.Model, entry.Project = nil, nil
+		setProvenance(&entry, model, project)
 	}
 
 	if patch.Tags != nil {

@@ -80,6 +80,8 @@ depend on `VITE_M3M0S_URL` in the common case.
   "domainCategory": "codigo",
   "source": "claude-code",
   "agent": null,
+  "model": null,
+  "project": null,
   "tags": ["chapter-3"],
   "metadata": { "conversationId": "conv_8f2a" },
   "createdAt": "2026-07-15T19:00:00Z",
@@ -126,12 +128,19 @@ Input (MCP tool schema / HTTP body):
   "domain": "string, required, ^[a-z0-9_]+:[a-z0-9._-]+$",
   "source": "string, default \"manual\"",
   "agent": "string, optional",
+  "model": "string, optional, no whitespace, max 128 chars",
+  "project": "string, optional, ^[a-z0-9][a-z0-9._-]{0,63}$; omitted = global",
   "tags": ["string", "..."],
   "metadata": { "free": "..." }
 }
 ```
 
-CLI: `m3m0s add "<content>" --domain codigo:m3m0s [--source manual] [--agent my-agent] [--tag foo --tag bar] [--meta key=value]`
+Provenance (D33): `source` is the tool that wrote the entry, `model` the LLM
+that produced the content and `project` an optional scope (absent/`null` =
+global). An invalid `model` or `project` is a `400` (`invalid_model`/
+`invalid_project`). Dedup only compares entries of the same project.
+
+CLI: `m3m0s add "<content>" --domain codigo:m3m0s [--source manual] [--agent my-agent] [--model name] [--project slug] [--tag foo --tag bar] [--meta key=value]`
 
 Server pipeline (Phase 1 + Phase 4 extraction/D12, in this order): **1)**
 secret redaction on `content` (D6); **2)** if extraction is enabled on the
@@ -217,10 +226,10 @@ survive a restart of `m3m0s serve` (D26).
 
 ### `memory_search` · `POST /api/v1/search` · `m3m0s search`
 
-Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "tags"?: string[], "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0 }`
+Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "model"?: string, "project"?: string, "tags"?: string[], "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0 }`
 
 `domain` restricts the candidate set before ranking (D28, D31);
-`domainCategory`/`source`/`agent`/`tags` are a Go post-filter over the ranked
+`domainCategory`/`source`/`agent`/`model`/`project`/`tags` are a Go post-filter over the ranked
 candidates (exact match, implicit AND — see `memory-schema.md`).
 
 `mode` selects the ranking (D32): `vector` (embedding similarity), `keyword`
@@ -254,7 +263,7 @@ without `--json` it prints the context block; with it, it prints raw `results`.
 
 ### `memory_recent` · `GET /api/v1/recent` · `m3m0s recent`
 
-Input: `limit` (default 10), `domain`, `domainCategory`, `source`, `agent` —
+Input: `limit` (default 10), `domain`, `domainCategory`, `source`, `agent`, `model`, `project` —
 the same exact filters as `search`, without a similarity `query`; ordered by
 `createdAt` descending.
 
@@ -388,8 +397,8 @@ deliberately HTTP-only (minimal scope for `watch`'s cascade purge, D11, with no
 MCP tool or CLI verb). Editing is **partial**: only the fields sent in the body
 change, the rest of the entry stays the same.
 
-**Editable fields:** `content`, `domain`, `source`, `agent`, `tags`,
-`metadata`. `id` and `createdAt` never change; `updatedAt` always changes to
+**Editable fields:** `content`, `domain`, `source`, `agent`, `model`, `project`,
+`tags`, `metadata`. `id` and `createdAt` never change; `updatedAt` always changes to
 the update timestamp, even if no value actually changed (the server does not
 diff field by field to decide whether anything "really changed").
 
@@ -397,7 +406,7 @@ diff field by field to decide whether anything "really changed").
 the body is interpreted by **key presence**, not by zero value — a `PATCH`
 without the `"tags"` key keeps the current tags, but `"tags": []` **clears**
 all tags (likewise `"metadata": {}` clears all metadata, and `"agent": null`
-removes the agent). This cannot be expressed by decoding straight into plain
+removes the agent; `"model": null` and `"project": null` likewise clear the model and make the entry global). This cannot be expressed by decoding straight into plain
 pointers with `encoding/json` (`*string`/`*[]string` cannot tell "key absent"
 from "key present with value `null`") — the HTTP implementation must first
 decode into `map[string]json.RawMessage` (or equivalent) to check which keys
@@ -412,6 +421,8 @@ HTTP comes from the URL and in MCP/CLI is its own argument/property):
   "domain": "string, optional, same pattern as memory_add",
   "source": "string, optional",
   "agent": "string or null, optional",
+  "model": "string or null, optional",
+  "project": "string or null, optional",
   "tags": ["string", "..."],
   "metadata": { "free": "..." }
 }
@@ -429,7 +440,7 @@ MCP tool: `memory_update` — input schema = the same JSON body above plus `id`
 (string, required), following the same pattern as the existing `toolDefs` in
 `internal/mcpserver/mcp.go`.
 
-CLI: `m3m0s update <id> [--content "..."] [--domain codigo:m3m0s] [--source manual] [--agent my-agent] [--tag foo --tag bar] [--meta key=value] [--clear-tags] [--clear-metadata] [--clear-agent]`
+CLI: `m3m0s update <id> [--content "..."] [--domain codigo:m3m0s] [--source manual] [--agent my-agent] [--model name] [--project slug] [--tag foo --tag bar] [--meta key=value] [--clear-tags] [--clear-metadata] [--clear-agent] [--clear-model] [--clear-project]`
 
 The CLI uses the stdlib `flag` package, which cannot natively tell "flag not
 passed" from "flag passed with an empty value" — so the fields that can be
@@ -474,7 +485,7 @@ valid → replaces `domain` **and** recomputes `domainCategory`
 (`schema.DomainCategory(domain)`) — it is a derived field (D9/
 `memory-schema.md`) and cannot go out of sync with the new `domain`.
 
-**5)** `source`/`agent`/`tags`/`metadata` present: replace the corresponding
+**5)** `source`/`agent`/`model`/`project`/`tags`/`metadata` present (a non-empty `model`/`project` is validated like in `add`): replace the corresponding
 value on the entry (see the whole-replacement semantics above), with no
 additional validation beyond "if `source` was sent, it cannot be an empty
 string" (same spirit as `content`).

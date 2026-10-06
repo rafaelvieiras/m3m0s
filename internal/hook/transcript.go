@@ -21,6 +21,9 @@ import (
 type TranscriptMessage struct {
 	Role string // "user" or "assistant" (or the line "type", if message.role is empty)
 	Text string
+	// Model is message.model of assistant lines (empty for user lines or when
+	// absent); it feeds the provenance of the stored memory.
+	Model string
 }
 
 // transcriptLine is the (unstable, see package comment) format of one JSONL
@@ -33,6 +36,7 @@ type transcriptLine struct {
 // transcriptMessageBody is the "message" field of a "user"/"assistant" line.
 type transcriptMessageBody struct {
 	Role    string          `json:"role"`
+	Model   string          `json:"model"`
 	Content json.RawMessage `json:"content"`
 }
 
@@ -75,7 +79,7 @@ func ParseLine(raw []byte) (TranscriptMessage, bool) {
 	if strings.TrimSpace(text) == "" {
 		return TranscriptMessage{}, false
 	}
-	return TranscriptMessage{Role: role, Text: text}, true
+	return TranscriptMessage{Role: role, Text: text, Model: msg.Model}, true
 }
 
 // extractContentText handles the 2 possible "content" formats: a plain

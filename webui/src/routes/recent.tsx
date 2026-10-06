@@ -9,6 +9,8 @@ export const recentSearchSchema = z.object({
   domainCategory: z.string().catch("").default(""),
   source: z.string().catch("").default(""),
   agent: z.string().catch("").default(""),
+  model: z.string().catch("").default(""),
+  project: z.string().catch("").default(""),
 });
 
 export const Route = createRoute({

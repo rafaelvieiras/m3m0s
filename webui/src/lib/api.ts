@@ -123,6 +123,8 @@ export interface SearchParams {
   domainCategory?: string;
   source?: string;
   agent?: string;
+  model?: string;
+  project?: string;
   tags?: string[];
 }
 
@@ -140,6 +142,8 @@ export interface RecentParams {
   domainCategory?: string;
   source?: string;
   agent?: string;
+  model?: string;
+  project?: string;
 }
 
 export function recent(params: RecentParams): Promise<RecentResponse> {
@@ -149,6 +153,8 @@ export function recent(params: RecentParams): Promise<RecentResponse> {
   if (params.domainCategory) qs.set("domainCategory", params.domainCategory);
   if (params.source) qs.set("source", params.source);
   if (params.agent) qs.set("agent", params.agent);
+  if (params.model) qs.set("model", params.model);
+  if (params.project) qs.set("project", params.project);
   const suffix = qs.toString() ? `?${qs.toString()}` : "";
   return request(`/recent${suffix}`, { method: "GET" }, recentResponseSchema);
 }

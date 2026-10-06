@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Provenance fields (D33, migration 00003): optional `model` and `project` on entries,
+  accepted and returned by the API, MCP tools, CLI and WebUI, and usable as exact
+  filters in search, recent and the injection preview. The Claude Code hook records
+  the model from the transcript and the project from `M3M0S_PROJECT`;
+  `M3M0S_INJECT_SOURCE`/`M3M0S_INJECT_PROJECT` filter SessionStart injection.
+  Dedup only compares entries of the same project.
 - `m3m0s eval <golden.json>`: recall@k, mean injected tokens and latency per
   ranking mode over a golden dataset (D30).
 - SQLite FTS5 index over memory content (migration 00002, backfilled on first start).

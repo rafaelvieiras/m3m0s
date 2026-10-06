@@ -26,6 +26,9 @@ export const entrySchema = z.object({
   domainCategory: z.string(),
   source: z.string(),
   agent: z.string().nullable(),
+  // Provenance (F2): null/absent = unknown model, global entry.
+  model: z.string().nullable().optional(),
+  project: z.string().nullable().optional(),
   tags: z.array(z.string()),
   metadata: metadataSchema,
   score: z.number().optional(),
@@ -41,6 +44,8 @@ export const addFormSchema = z.object({
   domain: domainSchema,
   source: z.string().optional(),
   agent: z.string().optional(),
+  model: z.string().optional(),
+  project: z.string().optional(),
   tags: tagsSchema,
   metadata: metadataSchema,
 });
@@ -66,6 +71,8 @@ export const searchFormSchema = z.object({
   domainCategory: z.string().optional(),
   source: z.string().optional(),
   agent: z.string().optional(),
+  model: z.string().optional(),
+  project: z.string().optional(),
   tags: z.array(z.string()).optional(),
 });
 export type SearchFormValues = z.infer<typeof searchFormSchema>;
@@ -126,6 +133,8 @@ export interface UpdatePayload {
   domain?: string;
   source?: string;
   agent?: string | null;
+  model?: string | null;
+  project?: string | null;
   tags?: string[];
   metadata?: Record<string, string>;
 }

@@ -63,6 +63,8 @@ func runAdd(ctx context.Context, args []string) error {
 	domain := fs.String("domain", "", "domain in the format category:instance (required)")
 	source := fs.String("source", "", "originating tool (default: manual)")
 	agent := fs.String("agent", "", "optional named agent identity")
+	model := fs.String("model", "", "LLM that produced the content (provenance)")
+	project := fs.String("project", "", "project slug (default: global)")
 	jsonOut := fs.Bool("json", false, "print the raw response as JSON")
 	var tags stringSlice
 	fs.Var(&tags, "tag", "tag (repeatable)")
@@ -88,6 +90,8 @@ func runAdd(ctx context.Context, args []string) error {
 		Domain:   *domain,
 		Source:   *source,
 		Agent:    *agent,
+		Model:    *model,
+		Project:  *project,
 		Tags:     tags,
 		Metadata: metadata,
 	})
@@ -120,6 +124,8 @@ func runSearch(ctx context.Context, args []string) error {
 	domainCategory := fs.String("domain-category", "", "exact domain_category filter")
 	source := fs.String("source", "", "exact source filter")
 	agent := fs.String("agent", "", "exact agent filter")
+	model := fs.String("model", "", "exact model filter")
+	project := fs.String("project", "", "only entries of this project")
 	mode := fs.String("mode", "", "ranking: hybrid (default), vector or keyword")
 	maxTokens := fs.Int("max-tokens", 0, "cap the estimated tokens of the results (0 = no cap)")
 	jsonOut := fs.Bool("json", false, "print raw results as JSON instead of the contextBlock")
@@ -139,6 +145,8 @@ func runSearch(ctx context.Context, args []string) error {
 		DomainCategory: *domainCategory,
 		Source:         *source,
 		Agent:          *agent,
+		Model:          *model,
+		Project:        *project,
 		Tags:           tags,
 		Mode:           *mode,
 		MaxTokens:      *maxTokens,
@@ -161,6 +169,8 @@ func runRecent(ctx context.Context, args []string) error {
 	domainCategory := fs.String("domain-category", "", "exact domain_category filter")
 	source := fs.String("source", "", "exact source filter")
 	agent := fs.String("agent", "", "exact agent filter")
+	model := fs.String("model", "", "exact model filter")
+	project := fs.String("project", "", "only entries of this project")
 	jsonOut := fs.Bool("json", false, "print the raw response as JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -172,6 +182,8 @@ func runRecent(ctx context.Context, args []string) error {
 		DomainCategory: *domainCategory,
 		Source:         *source,
 		Agent:          *agent,
+		Model:          *model,
+		Project:        *project,
 	})
 	if err != nil {
 		return err
@@ -205,6 +217,10 @@ func runUpdate(ctx context.Context, args []string) error {
 	domain := fs.String("domain", "", "new domain in the format category:instance")
 	source := fs.String("source", "", "new source")
 	agent := fs.String("agent", "", "new agent")
+	model := fs.String("model", "", "new model")
+	project := fs.String("project", "", "new project")
+	clearModel := fs.Bool("clear-model", false, "remove the model (mutually exclusive with --model)")
+	clearProject := fs.Bool("clear-project", false, "make the memory global (mutually exclusive with --project)")
 	clearTags := fs.Bool("clear-tags", false, "remove all tags (mutually exclusive with --tag)")
 	clearMetadata := fs.Bool("clear-metadata", false, "remove all metadata (mutually exclusive with --meta)")
 	clearAgent := fs.Bool("clear-agent", false, "remove the agent (mutually exclusive with --agent)")
@@ -213,11 +229,11 @@ func runUpdate(ctx context.Context, args []string) error {
 	fs.Var(&tags, "tag", "tag (repeatable) — replaces the entire set of tags")
 	var metaPairs stringSlice
 	fs.Var(&metaPairs, "meta", "key=value pair (repeatable) — replaces the entire metadata")
-	if err := fs.Parse(reorderFlagsFirst(args, "json", "clear-tags", "clear-metadata", "clear-agent")); err != nil {
+	if err := fs.Parse(reorderFlagsFirst(args, "json", "clear-tags", "clear-metadata", "clear-agent", "clear-model", "clear-project")); err != nil {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return errors.New(`usage: m3m0s update <id> [--content ...] [--domain ...] [--source ...] [--agent ...] [--tag ... --tag ...] [--meta key=value ...] [--clear-tags] [--clear-metadata] [--clear-agent]`)
+		return errors.New(`usage: m3m0s update <id> [--content ...] [--domain ...] [--source ...] [--agent ...] [--model ...] [--project ...] [--tag ... --tag ...] [--meta key=value ...] [--clear-tags] [--clear-metadata] [--clear-agent] [--clear-model] [--clear-project]`)
 	}
 	id := fs.Arg(0)
 
@@ -231,6 +247,12 @@ func runUpdate(ctx context.Context, args []string) error {
 	fs.Visit(func(f *flag.Flag) { visited[f.Name] = true })
 	if *clearAgent && visited["agent"] {
 		return errors.New("--clear-agent and --agent are mutually exclusive")
+	}
+	if *clearModel && visited["model"] {
+		return errors.New("--clear-model and --model are mutually exclusive")
+	}
+	if *clearProject && visited["project"] {
+		return errors.New("--clear-project and --project are mutually exclusive")
 	}
 
 	var req apitypes.UpdateRequest
@@ -250,6 +272,18 @@ func runUpdate(ctx context.Context, args []string) error {
 		req.Agent = rawJSON(*agent)
 	}
 	switch {
+	case *clearModel:
+		req.Model = json.RawMessage("null")
+	case visited["model"]:
+		req.Model = rawJSON(*model)
+	}
+	switch {
+	case *clearProject:
+		req.Project = json.RawMessage("null")
+	case visited["project"]:
+		req.Project = rawJSON(*project)
+	}
+	switch {
 	case *clearTags:
 		req.Tags = json.RawMessage("[]")
 	case len(tags) > 0:
@@ -267,7 +301,7 @@ func runUpdate(ctx context.Context, args []string) error {
 	}
 
 	if !req.HasAnyField() {
-		return errors.New("no fields to update: provide at least one flag (--content/--domain/--source/--agent/--tag/--meta/--clear-tags/--clear-metadata/--clear-agent)")
+		return errors.New("no fields to update: provide at least one flag (--content/--domain/--source/--agent/--model/--project/--tag/--meta/--clear-tags/--clear-metadata/--clear-agent/--clear-model/--clear-project)")
 	}
 
 	entry, err := client.NewFromEnv().Update(ctx, id, req)

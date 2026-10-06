@@ -108,8 +108,10 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 	defer cancel()
 
 	resp, err := c.Recent(ctx, apitypes.RecentParams{
-		Domain: domain,
-		Limit:  SessionStartFetchLimit,
+		Domain:  domain,
+		Limit:   SessionStartFetchLimit,
+		Source:  deps.Getenv("M3M0S_INJECT_SOURCE"),
+		Project: deps.Getenv("M3M0S_INJECT_PROJECT"),
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: GET /api/v1/recent failed: %v\n", err)

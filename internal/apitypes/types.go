@@ -15,10 +15,14 @@ import (
 
 // AddRequest is the body of POST /memories.
 type AddRequest struct {
-	Content  string            `json:"content"`
-	Domain   string            `json:"domain"`
-	Source   string            `json:"source,omitempty"`
-	Agent    string            `json:"agent,omitempty"`
+	Content string `json:"content"`
+	Domain  string `json:"domain"`
+	Source  string `json:"source,omitempty"`
+	Agent   string `json:"agent,omitempty"`
+	// Model is the LLM that produced the content (provenance, optional).
+	Model string `json:"model,omitempty"`
+	// Project scopes the memory to a project; omitted = global.
+	Project  string            `json:"project,omitempty"`
 	Tags     []string          `json:"tags,omitempty"`
 	Metadata map[string]string `json:"metadata,omitempty"`
 	// IDPrefix is optional (the server defaults to "mem" when absent) — an
@@ -87,6 +91,8 @@ type SearchRequest struct {
 	DomainCategory string   `json:"domainCategory,omitempty"`
 	Source         string   `json:"source,omitempty"`
 	Agent          string   `json:"agent,omitempty"`
+	Model          string   `json:"model,omitempty"`
+	Project        string   `json:"project,omitempty"`
 	Tags           []string `json:"tags,omitempty"`
 	// Mode selects the ranking: "hybrid" (default: vector + keyword fused),
 	// "vector" or "keyword".
@@ -111,6 +117,8 @@ type RecentParams struct {
 	DomainCategory string
 	Source         string
 	Agent          string
+	Model          string
+	Project        string
 }
 
 // RecentResponse is the 200 response of GET /recent.
@@ -187,16 +195,18 @@ type UpdateRequest struct {
 	Domain   json.RawMessage `json:"domain,omitempty"`
 	Source   json.RawMessage `json:"source,omitempty"`
 	Agent    json.RawMessage `json:"agent,omitempty"`
+	Model    json.RawMessage `json:"model,omitempty"`
+	Project  json.RawMessage `json:"project,omitempty"`
 	Tags     json.RawMessage `json:"tags,omitempty"`
 	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
-// HasAnyField reports whether at least one of the 6 editable fields is
+// HasAnyField reports whether at least one of the 8 editable fields is
 // present in the body — used by the HTTP layer to decide on the
 // 400 no_fields_to_update error (docs/api-contract.md).
 func (r UpdateRequest) HasAnyField() bool {
 	return len(r.Content) > 0 || len(r.Domain) > 0 || len(r.Source) > 0 ||
-		len(r.Agent) > 0 || len(r.Tags) > 0 || len(r.Metadata) > 0
+		len(r.Agent) > 0 || len(r.Model) > 0 || len(r.Project) > 0 || len(r.Tags) > 0 || len(r.Metadata) > 0
 }
 
 // UpdateResponse is the 200 response of PATCH /memories/:id: the complete

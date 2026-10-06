@@ -61,6 +61,8 @@ export default function EntryDetailPage() {
             <Badge variant="outline">{entry.domainCategory}</Badge>
             <Badge variant="outline">{entry.source}</Badge>
             {entry.agent && <Badge variant="outline">@{entry.agent}</Badge>}
+            {entry.project && <Badge variant="outline">project:{entry.project}</Badge>}
+            {entry.model && <Badge variant="outline">{entry.model}</Badge>}
             {entry.tags.map((tag) => (
               <Badge key={tag} variant="outline" className="text-muted-foreground">
                 #{tag}
