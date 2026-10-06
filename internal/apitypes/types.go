@@ -507,3 +507,72 @@ type PreviewInjectionResponse struct {
 	TokenBudget     int    `json:"tokenBudget"`
 	Raw             string `json:"raw"`
 }
+
+// ── accounts (D35) ──
+
+// AuthStatusResponse is the 200 body of GET /auth/status (no auth).
+type AuthStatusResponse struct {
+	NeedsOnboarding bool `json:"needsOnboarding"`
+}
+
+// AccountUser is an account as returned by the API (never a password or hash).
+type AccountUser struct {
+	Username    string     `json:"username"`
+	HasPassword bool       `json:"hasPassword"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	LastLoginAt *time.Time `json:"lastLoginAt,omitempty"`
+}
+
+// OnboardRequest is the body of POST /auth/onboard.
+type OnboardRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Confirm  string `json:"confirm"`
+}
+
+// LoginRequest is the body of POST /auth/login.
+type LoginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+}
+
+// MeResponse is the 200 body of GET /auth/me: who the caller is. Via is
+// "session" (Username set) or "apikey".
+type MeResponse struct {
+	Via      string `json:"via"`
+	Username string `json:"username,omitempty"`
+}
+
+// ResetInfoResponse is the 200 body of GET /auth/reset?token=...
+type ResetInfoResponse struct {
+	Username string `json:"username"`
+	// Kind is "reset" (existing account) or "invite" (new account).
+	Kind string `json:"kind"`
+}
+
+// ResetPasswordRequest is the body of POST /auth/reset.
+type ResetPasswordRequest struct {
+	Token    string `json:"token"`
+	Password string `json:"password"`
+	Confirm  string `json:"confirm"`
+}
+
+// CreateUserRequest is the body of POST /users (API key only).
+type CreateUserRequest struct {
+	Username string `json:"username"`
+}
+
+// ResetLinkResponse is returned when a link is issued (create user / reset):
+// open Path on the server to set the password.
+type ResetLinkResponse struct {
+	User      AccountUser `json:"user"`
+	Kind      string      `json:"kind"`
+	Token     string      `json:"token"`
+	Path      string      `json:"path"`
+	ExpiresAt time.Time   `json:"expiresAt"`
+}
+
+// UsersResponse is the 200 body of GET /users.
+type UsersResponse struct {
+	Users []AccountUser `json:"users"`
+}

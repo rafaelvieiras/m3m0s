@@ -80,9 +80,16 @@ docker compose logs          # first start prints a generated API key — save i
                              # it is not shown again
 ```
 
-Then open `http://localhost:19234/`, paste the API key on the login screen, and
-start adding memories. Data lives in a named volume (`m3m0s-data`), so it
-survives restarts.
+Then open `http://localhost:19234/`. A fresh instance runs a first-time setup:
+paste the API key from the log (it proves you control the instance) and create
+the first account (username and password). From then on you sign in with that
+account. Data lives in a named volume (`m3m0s-data`), so it survives restarts.
+
+Accounts are for people using the WebUI; hooks, MCP and the CLI keep using API
+keys. Forgot the password? `m3m0s user reset <username>` prints a single-use,
+30-minute link that opens a page to choose a new one (run it with
+`M3M0S_URL`/`M3M0S_API_KEY` set, or inside the container). `m3m0s user add`,
+`list` and `delete` manage further accounts; they all share the same memory.
 
 Point the clients at the server:
 

@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Accounts (D35, migration 00004): first-run onboarding in the WebUI, username/password
+  sign-in with revocable server-side sessions (HttpOnly cookie, CSRF header, login
+  throttling), a password reset page reached from a single-use link, and
+  `m3m0s user list|add|reset|delete` (API key only). API keys keep working
+  unchanged for hooks, MCP and the CLI.
 - Project scope (D34): `project=X` recalls global memory plus that project's,
   `scope=project-only|global` narrows it, project entries can override a
   contradicted global entry inside the project only, and `PATCH project` promotes

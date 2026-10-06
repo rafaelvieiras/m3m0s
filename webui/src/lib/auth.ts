@@ -21,6 +21,8 @@ export function clearApiKey(): void {
   localStorage.removeItem(STORAGE_KEY);
 }
 
-export function isAuthenticated(): boolean {
+// A stored API key counts as signed in (the pre-accounts flow, still valid);
+// otherwise the session cookie is probed with GET /auth/me (see lib/api.ts).
+export function hasStoredApiKey(): boolean {
   return !!getApiKey();
 }

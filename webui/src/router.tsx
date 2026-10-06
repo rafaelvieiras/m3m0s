@@ -5,6 +5,7 @@
 import { createRouter } from "@tanstack/react-router";
 import { Route as RootRoute } from "./routes/__root";
 import { Route as LoginRoute } from "./routes/login";
+import { Route as ResetPasswordRoute } from "./routes/reset-password";
 import { Route as IndexRoute } from "./routes/index";
 import { Route as AuthedRoute } from "./routes/_authed";
 import { Route as SearchRoute } from "./routes/search";
@@ -18,6 +19,7 @@ import { Route as PreviewRoute } from "./routes/preview";
 
 const routeTree = RootRoute.addChildren([
   LoginRoute,
+  ResetPasswordRoute,
   IndexRoute,
   AuthedRoute.addChildren([
     SearchRoute,

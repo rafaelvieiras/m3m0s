@@ -7,6 +7,9 @@ import { z } from "zod";
 import { clearApiKey, getApiKey } from "./auth";
 import {
   addResponseSchema,
+  authStatusSchema,
+  meSchema,
+  resetInfoSchema,
   chatResponseSchema,
   entrySchema,
   errorBodySchema,
@@ -20,6 +23,9 @@ import {
   updateResponseSchema,
   type AddFormValues,
   type AddResponse,
+  type AuthStatus,
+  type Me,
+  type ResetInfo,
   type ChatMessagePayload,
   type ChatResponse,
   type Entry,
@@ -67,6 +73,9 @@ async function request<T>(
   const apiKey = getApiKey();
   const headers = new Headers(init.headers);
   headers.set("Content-Type", "application/json");
+  // Required by the server for state-changing requests authenticated by the
+  // session cookie (a cross-site form cannot set it).
+  headers.set("X-M3m0s-Csrf", "1");
   if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
 
   const res = await fetch(`${BASE_URL}${API_PREFIX}${path}`, { ...init, headers });
@@ -110,6 +119,83 @@ export async function validateApiKey(key: string): Promise<boolean> {
     headers: { Authorization: `Bearer ${key}` },
   });
   return res.ok;
+}
+
+// ── accounts (D35) ──
+//
+// The /auth/* endpoints are public or session-based; a 401 from them (wrong
+// password, expired link) is an answer, not a logged-out session, so they go
+// through authRequest, which never redirects to /login.
+async function authRequest<T>(path: string, init: RequestInit, schema: z.ZodType<T> | null): Promise<T> {
+  const headers = new Headers(init.headers);
+  headers.set("Content-Type", "application/json");
+  headers.set("X-M3m0s-Csrf", "1");
+  const apiKey = getApiKey();
+  if (apiKey) headers.set("Authorization", `Bearer ${apiKey}`);
+  const res = await fetch(`${BASE_URL}${API_PREFIX}${path}`, { ...init, headers });
+  if (!res.ok) {
+    const body = await res.json().catch(() => null);
+    const parsed = errorBodySchema.safeParse(body);
+    if (parsed.success) {
+      throw new ApiError(res.status, parsed.data.error.code, parsed.data.error.message);
+    }
+    throw new ApiError(res.status, "unknown_error", `HTTP ${res.status}`);
+  }
+  if (res.status === 204 || !schema) return undefined as T;
+  const json = await res.json();
+  const parsed = schema.safeParse(json);
+  if (!parsed.success) throw new Error(`Unexpected response from ${path}: ${parsed.error.message}`);
+  return parsed.data;
+}
+
+export function getAuthStatus(): Promise<AuthStatus> {
+  return authRequest("/auth/status", { method: "GET" }, authStatusSchema);
+}
+
+// getMe returns who the caller is, or null when not signed in.
+export async function getMe(): Promise<Me | null> {
+  try {
+    return await authRequest("/auth/me", { method: "GET" }, meSchema);
+  } catch (e) {
+    if (e instanceof ApiError && e.status === 401) return null;
+    throw e;
+  }
+}
+
+export function login(username: string, password: string): Promise<void> {
+  return authRequest("/auth/login", { method: "POST", body: JSON.stringify({ username, password }) }, null);
+}
+
+export function logout(): Promise<void> {
+  return authRequest("/auth/logout", { method: "POST" }, null);
+}
+
+// Onboarding must carry an API key (the bootstrap key printed at first boot),
+// otherwise anyone reaching a fresh instance could claim it.
+export async function onboard(
+  apiKey: string,
+  username: string,
+  password: string,
+  confirm: string,
+): Promise<void> {
+  const res = await fetch(`${BASE_URL}${API_PREFIX}/auth/onboard`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ username, password, confirm }),
+  });
+  if (!res.ok) {
+    const parsed = errorBodySchema.safeParse(await res.json().catch(() => null));
+    if (parsed.success) throw new ApiError(res.status, parsed.data.error.code, parsed.data.error.message);
+    throw new ApiError(res.status, "unknown_error", `HTTP ${res.status}`);
+  }
+}
+
+export function getResetInfo(token: string): Promise<ResetInfo> {
+  return authRequest(`/auth/reset?token=${encodeURIComponent(token)}`, { method: "GET" }, resetInfoSchema);
+}
+
+export function resetPassword(token: string, password: string, confirm: string): Promise<void> {
+  return authRequest("/auth/reset", { method: "POST", body: JSON.stringify({ token, password, confirm }) }, null);
 }
 
 export function getStats(): Promise<StatsResponse> {

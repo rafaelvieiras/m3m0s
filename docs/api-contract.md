@@ -64,11 +64,45 @@ depend on `VITE_M3M0S_URL` in the common case.
 - **Direct HTTP:** `Authorization: Bearer <api_key>` header required on every
   route except `/health`. No valid key → `401`. (A SHA-256 hash is stored,
   never the raw key — already planned in Phase 1.)
+- **Browser sessions (D35):** the WebUI signs in with a username and password
+  (`POST /auth/login`) and gets an HttpOnly `m3m0s_session` cookie, valid for 30
+  days and revocable server-side. Every route that accepts a Bearer key also
+  accepts a valid session cookie; a state-changing request authenticated by the
+  cookie must carry the header `X-M3m0s-Csrf` (any non-empty value), otherwise
+  `403 csrf`. Account administration (`/users`) accepts **only** an API key.
+  API keys are unchanged and remain the credential for machines.
 - **MCP (stdio) and CLI:** no auth of their own — they run as a local process
   of the user (same trust boundary as whoever invoked them), and use the
   configured `M3M0S_API_KEY` to authenticate against `serve` under the hood.
   This only becomes a concern if `M3M0S_URL` ever points outside the local
   network without TLS — out of scope while usage stays on a trusted network.
+
+### Accounts (D35)
+
+Username (`^[a-z0-9][a-z0-9._-]{2,31}$`, case-insensitive) and password (10-128
+characters, no composition rules, not equal to the username). Passwords are
+stored as salted PBKDF2-HMAC-SHA256 (600,000 iterations); sessions and
+reset/invite tokens only as SHA-256 hashes. All accounts share the one memory;
+an account is a login, not a separate memory.
+
+| Route | Auth | Purpose |
+|---|---|---|
+| `GET /auth/status` | none | `{ "needsOnboarding": bool }`: true while no account exists |
+| `POST /auth/onboard` | **API key** | `{username, password, confirm}` creates the **first** account and signs in (`201` + cookie). `409 account_exists` once any account exists. The key proves control of the instance, so a stranger cannot claim a fresh one |
+| `POST /auth/login` | none + CSRF header | `{username, password}` → `200` + cookie. `401 invalid_credentials` (same answer for an unknown user); `429 too_many_attempts` + `Retry-After` after repeated failures (per username and per address, doubling up to 15 min) |
+| `POST /auth/logout` | cookie + CSRF header | revokes the session (`204`) |
+| `GET /auth/me` | key or cookie | `{ "via": "session" | "apikey", "username"? }`, else `401` |
+| `GET /auth/reset?token=` | none | `{ "username", "kind": "reset" | "invite" }` for a valid link, else `404 invalid_link` |
+| `POST /auth/reset` | none (the token is the credential) | `{token, password, confirm}` sets the password, consumes the link and **revokes every session** of the account (`204`). A password that fails validation does not consume the link |
+| `GET /users` | API key | list accounts |
+| `POST /users` | API key | `{username}` creates an account with no password and returns a link (`kind: "invite"`) |
+| `POST /users/{username}/reset` | API key | issues a link (`kind: "reset"`); the current password keeps working until it is used |
+| `DELETE /users/{username}` | API key | deletes the account and its sessions |
+
+A link response is `{ user, kind, token, path, expiresAt }`; open `path` on the
+server (`/reset-password?token=...`). Links are single-use, expire after 30
+minutes (reset) or 72 hours (invite), and only the newest link of an account
+works. CLI: `m3m0s user list|add|reset|delete`.
 
 ## Common format: `MemoryEntry`
 

@@ -221,3 +221,26 @@ export const errorBodySchema = z.object({
   }),
 });
 export type ErrorBody = z.infer<typeof errorBodySchema>;
+
+
+// ── accounts (D35) · /auth/* ──
+
+export const authStatusSchema = z.object({ needsOnboarding: z.boolean() });
+export type AuthStatus = z.infer<typeof authStatusSchema>;
+
+export const meSchema = z.object({
+  via: z.enum(["session", "apikey"]),
+  username: z.string().optional(),
+});
+export type Me = z.infer<typeof meSchema>;
+
+export const resetInfoSchema = z.object({
+  username: z.string(),
+  kind: z.enum(["reset", "invite"]),
+});
+export type ResetInfo = z.infer<typeof resetInfoSchema>;
+
+// Mirrors internal/auth: length-only policy.
+export const MIN_PASSWORD_LENGTH = 10;
+export const MAX_PASSWORD_LENGTH = 128;
+export const usernameRegex = /^[a-z0-9][a-z0-9._-]{2,31}$/;

@@ -2,6 +2,7 @@ import { Link, Outlet, useRouterState } from "@tanstack/react-router";
 import { LogOut, Search as SearchIcon, Clock, BarChart3, Plus, ListChecks, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatWidget } from "@/components/chat/ChatWidget";
+import { logout } from "@/lib/api";
 import { clearApiKey } from "@/lib/auth";
 
 const navItems = [
@@ -16,8 +17,13 @@ const navItems = [
 export function AppShell() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
-  function handleLogout() {
+  async function handleLogout() {
     clearApiKey();
+    try {
+      await logout(); // revokes the cookie session; harmless for API-key sign-ins
+    } catch {
+      // the server being unreachable must not trap the user in the app
+    }
     window.location.assign("/login");
   }
 

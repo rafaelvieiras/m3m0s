@@ -333,3 +333,34 @@ func (c *Client) DeleteByFilePath(ctx context.Context, domain, filePath string) 
 	err := c.do(ctx, http.MethodDelete, apiPrefix+"/memories", q, nil, &out)
 	return out.DeletedCount, err
 }
+
+// BaseURL returns the server URL the client talks to.
+func (c *Client) BaseURL() string { return c.baseURL }
+
+// CreateUser calls POST /api/v1/users (API key): creates an account with no
+// password and returns the single-use link that sets one.
+func (c *Client) CreateUser(ctx context.Context, username string) (apitypes.ResetLinkResponse, error) {
+	var out apitypes.ResetLinkResponse
+	err := c.do(ctx, http.MethodPost, apiPrefix+"/users", nil, apitypes.CreateUserRequest{Username: username}, &out)
+	return out, err
+}
+
+// ListUsers calls GET /api/v1/users.
+func (c *Client) ListUsers(ctx context.Context) (apitypes.UsersResponse, error) {
+	var out apitypes.UsersResponse
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/users", nil, nil, &out)
+	return out, err
+}
+
+// ResetUser calls POST /api/v1/users/{username}/reset: issues a single-use
+// password reset link.
+func (c *Client) ResetUser(ctx context.Context, username string) (apitypes.ResetLinkResponse, error) {
+	var out apitypes.ResetLinkResponse
+	err := c.do(ctx, http.MethodPost, apiPrefix+"/users/"+url.PathEscape(username)+"/reset", nil, nil, &out)
+	return out, err
+}
+
+// DeleteUser calls DELETE /api/v1/users/{username}.
+func (c *Client) DeleteUser(ctx context.Context, username string) error {
+	return c.do(ctx, http.MethodDelete, apiPrefix+"/users/"+url.PathEscape(username), nil, nil, nil)
+}
