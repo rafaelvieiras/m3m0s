@@ -246,6 +246,11 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := validateProvenance(req.Model, req.Project); err != nil {
+		writeError(w, http.StatusBadRequest, err.code, err.Error())
+		return
+	}
+
 	op := s.pendingAdds.start()
 	go func() {
 		// context.Background(), not r.Context(): if we used the request
@@ -258,6 +263,8 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 			Domain:   req.Domain,
 			Source:   req.Source,
 			Agent:    req.Agent,
+			Model:    req.Model,
+			Project:  req.Project,
 			Tags:     req.Tags,
 			Metadata: req.Metadata,
 			IDPrefix: req.IDPrefix,
@@ -345,6 +352,8 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		DomainCategory: req.DomainCategory,
 		Source:         req.Source,
 		Agent:          req.Agent,
+		Model:          req.Model,
+		Project:        req.Project,
 		Tags:           req.Tags,
 		Mode:           req.Mode,
 	}
@@ -384,6 +393,8 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 		DomainCategory: q.Get("domainCategory"),
 		Source:         q.Get("source"),
 		Agent:          q.Get("agent"),
+		Model:          q.Get("model"),
+		Project:        q.Get("project"),
 	}
 
 	results := s.store.Recent(limit, filter, time.Now())
@@ -469,7 +480,7 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !req.HasAnyField() {
-		writeError(w, http.StatusBadRequest, "no_fields_to_update", "body has no recognized field (content/domain/source/agent/tags/metadata)")
+		writeError(w, http.StatusBadRequest, "no_fields_to_update", "body has no recognized field (content/domain/source/agent/model/project/tags/metadata)")
 		return
 	}
 
@@ -504,6 +515,42 @@ func (s *Server) handleUpdate(w http.ResponseWriter, r *http.Request) {
 // Content/Domain/Source are never "clearable" (only replaceable; non-empty
 // validation is left to store.Update); Agent accepts an explicit null (clears
 // the agent); Tags/Metadata accept [] / {} (or null) to clear.
+// decodeNullableString decodes a string field that also accepts an explicit
+// null; null becomes "" (clear).
+func decodeNullableString(field string, raw json.RawMessage) (string, error) {
+	var v *string
+	if err := json.Unmarshal(raw, &v); err != nil {
+		return "", errors.New("invalid " + field + ": " + err.Error())
+	}
+	if v == nil {
+		return "", nil
+	}
+	return *v, nil
+}
+
+type provenanceError struct {
+	code string
+	msg  string
+}
+
+func (e *provenanceError) Error() string { return e.msg }
+
+// validateProvenance checks the optional model/project of an add request so
+// a bad value is a 400 up front, not a failure of the async add.
+func validateProvenance(model, project string) *provenanceError {
+	if model != "" {
+		if err := schema.ValidateModel(model); err != nil {
+			return &provenanceError{"invalid_model", err.Error()}
+		}
+	}
+	if project != "" {
+		if err := schema.ValidateProject(project); err != nil {
+			return &provenanceError{"invalid_project", err.Error()}
+		}
+	}
+	return nil
+}
+
 func decodeUpdatePatch(req apitypes.UpdateRequest) (store.UpdatePatch, error) {
 	var patch store.UpdatePatch
 
@@ -541,6 +588,22 @@ func decodeUpdatePatch(req apitypes.UpdateRequest) (store.UpdatePatch, error) {
 			cleared = *v
 		}
 		patch.Agent = &cleared
+	}
+
+	if len(req.Model) > 0 {
+		v, err := decodeNullableString("model", req.Model)
+		if err != nil {
+			return store.UpdatePatch{}, err
+		}
+		patch.Model = &v
+	}
+
+	if len(req.Project) > 0 {
+		v, err := decodeNullableString("project", req.Project)
+		if err != nil {
+			return store.UpdatePatch{}, err
+		}
+		patch.Project = &v
 	}
 
 	if len(req.Tags) > 0 {

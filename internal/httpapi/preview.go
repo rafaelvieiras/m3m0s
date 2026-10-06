@@ -64,7 +64,7 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 		mode = apitypes.PreviewInjectionModeHook
 	}
 
-	filter := store.Filter{Domain: domain}
+	filter := store.Filter{Domain: domain, Source: q.Get("source"), Model: q.Get("model"), Project: q.Get("project")}
 	now := time.Now()
 	budget := hook.DefaultInjectTokenBudget
 	if v := q.Get("max_tokens"); v != "" {

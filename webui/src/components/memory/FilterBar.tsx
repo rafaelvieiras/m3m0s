@@ -1,5 +1,5 @@
 // Filters on the 4 schema axes (D9/docs/memory-schema.md): domain,
-// domainCategory, source, agent — plus tags (semantic search only, D11 does
+// domainCategory, source, agent, model, project — plus tags (semantic search only, D11 does
 // not include tags in /recent). All are free-form strings (not a closed
 // enum), hence Input instead of Select.
 import { Search as SearchIcon } from "lucide-react";
@@ -12,6 +12,8 @@ export interface FilterValues {
   domainCategory: string;
   source: string;
   agent: string;
+  model: string;
+  project: string;
   tags: string;
 }
 
@@ -20,6 +22,8 @@ export const emptyFilters: FilterValues = {
   domainCategory: "",
   source: "",
   agent: "",
+  model: "",
+  project: "",
   tags: "",
 };
 
@@ -43,7 +47,7 @@ export function FilterBar({ value, onChange, onApply, showTags = false }: Filter
         onApply();
       }}
     >
-      <FieldGroup className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <FieldGroup className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
         <Field>
           <FieldLabel htmlFor="filter-domain">domain</FieldLabel>
           <Input
@@ -80,6 +84,24 @@ export function FilterBar({ value, onChange, onApply, showTags = false }: Filter
             onChange={(e) => set("agent", e.target.value)}
           />
         </Field>
+        <Field>
+          <FieldLabel htmlFor="filter-model">model</FieldLabel>
+          <Input
+            id="filter-model"
+            placeholder="claude-sonnet-5-5"
+            value={value.model}
+            onChange={(e) => set("model", e.target.value)}
+          />
+        </Field>
+        <Field>
+          <FieldLabel htmlFor="filter-project">project</FieldLabel>
+          <Input
+            id="filter-project"
+            placeholder="m3m0s"
+            value={value.project}
+            onChange={(e) => set("project", e.target.value)}
+          />
+        </Field>
         {showTags && (
           <Field>
             <FieldLabel htmlFor="filter-tags">tags (comma-separated)</FieldLabel>
@@ -108,6 +130,8 @@ export function filtersToParams(f: FilterValues) {
     domainCategory: f.domainCategory.trim() || undefined,
     source: f.source.trim() || undefined,
     agent: f.agent.trim() || undefined,
+    model: f.model.trim() || undefined,
+    project: f.project.trim() || undefined,
   };
 }
 

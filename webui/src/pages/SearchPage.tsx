@@ -22,6 +22,8 @@ export default function SearchPage() {
     domainCategory: search.domainCategory,
     source: search.source,
     agent: search.agent,
+    model: search.model,
+    project: search.project,
     tags: search.tags,
   });
 
@@ -33,6 +35,8 @@ export default function SearchPage() {
         domainCategory: nextFilters.domainCategory,
         source: nextFilters.source,
         agent: nextFilters.agent,
+        model: nextFilters.model,
+        project: nextFilters.project,
         tags: nextFilters.tags,
       },
     });
@@ -47,6 +51,8 @@ export default function SearchPage() {
             domainCategory: search.domainCategory,
             source: search.source,
             agent: search.agent,
+            model: search.model,
+            project: search.project,
             tags: search.tags,
           }),
           tags: tagsStringToArray(search.tags),

@@ -21,21 +21,52 @@ import (
 // docs/api-contract.md: "<category>:<instance>".
 var domainPattern = regexp.MustCompile(`^[a-z0-9_]+:[a-z0-9._-]+$`)
 
+// projectPattern validates a project slug; it mirrors the instance part of
+// a domain so a project can reuse a repository or folder name.
+var projectPattern = regexp.MustCompile(`^[a-z0-9][a-z0-9._-]{0,63}$`)
+
+// MaxModelLength bounds the free-form model identifier (provider slugs such
+// as "anthropic/claude-sonnet-5-5" fit comfortably).
+const MaxModelLength = 128
+
+// ValidateProject checks a non-empty project slug.
+func ValidateProject(project string) error {
+	if !projectPattern.MatchString(project) {
+		return fmt.Errorf("project must match %s", projectPattern.String())
+	}
+	return nil
+}
+
+// ValidateModel checks a non-empty model identifier: printable, no
+// whitespace, bounded length.
+func ValidateModel(model string) error {
+	if len(model) > MaxModelLength || strings.ContainsAny(model, " \t\r\n") {
+		return fmt.Errorf("model must be at most %d characters with no whitespace", MaxModelLength)
+	}
+	return nil
+}
+
 // DefaultSource is used when the call does not provide "source".
 const DefaultSource = "manual"
 
 // Entry is the public model of a memory, used on all 3 surfaces
 // (HTTP/MCP/CLI) per docs/api-contract.md.
 type Entry struct {
-	ID             string            `json:"id"`
-	Content        string            `json:"content"`
-	Domain         string            `json:"domain"`
-	DomainCategory string            `json:"domainCategory"`
-	Source         string            `json:"source"`
-	Agent          *string           `json:"agent"`
-	Tags           []string          `json:"tags"`
-	Metadata       map[string]string `json:"metadata"`
-	Score          *float64          `json:"score,omitempty"`
+	ID             string  `json:"id"`
+	Content        string  `json:"content"`
+	Domain         string  `json:"domain"`
+	DomainCategory string  `json:"domainCategory"`
+	Source         string  `json:"source"`
+	Agent          *string `json:"agent"`
+	// Model is the LLM that produced the memory (provenance, F2); nil when
+	// unknown, as for every entry written before the field existed.
+	Model *string `json:"model"`
+	// Project scopes the memory to one project; nil means global (the
+	// default, and what every pre-F2 entry is). See docs/memory-schema.md.
+	Project  *string           `json:"project"`
+	Tags     []string          `json:"tags"`
+	Metadata map[string]string `json:"metadata"`
+	Score    *float64          `json:"score,omitempty"`
 	// RelatedVia is filled only by the 1-hop expansion of search/recent
 	// (Phase 7, D15 in docs/decisions/) — it points to the ID of the main
 	// result that brought this entry in through a relation
@@ -133,6 +164,22 @@ func normalizeTags(tags []string) []string {
 	}
 	sort.Strings(out)
 	return out
+}
+
+// ModelValue returns Model, or an empty string when unknown.
+func (e Entry) ModelValue() string {
+	if e.Model == nil {
+		return ""
+	}
+	return *e.Model
+}
+
+// ProjectValue returns Project, or an empty string when the entry is global.
+func (e Entry) ProjectValue() string {
+	if e.Project == nil {
+		return ""
+	}
+	return *e.Project
 }
 
 // AgentValue returns the value of Agent, or an empty string when absent —

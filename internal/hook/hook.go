@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
+	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
 // ClaudeCodeSource is the source used in every POST /api/v1/memories fired
@@ -34,6 +36,30 @@ var frequentEvents = map[string]bool{"Stop": true, "UserPromptSubmit": true, "Po
 // event even reads it (tool outputs inflate the file, so this is a cheap
 // first gate; minStopChars is the second one, on the extracted text).
 const minGrowthBytes = 16 * 1024
+
+// transcriptModel returns the model of the most recent assistant message
+// that names a valid one (Claude Code writes "<synthetic>" for injected
+// messages, which is not a model).
+func transcriptModel(messages []TranscriptMessage) string {
+	for i := len(messages) - 1; i >= 0; i-- {
+		m := messages[i].Model
+		if m != "" && schema.ValidateModel(m) == nil && !strings.HasPrefix(m, "<") {
+			return m
+		}
+	}
+	return ""
+}
+
+// captureProject reads M3M0S_PROJECT, the project slug captures are tagged
+// with. An invalid slug is ignored (the capture stays global) instead of
+// making the server reject every chunk.
+func captureProject(getenv func(string) string) string {
+	p := strings.TrimSpace(getenv("M3M0S_PROJECT"))
+	if p == "" || schema.ValidateProject(p) != nil {
+		return ""
+	}
+	return p
+}
 
 func newTextChars(messages []TranscriptMessage) int {
 	n := 0
@@ -166,6 +192,8 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	}
 
 	domain := deps.Domain(payload.Cwd)
+	model := transcriptModel(messages)
+	project := captureProject(deps.Getenv)
 	now := time.Now()
 	baseURL, apiKey, ok := ResolveCredentials(deps.Getenv, deps.HomeDir)
 	var c *client.Client
@@ -183,7 +211,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		down = Replay(ctx, deps.HomeDir, c, replayPerHook, now).Unreachable
 	}
 	for i, chunk := range chunks {
-		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: ClaudeCodeSource}
+		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: ClaudeCodeSource, Model: model, Project: project}
 		var sendErr error
 		if down {
 			sendErr = errors.New("server unavailable")

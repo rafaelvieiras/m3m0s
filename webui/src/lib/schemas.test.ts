@@ -129,3 +129,24 @@ describe("errorBodySchema", () => {
     expect(result.success).toBe(true);
   });
 });
+
+describe("entrySchema provenance", () => {
+  const base = {
+    id: "mem_1",
+    content: "c",
+    domain: "code:x",
+    domainCategory: "code",
+    source: "claude-code",
+    agent: null,
+    tags: [],
+    metadata: {},
+    createdAt: "2026-07-15T19:00:00Z",
+    updatedAt: "2026-07-15T19:00:00Z",
+  };
+
+  it("accepts model/project as null, string or absent (pre-F2 servers)", () => {
+    expect(entrySchema.safeParse({ ...base, model: null, project: null }).success).toBe(true);
+    expect(entrySchema.safeParse({ ...base, model: "gpt-5", project: "m3m0s" }).success).toBe(true);
+    expect(entrySchema.safeParse(base).success).toBe(true);
+  });
+});

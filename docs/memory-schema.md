@@ -24,6 +24,8 @@ only truly free field — a direct round-trip of `schema.Entry.Metadata`
 | — | `domain_category` *(derived, see below)* | only the part before the `:` | Yes (auto) | Go post-filter over the already-scored candidates |
 | `source` | `source` | free string, suggested list below | Yes | Go post-filter |
 | `agent` | `agent` | free string, `NULL` column | No — **`NULL` column** when there is no named agent (do not store `""`) | Go post-filter, only when present |
+| `model` | `model` | free string, no whitespace, max 128 chars, `NULL` column | No — `NULL` = unknown (every pre-F2 entry) | Go post-filter, only when present |
+| `project` | `project` | slug `^[a-z0-9][a-z0-9._-]{0,63}$`, `NULL` column | No — `NULL` = global memory (every pre-F2 entry) | Go post-filter; also scopes dedup |
 | `tags` | `tags_json` | JSON array (`["tag1","tag2"]`) | No | Go post-filter (`matchesTags`) — never native, neither in chromem-go nor in SQLite |
 | `metadata` | `metadata_json` | JSON serialized as a string (`json.Marshal`) | No | Never used in a filter — only decoded back in the response |
 | *(existing, kept)* | `content` | plain text | Yes | Not a filter — it is the text embedded for semantic search |
@@ -51,6 +53,21 @@ D9), so recomputing the prefix every time from `domain` would bring no real
 gain at this scale, and keeping the column avoids reopening the
 `schema.Entry` contract for no reason. It is still an **implementation
 detail, not a 5th product decision**.
+
+### Provenance: `source`, `model`, `project` (D33)
+
+- `source` already identifies the tool that wrote the entry (`claude-code`,
+  `opencode`, `openwebui`, ...), so no separate `source_tool` column exists.
+- `model` is the LLM that produced the content. The Claude Code hook fills it
+  from the transcript (`message.model` of the latest assistant message);
+  other clients send it when they know it.
+- `project` scopes an entry to one project; `NULL` is the global memory. There
+  is still **one memory per user**: `project` is a filter, not a separate
+  instance, and an exact `project` filter returns only that project's entries
+  (combining "global + this project" in one recall is a later step).
+- Clients set the fields; the server does not infer them from the API key.
+- Dedup compares entries of the same project only, so a project memory never
+  merges into the global one.
 
 ### Suggested list (not closed in code) for `source`
 

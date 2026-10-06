@@ -26,6 +26,8 @@ type EntryRow struct {
 	DomainCategory string
 	Source         string
 	Agent          *string
+	Model          *string
+	Project        *string
 	Tags           []string
 	Metadata       map[string]string
 	CreatedAt      time.Time
@@ -71,20 +73,22 @@ func (db *DB) UpsertEntry(ctx context.Context, e EntryRow) error {
 		return fmt.Errorf("marshal metadata: %w", err)
 	}
 	_, err = db.sql.ExecContext(ctx, `
-		INSERT INTO entries (id, content, domain, domain_category, source, agent, tags_json, metadata_json, created_at, updated_at, embedding)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO entries (id, content, domain, domain_category, source, agent, model, project, tags_json, metadata_json, created_at, updated_at, embedding)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			content = excluded.content,
 			domain = excluded.domain,
 			domain_category = excluded.domain_category,
 			source = excluded.source,
 			agent = excluded.agent,
+			model = excluded.model,
+			project = excluded.project,
 			tags_json = excluded.tags_json,
 			metadata_json = excluded.metadata_json,
 			created_at = excluded.created_at,
 			updated_at = excluded.updated_at,
 			embedding = excluded.embedding
-	`, e.ID, e.Content, e.Domain, e.DomainCategory, e.Source, e.Agent, string(tagsJSON), string(metadataJSON),
+	`, e.ID, e.Content, e.Domain, e.DomainCategory, e.Source, e.Agent, e.Model, e.Project, string(tagsJSON), string(metadataJSON),
 		e.CreatedAt.UTC().Format(timeLayout), e.UpdatedAt.UTC().Format(timeLayout), encodeEmbedding(e.Embedding))
 	if err != nil {
 		return fmt.Errorf("upsert entry %s: %w", e.ID, err)
@@ -144,11 +148,11 @@ func (db *DB) DeleteEntries(ctx context.Context, ids []string) error {
 
 func scanEntryRow(scan func(dest ...any) error, withEmbedding bool) (EntryRow, error) {
 	var e EntryRow
-	var agent sql.NullString
+	var agent, model, project sql.NullString
 	var tagsJSON, metadataJSON, createdAt, updatedAt string
 	var embedding []byte
 
-	dest := []any{&e.ID, &e.Content, &e.Domain, &e.DomainCategory, &e.Source, &agent, &tagsJSON, &metadataJSON, &createdAt, &updatedAt}
+	dest := []any{&e.ID, &e.Content, &e.Domain, &e.DomainCategory, &e.Source, &agent, &model, &project, &tagsJSON, &metadataJSON, &createdAt, &updatedAt}
 	if withEmbedding {
 		dest = append(dest, &embedding)
 	}
@@ -159,6 +163,14 @@ func scanEntryRow(scan func(dest ...any) error, withEmbedding bool) (EntryRow, e
 	if agent.Valid {
 		v := agent.String
 		e.Agent = &v
+	}
+	if model.Valid {
+		v := model.String
+		e.Model = &v
+	}
+	if project.Valid {
+		v := project.String
+		e.Project = &v
 	}
 	if err := json.Unmarshal([]byte(tagsJSON), &e.Tags); err != nil {
 		return EntryRow{}, fmt.Errorf("unmarshal tags of %s: %w", e.ID, err)
@@ -187,7 +199,7 @@ func scanEntryRow(scan func(dest ...any) error, withEmbedding bool) (EntryRow, e
 // vector, only findDuplicate/Search do) ordered by created_at ascending.
 func (db *DB) LoadAllEntries(ctx context.Context) ([]EntryRow, error) {
 	rows, err := db.sql.QueryContext(ctx, `
-		SELECT id, content, domain, domain_category, source, agent, tags_json, metadata_json, created_at, updated_at
+		SELECT id, content, domain, domain_category, source, agent, model, project, tags_json, metadata_json, created_at, updated_at
 		FROM entries ORDER BY created_at ASC
 	`)
 	if err != nil {

@@ -152,6 +152,8 @@ func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry
 		Domain:   snapshot.Domain,
 		Source:   snapshot.Source,
 		Agent:    snapshot.AgentValue(),
+		Model:    snapshot.ModelValue(),
+		Project:  snapshot.ProjectValue(),
 		Tags:     snapshot.Tags,
 		IDPrefix: idPrefixOf(snapshot.ID),
 	}
