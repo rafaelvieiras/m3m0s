@@ -90,3 +90,27 @@ func TestVecIndexIgnoresMismatchedAndZeroVectors(t *testing.T) {
 		t.Errorf("query with wrong dims should match nothing, got %v", ids)
 	}
 }
+
+func TestVecIndexReservedLoadMatchesGrownLoad(t *testing.T) {
+	r := rand.New(rand.NewSource(11))
+	const n = 500
+	grown, reserved := newVecIndex(), newVecIndex()
+	reserved.reserve(n)
+	scratch := make([]float32, 64) // reused like ForEachEmbedding does
+	for i := 0; i < n; i++ {
+		vec := randomUnitVector(r)[:64]
+		copy(scratch, vec)
+		id := fmt.Sprintf("m%04d", i)
+		grown.upsert(id, "d", vec)
+		reserved.upsert(id, "d", scratch)
+	}
+	if reserved.len() != n || grown.len() != n {
+		t.Fatalf("len = %d/%d, want %d", reserved.len(), grown.len(), n)
+	}
+	query := randomUnitVector(r)[:64]
+	a, _ := grown.top("d", query, 10)
+	b, _ := reserved.top("d", query, 10)
+	if fmt.Sprint(a) != fmt.Sprint(b) {
+		t.Errorf("reserved index ranks differently: %v vs %v", b, a)
+	}
+}

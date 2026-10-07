@@ -194,28 +194,36 @@ func scanEntryRow(scan func(dest ...any) error, withEmbedding bool) (EntryRow, e
 	return e, nil
 }
 
-// LoadAllEntries returns all entries (without embedding — used only to
-// populate MemoryStore's in-memory index at boot, which never needed the
-// vector, only findDuplicate/Search do) ordered by created_at ascending.
+// LoadAllEntries returns all entries (without embedding) ordered by
+// created_at ascending. Boot uses ForEachEntry instead, which does not hold
+// every row twice; this is kept for callers that need the whole slice.
 func (db *DB) LoadAllEntries(ctx context.Context) ([]EntryRow, error) {
+	var out []EntryRow
+	err := db.ForEachEntry(ctx, func(e EntryRow) { out = append(out, e) })
+	return out, err
+}
+
+// ForEachEntry streams every entry (without embedding) to fn, ordered by
+// created_at ascending, one row at a time. It exists so building the
+// in-memory index at boot does not materialize a []EntryRow next to the
+// index itself (the peak behind #37).
+func (db *DB) ForEachEntry(ctx context.Context, fn func(EntryRow)) error {
 	rows, err := db.sql.QueryContext(ctx, `
 		SELECT id, content, domain, domain_category, source, agent, model, project, tags_json, metadata_json, created_at, updated_at
 		FROM entries ORDER BY created_at ASC
 	`)
 	if err != nil {
-		return nil, fmt.Errorf("load all entries: %w", err)
+		return fmt.Errorf("load all entries: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
-
-	var out []EntryRow
 	for rows.Next() {
 		e, err := scanEntryRow(rows.Scan, false)
 		if err != nil {
-			return nil, err
+			return err
 		}
-		out = append(out, e)
+		fn(e)
 	}
-	return out, rows.Err()
+	return rows.Err()
 }
 
 // CountEntries returns how many rows exist in the entries table — used by
@@ -271,24 +279,46 @@ func (db *DB) EmbeddingsByIDs(ctx context.Context, ids []string) (map[string][]f
 	return out, nil
 }
 
+// CountEmbeddings returns how many rows carry an embedding, so the vector
+// index can be sized once at boot instead of growing by append.
+func (db *DB) CountEmbeddings(ctx context.Context) (int, error) {
+	var n int
+	if err := db.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM entries WHERE embedding IS NOT NULL`).Scan(&n); err != nil {
+		return 0, fmt.Errorf("count embeddings: %w", err)
+	}
+	return n, nil
+}
+
 // ForEachEmbedding streams every stored embedding (id, domain, vector) to fn
 // one row at a time, so building the in-memory vector index at boot never
 // holds all float32 vectors at once. Rows without an embedding are skipped.
+// The blob is read without a copy and decoded into one reused buffer: fn
+// must not retain vec after it returns.
 func (db *DB) ForEachEmbedding(ctx context.Context, fn func(id, domain string, vec []float32)) error {
 	rows, err := db.sql.QueryContext(ctx, `SELECT id, domain, embedding FROM entries WHERE embedding IS NOT NULL`)
 	if err != nil {
 		return fmt.Errorf("stream embeddings: %w", err)
 	}
 	defer func() { _ = rows.Close() }()
+	var scratch []float32
 	for rows.Next() {
 		var id, domain string
-		var embedding []byte
+		var embedding sql.RawBytes
 		if err := rows.Scan(&id, &domain, &embedding); err != nil {
 			return err
 		}
-		if vec := decodeEmbedding(embedding); len(vec) > 0 {
-			fn(id, domain, vec)
+		n := len(embedding) / 4
+		if n == 0 {
+			continue
 		}
+		if cap(scratch) < n {
+			scratch = make([]float32, n)
+		}
+		vec := scratch[:n]
+		for i := range vec {
+			vec[i] = math.Float32frombits(binary.LittleEndian.Uint32(embedding[i*4:]))
+		}
+		fn(id, domain, vec)
 	}
 	return rows.Err()
 }
