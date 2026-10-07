@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
@@ -447,5 +448,42 @@ func TestRunTagsCaptureWithModelAndProject(t *testing.T) {
 	Run(context.Background(), bytes.NewReader(payloadJSON(t, "sess-prov2", transcript2, "/path/to/repo/r")), deps)
 	if req := fake.lastRequest(); req.Project != "" || req.Model != "" {
 		t.Errorf("invalid project must be dropped, model absent: %+v", req)
+	}
+}
+
+func TestRunStopsAtCaptureDeadlineAndSpools(t *testing.T) {
+	release := make(chan struct{})
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		select {
+		case <-release:
+		case <-r.Context().Done():
+		}
+	}))
+	defer srv.Close()
+	defer close(release)
+
+	old := captureTimeout
+	captureTimeout = 200 * time.Millisecond
+	defer func() { captureTimeout = old }()
+
+	dir := t.TempDir()
+	transcript := filepath.Join(dir, "session.jsonl")
+	writeTranscript(t, transcript,
+		`{"type":"user","message":{"role":"user","content":"hung server question"}}`,
+		`{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"answer"}]}}`,
+	)
+
+	home := t.TempDir()
+	deps, stderr := testDeps(t, home, srv)
+
+	start := time.Now()
+	Run(context.Background(), bytes.NewReader(payloadJSON(t, "sess-deadline", transcript, dir)), deps)
+	if elapsed := time.Since(start); elapsed > 5*time.Second {
+		t.Fatalf("Run took %v, the capture deadline did not apply", elapsed)
+	}
+
+	names, _ := spoolFiles(home)
+	if len(names) != 1 {
+		t.Fatalf("expected the digest to be spooled, got %d files (stderr: %s)", len(names), stderr.String())
 	}
 }

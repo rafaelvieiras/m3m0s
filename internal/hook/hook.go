@@ -24,6 +24,12 @@ const ClaudeCodeSource = "claude-code"
 // large backlog never stalls the host agent.
 const replayPerHook = 5
 
+// captureTimeout is the total deadline for a capture run (replay plus sends).
+// It stays below the 60s the host agent grants a hook, so a slow or
+// unreachable server makes the run spool what is left and return instead of
+// being killed mid-way (the per-request client timeout alone is 30s each).
+var captureTimeout = 40 * time.Second
+
 // minStopChars is the minimum amount of new transcript text (runes) that makes
 // a frequent event worth a capture; smaller turns accumulate until a later Stop,
 // PreCompact or SessionEnd.
@@ -111,6 +117,9 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 	if payload.TranscriptPath == "" {
 		return
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, captureTimeout)
+	defer cancel()
 
 	cpPath, err := CheckpointPath(deps.HomeDir, payload.SessionID)
 	if err != nil {
