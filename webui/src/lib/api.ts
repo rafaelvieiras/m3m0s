@@ -11,12 +11,17 @@ import {
   meSchema,
   resetInfoSchema,
   chatResponseSchema,
+  embeddingConfigSchema,
   entrySchema,
   errorBodySchema,
   jobRunResponseSchema,
   jobStatusSchema,
   jobsListResponseSchema,
   previewInjectionResponseSchema,
+  reembedCancelSchema,
+  reembedEstimateSchema,
+  reembedProgressSchema,
+  reembedStartSchema,
   recentResponseSchema,
   searchResponseSchema,
   statsResponseSchema,
@@ -28,12 +33,17 @@ import {
   type ResetInfo,
   type ChatMessagePayload,
   type ChatResponse,
+  type EmbeddingConfig,
+  type EmbeddingConfigPayload,
   type Entry,
   type JobRunResponse,
   type JobStatus,
   type JobsListResponse,
   type PreviewInjectionMode,
   type PreviewInjectionResponse,
+  type ReembedEstimate,
+  type ReembedEstimatePayload,
+  type ReembedProgress,
   type RecentResponse,
   type SearchFormValues,
   type SearchResponse,
@@ -326,3 +336,33 @@ export function previewInjection(params: PreviewInjectionParams): Promise<Previe
 }
 
 export type { SearchFormValues };
+
+// ── Embedding configuration (D36) ──
+
+export function getEmbeddingConfig(): Promise<EmbeddingConfig> {
+  return request("/embedding-config", { method: "GET" }, embeddingConfigSchema);
+}
+
+export function putEmbeddingConfig(payload: EmbeddingConfigPayload): Promise<EmbeddingConfig> {
+  return request("/embedding-config", { method: "PUT", body: JSON.stringify(payload) }, embeddingConfigSchema);
+}
+
+export function estimateReembed(payload: ReembedEstimatePayload): Promise<ReembedEstimate> {
+  return request(
+    "/embedding-config/reembed/estimate",
+    { method: "POST", body: JSON.stringify(payload) },
+    reembedEstimateSchema,
+  );
+}
+
+export function getReembedStatus(): Promise<ReembedProgress> {
+  return request("/embedding-config/reembed", { method: "GET" }, reembedProgressSchema);
+}
+
+export function startReembed(): Promise<void> {
+  return request("/embedding-config/reembed", { method: "POST" }, reembedStartSchema).then(() => undefined);
+}
+
+export function cancelReembed(): Promise<void> {
+  return request("/embedding-config/reembed", { method: "DELETE" }, reembedCancelSchema).then(() => undefined);
+}

@@ -15,6 +15,7 @@ import { Route as AddRoute } from "./routes/add";
 import { Route as EntryDetailRoute } from "./routes/entry-detail";
 import { Route as EntryEditRoute } from "./routes/entry-edit";
 import { Route as JobsRoute } from "./routes/jobs";
+import { Route as EmbeddingRoute } from "./routes/embedding";
 import { Route as PreviewRoute } from "./routes/preview";
 
 const routeTree = RootRoute.addChildren([
@@ -29,6 +30,7 @@ const routeTree = RootRoute.addChildren([
     EntryDetailRoute,
     EntryEditRoute,
     JobsRoute,
+    EmbeddingRoute,
     PreviewRoute,
   ]),
 ]);

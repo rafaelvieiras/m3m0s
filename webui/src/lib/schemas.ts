@@ -244,3 +244,70 @@ export type ResetInfo = z.infer<typeof resetInfoSchema>;
 export const MIN_PASSWORD_LENGTH = 10;
 export const MAX_PASSWORD_LENGTH = 128;
 export const usernameRegex = /^[a-z0-9][a-z0-9._-]{2,31}$/;
+
+// ── Embedding configuration · /embedding-config (D36) ──
+//
+// The API key is write-only: responses carry only has_api_key/key_source.
+
+export const reembedProgressSchema = z.object({
+  running: z.boolean(),
+  model: z.string().optional(),
+  dimensions: z.number().optional(),
+  total: z.number(),
+  done: z.number(),
+  errors: z.number(),
+  eta_seconds: z.number(),
+  started_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  finished_at: z.iso.datetime({ offset: true }).nullable().optional(),
+  last_error: z.string().optional(),
+});
+export type ReembedProgress = z.infer<typeof reembedProgressSchema>;
+
+export const embeddingConfigSchema = z.object({
+  enabled: z.boolean(),
+  base_url: z.string(),
+  model: z.string(),
+  dimensions: z.number(),
+  vector_dims: z.number(),
+  source: z.string(),
+  has_api_key: z.boolean(),
+  key_source: z.string(),
+  active: z.boolean(),
+  vectors: z.object({ total: z.number(), current: z.number(), stale: z.number() }),
+  reembed: reembedProgressSchema,
+  reembed_started: z.boolean().optional(),
+  updated_at: z.iso.datetime({ offset: true }).nullable().optional(),
+});
+export type EmbeddingConfig = z.infer<typeof embeddingConfigSchema>;
+
+export const reembedEstimateSchema = z.object({
+  model: z.string(),
+  dimensions: z.number(),
+  pending: z.number(),
+  characters: z.number(),
+  estimated_tokens: z.number(),
+  approximate: z.boolean(),
+  price_per_million_tokens_usd: z.number().nullable(),
+  estimated_cost_usd: z.number().nullable(),
+  prices_as_of: z.string(),
+});
+export type ReembedEstimate = z.infer<typeof reembedEstimateSchema>;
+
+export const reembedStartSchema = z.object({ started: z.boolean() });
+export const reembedCancelSchema = z.object({ cancelled: z.boolean() });
+
+// PUT body. `api_key` is omitted to keep the saved key, "" clears it.
+export interface EmbeddingConfigPayload {
+  enabled: boolean;
+  base_url: string;
+  model: string;
+  dimensions: number;
+  api_key?: string;
+  confirm_reembed?: boolean;
+}
+
+export interface ReembedEstimatePayload {
+  model?: string;
+  base_url?: string;
+  dimensions?: number;
+}

@@ -42,8 +42,10 @@ type embeddingEnv struct {
 // history and `ps`) and is never printed.
 func runEmbedding(ctx context.Context, args []string) error {
 	interactive := false
-	if fi, err := os.Stdin.Stat(); err == nil {
-		interactive = fi.Mode()&os.ModeCharDevice != 0
+	if fi, err := os.Stdin.Stat(); err == nil && fi.Mode()&os.ModeCharDevice != 0 {
+		// /dev/null is a character device too, but nobody can answer there.
+		null, nerr := os.Stat(os.DevNull)
+		interactive = nerr != nil || !os.SameFile(fi, null)
 	}
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt)
 	defer stop()
@@ -317,7 +319,7 @@ func (e *embeddingEnv) confirmAndRetry(ctx context.Context, req apitypes.Embeddi
 	if err != nil {
 		return zero, err
 	}
-	fmt.Fprintf(e.errOut, "This change makes the stored vectors unusable until they are re-embedded (%d of %d now in another model/dimension).\n", cur.Vectors.Stale, cur.Vectors.Total)
+	fmt.Fprintf(e.errOut, "This change makes the stored vectors unusable until they are re-embedded (%d of %d memories would need a new vector).\n", est.Pending, cur.Vectors.Total)
 	saved := e.out
 	e.out = e.errOut
 	e.printEstimate(est)
