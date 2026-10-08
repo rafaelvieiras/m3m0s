@@ -114,3 +114,29 @@ func TestVecIndexReservedLoadMatchesGrownLoad(t *testing.T) {
 		t.Errorf("reserved index ranks differently: %v vs %v", b, a)
 	}
 }
+
+// Growing the index past a block boundary must neither move the vectors
+// already stored nor lose any of them: that copy is what used to double the
+// index's memory for a GC cycle on the first insert after boot.
+func TestVecIndexGrowsWithoutCopyingExistingRows(t *testing.T) {
+	r := rand.New(rand.NewSource(11))
+	v := newVecIndex()
+	n := blockRows*2 + 10
+	v.reserve(n - 20) // deliberately smaller than the final size
+	vecs := make([][]float32, n)
+	for i := range vecs {
+		vecs[i] = randomUnitVector(r)
+		v.upsert(fmt.Sprintf("m%05d", i), "d", vecs[i])
+	}
+	first := &v.blocks[0][0]
+	v.upsert("extra", "d", randomUnitVector(r))
+	if &v.blocks[0][0] != first {
+		t.Fatal("inserting a row moved the first block")
+	}
+	for _, i := range []int{0, blockRows - 1, blockRows, 2*blockRows + 5, n - 1} {
+		ids, _ := v.top("d", vecs[i], 1)
+		if len(ids) != 1 || ids[0] != fmt.Sprintf("m%05d", i) {
+			t.Errorf("row %d: top-1 = %v", i, ids)
+		}
+	}
+}
