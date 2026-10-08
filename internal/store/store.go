@@ -33,7 +33,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/rafaelvieiras/m3m0s/internal/embed"
 	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 	"github.com/rafaelvieiras/m3m0s/internal/sqlstore"
@@ -135,7 +134,7 @@ type Classifier interface {
 // MemoryStore is the only component that touches SQLite directly (D28).
 type MemoryStore struct {
 	db        *sqlstore.DB
-	embedFunc embed.Func // kept here so truncated text (maxEmbedChars) can be embedded without truncating the stored Content
+	emb       embedState // runtime embedding configuration (#39, D36)
 	extractor Extractor  // nil = extraction disabled (D12, item 1)
 
 	mu                      sync.RWMutex
@@ -299,32 +298,25 @@ func New(dataDir, apiKey, baseURL string) (*MemoryStore, error) {
 		return nil, fmt.Errorf("open sqlstore: %w", err)
 	}
 
-	resolvedBase := baseURL
-	if resolvedBase == "" {
-		resolvedBase = embed.DefaultBaseURL
+	s := &MemoryStore{
+		db:      db,
+		index:   make(map[string]schema.Entry),
+		vecs:    newVecIndex(),
+		dataDir: dataDir,
 	}
 	// No API key = keyword-only mode (F5): entries are stored without an
 	// embedding, dedup falls back to exact content match and search to FTS5.
-	var embedFunc embed.Func
-	if apiKey != "" {
-		embedFunc = embed.New(resolvedBase, apiKey, "text-embedding-3-small")
+	if err := s.loadEmbedding(context.Background(), apiKey, baseURL); err != nil {
+		return nil, fmt.Errorf("load embedding config: %w", err)
 	}
-
-	s := &MemoryStore{
-		db:        db,
-		embedFunc: embedFunc,
-		index:     make(map[string]schema.Entry),
-		vecs:      newVecIndex(),
-		dataDir:   dataDir,
+	if e := s.currentEmbedder(); e != nil && e.dims > 0 {
+		s.vecs.reset(e.dims)
 	}
 	if err := s.loadIndex(); err != nil {
 		return nil, fmt.Errorf("load index: %w", err)
 	}
-	if n, err := s.db.CountEmbeddings(context.Background()); err == nil {
-		s.vecs.reserve(n)
-	}
-	if err := s.db.ForEachEmbedding(context.Background(), s.vecs.upsert); err != nil {
-		return nil, fmt.Errorf("load vector index: %w", err)
+	if err := s.loadVectors(context.Background()); err != nil {
+		return nil, err
 	}
 	if err := s.loadTelemetry(); err != nil {
 		return nil, fmt.Errorf("load telemetry: %w", err)
@@ -352,6 +344,32 @@ func rowToEntry(r sqlstore.EntryRow) schema.Entry {
 		CreatedAt:      r.CreatedAt,
 		UpdatedAt:      r.UpdatedAt,
 	}
+}
+
+// entryRow builds the row to persist, tagging the vector with the model that
+// produced it. A vector whose size does not match the active configuration
+// (the admin changed it while this write was in flight) is dropped instead of
+// being stored in the wrong space; the re-embedding job fills it in later.
+func (s *MemoryStore) entryRow(e schema.Entry, embedding []float32) (sqlstore.EntryRow, []float32) {
+	model := ""
+	if len(embedding) > 0 {
+		s.emb.mu.Lock()
+		if cur := s.emb.emb; cur != nil {
+			if cur.dims == 0 {
+				cur.dims = len(embedding) // first vector of a config whose size was unknown
+			}
+			if len(embedding) == cur.dims {
+				model = cur.model
+			} else {
+				log.Printf("m3m0s: dropping a %d-dimension vector for %s: the active embedding configuration expects %d", len(embedding), e.ID, cur.dims)
+				embedding = nil
+			}
+		}
+		s.emb.mu.Unlock()
+	}
+	row := entryToRow(e, embedding)
+	row.EmbeddingModel = model
+	return row, embedding
 }
 
 func entryToRow(e schema.Entry, embedding []float32) sqlstore.EntryRow {
@@ -702,7 +720,8 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 			return AddedEntry{}, fmt.Errorf("generate embedding: %w", err)
 		}
 	}
-	if err := s.db.UpsertEntry(ctx, entryToRow(entry, vec)); err != nil {
+	row, vec := s.entryRow(entry, vec)
+	if err := s.db.UpsertEntry(ctx, row); err != nil {
 		return AddedEntry{}, err
 	}
 
@@ -1121,14 +1140,15 @@ var errNoEmbedding = errors.New("no embedding provider configured")
 // embedText embeds text (truncated to maxEmbedChars), or returns
 // errNoEmbedding when the server runs keyword-only.
 func (s *MemoryStore) embedText(ctx context.Context, text string) ([]float32, error) {
-	if s.embedFunc == nil {
+	e := s.currentEmbedder()
+	if e == nil {
 		return nil, errNoEmbedding
 	}
-	return s.embedFunc(ctx, truncateForEmbedding(text))
+	return e.fn(ctx, truncateForEmbedding(text))
 }
 
 // HasEmbeddings reports whether vector search is available.
-func (s *MemoryStore) HasEmbeddings() bool { return s.embedFunc != nil }
+func (s *MemoryStore) HasEmbeddings() bool { return s.currentEmbedder() != nil }
 
 // Filter gathers the exact filters common to search/recent, per
 // docs/api-contract.md.
@@ -1531,7 +1551,8 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 	if err != nil && !errors.Is(err, errNoEmbedding) {
 		return schema.Entry{}, fmt.Errorf("generate embedding: %w", err)
 	}
-	if err := s.db.UpsertEntry(ctx, entryToRow(entry, vec)); err != nil {
+	row, vec := s.entryRow(entry, vec)
+	if err := s.db.UpsertEntry(ctx, row); err != nil {
 		return schema.Entry{}, err
 	}
 

@@ -31,9 +31,6 @@ import (
 	"github.com/rafaelvieiras/m3m0s/internal/store"
 )
 
-// EmbeddingModel identifies the model used, exposed in GET /stats.
-const EmbeddingModel = "text-embedding-3-small"
-
 // Backend identifies the storage backend, exposed in GET /stats; SQLite
 // since D28 (docs/decisions/), replacing chromem-go.
 const Backend = "sqlite + OpenAI embeddings"
@@ -111,6 +108,8 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/memories", s.withAuth(s.handleDeleteByFilePath))
 	mux.HandleFunc("POST /api/v1/memories/forget-sweep", s.withAuth(s.handleForgetSweep))
 	mux.HandleFunc("POST /api/v1/memories/{id}/restore", s.withAuth(s.handleRestore))
+	mux.HandleFunc("GET /api/v1/embedding-config", s.withAuth(s.handleEmbeddingConfigGet))
+	mux.HandleFunc("PUT /api/v1/embedding-config", s.withAuth(s.handleEmbeddingConfigPut))
 	mux.HandleFunc("POST /api/v1/chat", s.withAuth(s.handleChat))
 	mux.HandleFunc("GET /api/v1/jobs", s.withAuth(s.handleJobsList))
 	mux.HandleFunc("POST /api/v1/jobs/{name}/run", s.withAuth(s.handleJobRun))
@@ -483,7 +482,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		CountByDomainCategory: byCategory,
 		CountByProject:        s.store.ProjectCounts(),
 		Backend:               Backend,
-		Model:                 EmbeddingModel,
+		Model:                 s.store.EmbeddingModel(),
 		Extraction: apitypes.ExtractionInfo{
 			Enabled: enabled,
 			Model:   modelPtr,

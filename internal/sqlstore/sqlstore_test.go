@@ -367,11 +367,11 @@ func TestForEachEmbeddingReusesBufferWithCorrectValues(t *testing.T) {
 	if err := db.UpsertEntry(ctx, EntryRow{ID: "mem_none", Content: "x", Domain: "d", DomainCategory: "c", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}); err != nil {
 		t.Fatalf("UpsertEntry: %v", err)
 	}
-	if n, err := db.CountEmbeddings(ctx); err != nil || n != 3 {
+	if n, err := db.CountEmbeddings(ctx, EmbeddingSpace{Model: DefaultEmbeddingModel}); err != nil || n != 3 {
 		t.Fatalf("CountEmbeddings = %d, %v; want 3", n, err)
 	}
 	seen := 0
-	err = db.ForEachEmbedding(ctx, func(id, domain string, vec []float32) {
+	err = db.ForEachEmbedding(ctx, EmbeddingSpace{Model: DefaultEmbeddingModel}, func(id, domain string, vec []float32) {
 		seen++
 		w := want[id]
 		if len(vec) != len(w) {
@@ -385,5 +385,33 @@ func TestForEachEmbeddingReusesBufferWithCorrectValues(t *testing.T) {
 	})
 	if err != nil || seen != 3 {
 		t.Fatalf("ForEachEmbedding: seen %d, err %v", seen, err)
+	}
+}
+
+func TestLegacyEmbeddingsWithoutModelCountAsDefaultModel(t *testing.T) {
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	ctx := context.Background()
+	// A row as written before migration 00005: embedding, but no model/dims.
+	_, err = db.sql.ExecContext(ctx, `INSERT INTO entries (id, content, domain, domain_category, source, tags_json, metadata_json, created_at, updated_at, embedding)
+		VALUES ('mem_old', 'x', 'd', 'c', 'manual', '[]', '{}', '2026-01-01T00:00:00Z', '2026-01-01T00:00:00Z', ?)`, encodeEmbedding([]float32{1, 2, 3}))
+	if err != nil {
+		t.Fatalf("insert legacy row: %v", err)
+	}
+	counts, err := db.EmbeddingSpaceCounts(ctx)
+	if err != nil || counts[EmbeddingSpace{Model: DefaultEmbeddingModel, Dims: 3}] != 1 {
+		t.Fatalf("counts = %v, %v", counts, err)
+	}
+	if n, _ := db.CountEmbeddings(ctx, EmbeddingSpace{Model: DefaultEmbeddingModel, Dims: 3}); n != 1 {
+		t.Errorf("CountEmbeddings(default,3) = %d, want 1", n)
+	}
+	if n, _ := db.CountEmbeddings(ctx, EmbeddingSpace{Model: DefaultEmbeddingModel, Dims: 4}); n != 0 {
+		t.Errorf("CountEmbeddings(default,4) = %d, want 0", n)
+	}
+	if n, _ := db.CountEmbeddings(ctx, EmbeddingSpace{Model: "other"}); n != 0 {
+		t.Errorf("CountEmbeddings(other) = %d, want 0", n)
 	}
 }

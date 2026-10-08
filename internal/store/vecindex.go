@@ -46,6 +46,18 @@ func (v *vecIndex) reserve(n int) {
 	v.rowOf = make(map[string]int, n)
 }
 
+// reset empties the index and fixes its dimension (0 = adopt the size of the
+// first vector, as before). Used when the embedding configuration changes.
+func (v *vecIndex) reset(dims int) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.dims = dims
+	v.data, v.scales, v.ids, v.domains = nil, nil, nil, nil
+	v.rowOf = map[string]int{}
+	v.free = nil
+	v.hint = 0
+}
+
 // quantize returns the int8 form of the unit-normalized vec and its scale
 // (dequantized value = q * scale). ok=false for an empty or zero vector.
 func quantize(vec []float32) (q []int8, scale float32, ok bool) {
@@ -94,9 +106,9 @@ func (v *vecIndex) upsert(id, domain string, vec []float32) {
 	}
 	if v.dims == 0 {
 		v.dims = len(q)
-		if v.hint > 0 {
-			v.data = make([]int8, 0, v.hint*v.dims)
-		}
+	}
+	if v.hint > 0 && cap(v.data) == 0 {
+		v.data = make([]int8, 0, v.hint*v.dims)
 	}
 	if len(q) != v.dims {
 		v.removeLocked(id)

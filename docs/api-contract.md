@@ -984,6 +984,43 @@ filter).
 
 Errors: `400 invalid_mode` (`mode` outside `hook`/`mcp`/`manual`).
 
+## Embedding configuration (D36)
+
+The admin defines the embedding provider at runtime. The environment
+(`OPENAI_API_KEY`, `M3M0S_OPENAI_BASE_URL`) is the default until a configuration
+is saved. Auth: API key or account session, like the memory endpoints.
+
+### `GET /api/v1/embedding-config`
+
+```json
+{
+  "enabled": true, "base_url": "", "model": "text-embedding-3-small",
+  "dimensions": 0, "vector_dims": 1536,
+  "source": "environment", "has_api_key": true, "key_source": "environment",
+  "active": true,
+  "vectors": { "total": 75761, "current": 75761, "stale": 0 },
+  "updated_at": "2026-10-08T15:00:00Z"
+}
+```
+
+`source` is `environment` or `database`; `key_source` is `environment`,
+`database` or `none`. The key itself is never returned. `base_url` empty means
+the environment/default endpoint. `vector_dims` is 0 when not known yet.
+`stale` counts stored vectors from another model or dimension (searched only by
+keyword until re-embedded).
+
+### `PUT /api/v1/embedding-config`
+
+Body: `{"enabled": true, "base_url": "", "api_key": "sk-...", "model": "text-embedding-3-small", "dimensions": 512, "confirm_reembed": false}`.
+`api_key` omitted keeps the saved key, `""` clears it (the environment key then
+applies). A test embeddings call is made first.
+
+| Status | Meaning |
+|---|---|
+| 200 | Applied; body is the new `GET` shape. |
+| 409 `reembed_required` | The change leaves `stale` vectors from another model/dimension; repeat with `"confirm_reembed": true`. |
+| 422 `embedding_config_invalid` | Missing model/key, failed test call, or the provider returned a size different from `dimensions`. The active configuration is unchanged. |
+
 ## Errors (common format across the 3 surfaces)
 
 ```json
