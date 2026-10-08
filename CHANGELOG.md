@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Embedding settings in the WebUI and CLI (D36, issue #39 phase 3): an Embedding page
+  (provider, model, dimensions, enable, write-only API key) with the 409 confirmation
+  flow (stale counts plus approximate token/cost estimate), and a re-embedding panel with
+  start, cancel, progress bar and ETA. New `m3m0s embedding show|set|estimate|reembed
+  start|status|cancel [--watch]`; the key is read from stdin or an environment variable,
+  never from an argument, and is never printed.
 - Re-embedding job (D36, issue #39 phase 2): after a model or dimensions change, a manual,
   cancellable, resumable job re-embeds the rows outside the active vector space in
   batches (rate limited, with retry and backoff), with progress on the Jobs page;

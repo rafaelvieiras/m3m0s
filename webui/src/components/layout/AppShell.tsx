@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LogOut, Search as SearchIcon, Clock, BarChart3, Plus, ListChecks, Eye } from "lucide-react";
+import { LogOut, Search as SearchIcon, Clock, BarChart3, Plus, ListChecks, Eye, Cpu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { logout } from "@/lib/api";
@@ -11,6 +11,7 @@ const navItems = [
   { to: "/stats", label: "Stats", icon: BarChart3 },
   { to: "/add", label: "Add", icon: Plus },
   { to: "/jobs", label: "Jobs", icon: ListChecks },
+  { to: "/embedding", label: "Embedding", icon: Cpu },
   { to: "/preview", label: "Preview", icon: Eye },
 ] as const;
 

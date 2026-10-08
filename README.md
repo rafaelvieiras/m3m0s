@@ -136,6 +136,26 @@ Set through environment variables (or the matching `m3m0s serve` flags).
 | `M3M0S_URL` | `http://localhost:19234` | Server URL used by the CLI, MCP bridge, watcher and hooks. |
 | `M3M0S_API_KEY` | — | API key used by those clients. |
 
+### Embedding provider and re-embedding
+
+The embedding model, endpoint, dimensions and key can be changed at runtime from the
+WebUI (Embedding page) or the CLI (needs `M3M0S_URL`/`M3M0S_API_KEY`):
+
+```sh
+m3m0s embedding show                              # config, vector counts, re-embedding state (no secrets)
+m3m0s embedding estimate --model text-embedding-3-large --dimensions 1024
+echo "$NEW_KEY" | m3m0s embedding set --model text-embedding-3-large --api-key-stdin
+m3m0s embedding set --dimensions 512 --api-key-env EMBED_KEY --confirm-reembed
+m3m0s embedding set --disable
+m3m0s embedding reembed start --watch             # also: status [--watch], cancel
+```
+
+The key is never accepted as an argument (shell history, `ps`) and never printed. If a change
+leaves stored vectors in another model/size, `set` shows how many and an approximate cost
+(characters / 4, an estimate) and asks to confirm; without a terminal pass
+`--confirm-reembed` (or `--yes`). Add `--json` to `show`, `set`, `estimate` and
+`reembed` for machine-readable output. See `docs/decisions/D36-runtime-embedding-config.md`.
+
 ## Security note
 
 M3m0s stores whatever you send it — including conversation transcripts — and

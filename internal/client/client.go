@@ -364,3 +364,49 @@ func (c *Client) ResetUser(ctx context.Context, username string) (apitypes.Reset
 func (c *Client) DeleteUser(ctx context.Context, username string) error {
 	return c.do(ctx, http.MethodDelete, apiPrefix+"/users/"+url.PathEscape(username), nil, nil, nil)
 }
+
+// GetEmbeddingConfig calls GET /api/v1/embedding-config (D36). The response
+// never carries the API key, only has_api_key/key_source.
+func (c *Client) GetEmbeddingConfig(ctx context.Context) (apitypes.EmbeddingConfigResponse, error) {
+	var out apitypes.EmbeddingConfigResponse
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/embedding-config", nil, nil, &out)
+	return out, err
+}
+
+// PutEmbeddingConfig calls PUT /api/v1/embedding-config. A 409
+// `reembed_required` comes back as an apitypes.ErrorBody; repeat with
+// ConfirmReembed set.
+func (c *Client) PutEmbeddingConfig(ctx context.Context, req apitypes.EmbeddingConfigRequest) (apitypes.EmbeddingConfigResponse, error) {
+	var out apitypes.EmbeddingConfigResponse
+	err := c.do(ctx, http.MethodPut, apiPrefix+"/embedding-config", nil, req, &out)
+	return out, err
+}
+
+// EstimateReembed calls POST /api/v1/embedding-config/reembed/estimate
+// (read-only).
+func (c *Client) EstimateReembed(ctx context.Context, req apitypes.ReembedEstimateRequest) (apitypes.ReembedEstimateResponse, error) {
+	var out apitypes.ReembedEstimateResponse
+	err := c.do(ctx, http.MethodPost, apiPrefix+"/embedding-config/reembed/estimate", nil, req, &out)
+	return out, err
+}
+
+// ReembedStatus calls GET /api/v1/embedding-config/reembed.
+func (c *Client) ReembedStatus(ctx context.Context) (apitypes.ReembedProgress, error) {
+	var out apitypes.ReembedProgress
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/embedding-config/reembed", nil, nil, &out)
+	return out, err
+}
+
+// StartReembed calls POST /api/v1/embedding-config/reembed.
+func (c *Client) StartReembed(ctx context.Context) (apitypes.ReembedStartResponse, error) {
+	var out apitypes.ReembedStartResponse
+	err := c.do(ctx, http.MethodPost, apiPrefix+"/embedding-config/reembed", nil, nil, &out)
+	return out, err
+}
+
+// CancelReembed calls DELETE /api/v1/embedding-config/reembed.
+func (c *Client) CancelReembed(ctx context.Context) (apitypes.ReembedCancelResponse, error) {
+	var out apitypes.ReembedCancelResponse
+	err := c.do(ctx, http.MethodDelete, apiPrefix+"/embedding-config/reembed", nil, nil, &out)
+	return out, err
+}
