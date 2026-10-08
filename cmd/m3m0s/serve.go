@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -40,6 +41,14 @@ func runServe(args []string) error {
 	addSyncTimeout := fs.Duration("add-sync-timeout", firstNonEmptyDuration(os.Getenv("M3M0S_ADD_SYNC_TIMEOUT"), 300*time.Millisecond), "how long POST /api/v1/memories waits for Add to finish before degrading to 202 + poll on GET /memories/pending/:id (D26, docs/decisions/); <= 0 disables the async path and always waits for Add to really finish (pre-D26 behavior)")
 	if err := fs.Parse(args); err != nil {
 		return err
+	}
+
+	// The in-memory index is large and long-lived, so the default GOGC=100
+	// would let the heap sit at roughly twice its live size. Collect earlier
+	// unless the operator chose a value (#38: -90 MB at the boot peak, same
+	// idle).
+	if os.Getenv("GOGC") == "" {
+		debug.SetGCPercent(50)
 	}
 
 	if *apiKey == "" {
