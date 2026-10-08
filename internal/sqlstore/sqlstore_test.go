@@ -344,3 +344,46 @@ func TestEmbeddingsByIDsHandlesMoreIDsThanSQLVariableLimit(t *testing.T) {
 		t.Errorf("got %d embeddings for ids that do not exist", len(got))
 	}
 }
+
+func TestForEachEmbeddingReusesBufferWithCorrectValues(t *testing.T) {
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatalf("Open: %v", err)
+	}
+	defer func() { _ = db.Close() }()
+	ctx := context.Background()
+	now := time.Now().UTC().Truncate(time.Second)
+	want := map[string][]float32{
+		"mem_a": {1, 2, 3, 4},
+		"mem_b": {-1, 0.5},
+		"mem_c": {9, 8, 7, 6, 5, 4},
+	}
+	for id, emb := range want {
+		e := EntryRow{ID: id, Content: id, Domain: "d", DomainCategory: "c", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now, Embedding: emb}
+		if err := db.UpsertEntry(ctx, e); err != nil {
+			t.Fatalf("UpsertEntry: %v", err)
+		}
+	}
+	if err := db.UpsertEntry(ctx, EntryRow{ID: "mem_none", Content: "x", Domain: "d", DomainCategory: "c", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}); err != nil {
+		t.Fatalf("UpsertEntry: %v", err)
+	}
+	if n, err := db.CountEmbeddings(ctx); err != nil || n != 3 {
+		t.Fatalf("CountEmbeddings = %d, %v; want 3", n, err)
+	}
+	seen := 0
+	err = db.ForEachEmbedding(ctx, func(id, domain string, vec []float32) {
+		seen++
+		w := want[id]
+		if len(vec) != len(w) {
+			t.Fatalf("%s: len %d, want %d", id, len(vec), len(w))
+		}
+		for i := range w {
+			if vec[i] != w[i] {
+				t.Errorf("%s[%d] = %v, want %v", id, i, vec[i], w[i])
+			}
+		}
+	})
+	if err != nil || seen != 3 {
+		t.Fatalf("ForEachEmbedding: seen %d, err %v", seen, err)
+	}
+}

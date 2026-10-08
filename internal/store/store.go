@@ -27,6 +27,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"runtime/debug"
 	"sort"
 	"strings"
 	"sync"
@@ -319,12 +320,20 @@ func New(dataDir, apiKey, baseURL string) (*MemoryStore, error) {
 	if err := s.loadIndex(); err != nil {
 		return nil, fmt.Errorf("load index: %w", err)
 	}
+	if n, err := s.db.CountEmbeddings(context.Background()); err == nil {
+		s.vecs.reserve(n)
+	}
 	if err := s.db.ForEachEmbedding(context.Background(), s.vecs.upsert); err != nil {
 		return nil, fmt.Errorf("load vector index: %w", err)
 	}
 	if err := s.loadTelemetry(); err != nil {
 		return nil, fmt.Errorf("load telemetry: %w", err)
 	}
+	// Loading leaves up to one heap's worth of unreachable garbage that, with
+	// no further allocation, no GC cycle would reclaim for a long time. Collect
+	// it and hand the pages back once, so a long-lived idle server starts from
+	// its live size instead of the boot peak (#37).
+	debug.FreeOSMemory()
 	return s, nil
 }
 
@@ -364,13 +373,13 @@ func entryToRow(e schema.Entry, embedding []float32) sqlstore.EntryRow {
 }
 
 func (s *MemoryStore) loadIndex() error {
-	rows, err := s.db.LoadAllEntries(context.Background())
-	if err != nil {
-		return err
+	ctx := context.Background()
+	if n, err := s.db.CountEntries(ctx); err == nil {
+		s.index = make(map[string]schema.Entry, n)
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, r := range rows {
+	return s.db.ForEachEntry(ctx, func(r sqlstore.EntryRow) {
 		e := rowToEntry(r)
 		if e.Metadata == nil {
 			// Legacy round-trip (the in-memory index should never reintroduce nil —
@@ -380,8 +389,7 @@ func (s *MemoryStore) loadIndex() error {
 			e.Metadata = map[string]string{}
 		}
 		s.index[e.ID] = e
-	}
-	return nil
+	})
 }
 
 func (s *MemoryStore) loadTelemetry() error {

@@ -24,15 +24,37 @@ type vecIndex struct {
 	rowOf   map[string]int
 	free    []int
 	domainN map[string]uint32 // domain name -> code
+	hint    int               // expected row count (see reserve); sizes data on the first insert
+	qbuf    []int8            // scratch for quantizing inserts, guarded by mu
 }
 
 func newVecIndex() *vecIndex {
 	return &vecIndex{rowOf: map[string]int{}, domainN: map[string]uint32{}}
 }
 
+// reserve pre-sizes the index for n rows so a bulk load does not grow the
+// backing arrays by repeated append (each growth copies the whole array and
+// leaves the old one as garbage). data is sized on the first insert, when
+// the dimension is known.
+func (v *vecIndex) reserve(n int) {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+	v.hint = n
+	v.ids = make([]string, 0, n)
+	v.scales = make([]float32, 0, n)
+	v.domains = make([]uint32, 0, n)
+	v.rowOf = make(map[string]int, n)
+}
+
 // quantize returns the int8 form of the unit-normalized vec and its scale
 // (dequantized value = q * scale). ok=false for an empty or zero vector.
 func quantize(vec []float32) (q []int8, scale float32, ok bool) {
+	return quantizeInto(nil, vec)
+}
+
+// quantizeInto is quantize writing into dst when it has the capacity (dst is
+// otherwise reallocated), so bulk loads reuse one buffer per row.
+func quantizeInto(dst []int8, vec []float32) (q []int8, scale float32, ok bool) {
 	var sq, maxAbs float64
 	for _, x := range vec {
 		sq += float64(x) * float64(x)
@@ -46,7 +68,10 @@ func quantize(vec []float32) (q []int8, scale float32, ok bool) {
 			maxAbs = a
 		}
 	}
-	q = make([]int8, len(vec))
+	if cap(dst) < len(vec) {
+		dst = make([]int8, len(vec))
+	}
+	q = dst[:len(vec)]
 	for i, x := range vec {
 		q[i] = int8(math.Round(float64(x) / norm / maxAbs * 127))
 	}
@@ -57,15 +82,21 @@ func quantize(vec []float32) (q []int8, scale float32, ok bool) {
 // the index dimension (or empty/zero vectors) are not indexed, which matches
 // the old behavior where cosineSimilarity returned 0 for them.
 func (v *vecIndex) upsert(id, domain string, vec []float32) {
-	q, scale, ok := quantize(vec)
 	v.mu.Lock()
 	defer v.mu.Unlock()
+	q, scale, ok := quantizeInto(v.qbuf, vec)
+	if ok {
+		v.qbuf = q
+	}
 	if !ok {
 		v.removeLocked(id)
 		return
 	}
 	if v.dims == 0 {
 		v.dims = len(q)
+		if v.hint > 0 {
+			v.data = make([]int8, 0, v.hint*v.dims)
+		}
 	}
 	if len(q) != v.dims {
 		v.removeLocked(id)
