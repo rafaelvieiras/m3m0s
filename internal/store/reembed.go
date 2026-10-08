@@ -91,12 +91,17 @@ func (s *MemoryStore) SetReembedOptions(o ReembedOptions) {
 
 // ReembedProgress is a snapshot of the current or last run.
 type ReembedProgress struct {
-	Running    bool
-	Model      string
-	Dims       int
-	Total      int // pending when the run (or the last configuration change) started
-	Done       int
-	Errors     int
+	Running bool
+	Model   string
+	Dims    int
+	Total   int // pending when the run (or the last configuration change) started
+	Done    int // rows written by this job
+	Errors  int
+	// Skipped counts rows that were in Total but left the pending set without
+	// this job writing them (deleted, edited and re-embedded by Update, or
+	// replaced by a concurrent write). Once a run ends cleanly,
+	// Done + Errors + Skipped == Total.
+	Skipped    int
 	StartedAt  time.Time
 	FinishedAt time.Time // zero while running
 	ETA        time.Duration
@@ -116,7 +121,7 @@ func (s *MemoryStore) ReembedStatus() ReembedProgress {
 	defer s.re.mu.Unlock()
 	p := s.re.prog
 	if p.Running && p.Done > 0 {
-		remaining := p.Total - p.Done - p.Errors
+		remaining := p.Total - p.Done - p.Errors - p.Skipped
 		if remaining > 0 {
 			p.ETA = time.Duration(float64(time.Since(p.StartedAt)) / float64(p.Done+p.Errors) * float64(remaining))
 		}
@@ -159,12 +164,18 @@ func (s *MemoryStore) RunReembed(ctx context.Context) (string, error) {
 		if err != nil {
 			p.LastError = err.Error()
 		}
-		if p.Done+p.Errors > p.Total {
-			p.Total = p.Done + p.Errors
+		if p.Done+p.Errors+p.Skipped > p.Total {
+			p.Total = p.Done + p.Errors + p.Skipped
+		}
+		// A clean end means nothing is pending any more: whatever was counted
+		// in Total and neither written nor failed left the pending set on its
+		// own (deleted or re-embedded by a normal write), so account for it.
+		if err == nil && p.Done+p.Errors+p.Skipped < p.Total {
+			p.Skipped = p.Total - p.Done - p.Errors
 		}
 	})
 	p := s.ReembedStatus()
-	summary := fmt.Sprintf("%d re-embedded, %d errors, of %d pending (%s, %d dims)", p.Done, p.Errors, p.Total, p.Model, p.Dims)
+	summary := fmt.Sprintf("%d re-embedded, %d errors, %d skipped, of %d pending (%s, %d dims)", p.Done, p.Errors, p.Skipped, p.Total, p.Model, p.Dims)
 	log.Printf("m3m0s: re-embedding finished: %s", summary)
 	return summary, err
 }
@@ -189,7 +200,7 @@ func (s *MemoryStore) reembedLoop(ctx context.Context, opts ReembedOptions) erro
 				return err
 			}
 			s.reembedUpdate(func(p *ReembedProgress) {
-				p.Model, p.Dims, p.Total, p.Done, p.Errors = sp.Model, sp.Dims, n, 0, 0
+				p.Model, p.Dims, p.Total, p.Done, p.Errors, p.Skipped = sp.Model, sp.Dims, n, 0, 0, 0
 			})
 			log.Printf("m3m0s: re-embedding %d rows into %s (%d dims)", n, sp.Model, sp.Dims)
 		}
@@ -219,7 +230,7 @@ func (s *MemoryStore) reembedLoop(ctx context.Context, opts ReembedOptions) erro
 				s.reembedUpdate(func(p *ReembedProgress) { p.Errors++; p.LastError = errs[i].Error() })
 				continue
 			}
-			err := s.storeReembedded(ctx, e, it, vecs[i])
+			stored, err := s.storeReembedded(ctx, e, it, vecs[i])
 			if errors.Is(err, errSpaceChanged) {
 				cur = nil // discard the rest of this batch and recompute for the new space
 				break
@@ -228,7 +239,13 @@ func (s *MemoryStore) reembedLoop(ctx context.Context, opts ReembedOptions) erro
 				s.reembedUpdate(func(p *ReembedProgress) { p.Errors++; p.LastError = err.Error() })
 				continue
 			}
-			s.reembedUpdate(func(p *ReembedProgress) { p.Done++ })
+			s.reembedUpdate(func(p *ReembedProgress) {
+				if stored {
+					p.Done++
+				} else {
+					p.Skipped++ // edited, deleted or re-embedded meanwhile
+				}
+			})
 		}
 	}
 }
@@ -240,7 +257,7 @@ var errSpaceChanged = errors.New("embedding configuration changed during the cal
 // tagged with the new one (D36). The check and the write share one read lock,
 // and SetEmbeddingSettings swaps the embedder under the write lock, so the
 // two cannot interleave.
-func (s *MemoryStore) storeReembedded(ctx context.Context, e *embedder, it sqlstore.PendingEntry, vec []float32) error {
+func (s *MemoryStore) storeReembedded(ctx context.Context, e *embedder, it sqlstore.PendingEntry, vec []float32) (bool, error) {
 	s.emb.mu.RLock()
 	if s.emb.emb == e && e.dims == 0 {
 		s.emb.mu.RUnlock()
@@ -253,19 +270,19 @@ func (s *MemoryStore) storeReembedded(ctx context.Context, e *embedder, it sqlst
 	}
 	defer s.emb.mu.RUnlock()
 	if s.emb.emb != e {
-		return errSpaceChanged
+		return false, errSpaceChanged
 	}
 	if len(vec) != e.dims {
-		return fmt.Errorf("provider returned %d dimensions, expected %d", len(vec), e.dims)
+		return false, fmt.Errorf("provider returned %d dimensions, expected %d", len(vec), e.dims)
 	}
 	ok, err := s.db.SetEmbeddingIfPending(ctx, it.ID, it.Content, sqlstore.EmbeddingSpace{Model: e.model, Dims: e.dims}, vec)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if ok { // false: the row was edited, deleted or re-embedded meanwhile
 		s.vecs.upsert(it.ID, it.Domain, vec)
 	}
-	return nil
+	return ok, nil
 }
 
 func capByChars(items []sqlstore.PendingEntry, maxChars int) []sqlstore.PendingEntry {

@@ -1062,9 +1062,15 @@ rows still pending, so it is also how a cancelled or interrupted run is resumed
 #### `GET /api/v1/embedding-config/reembed`
 
 Progress of the current or last run since boot:
-`{"running": true, "model": "...", "dimensions": 512, "total": 75761, "done": 1200, "errors": 0, "eta_seconds": 840, "started_at": "...", "finished_at": "...", "last_error": "..."}`
+`{"running": true, "model": "...", "dimensions": 512, "total": 75761, "done": 1200, "errors": 0, "skipped": 0, "eta_seconds": 840, "started_at": "...", "finished_at": "...", "last_error": "..."}`
 (`finished_at`/`last_error` absent while running or when clean). If the
-configuration changes mid-run, `total`/`done` restart for the new space.
+configuration changes mid-run, `total`/`done`/`skipped` restart for the new space.
+`total` is the pending count when the run (or the last configuration change)
+started; `done` counts rows this job wrote, `errors` rows that failed, `skipped`
+rows that left the pending set without the job (deleted, or edited and
+re-embedded by a normal write, while it ran). When a run ends without an error,
+`done + errors + skipped == total`. In `GET /api/v1/jobs` the `progress.done`
+of this job already includes `skipped`, so it reaches `total`.
 
 #### `DELETE /api/v1/embedding-config/reembed`
 

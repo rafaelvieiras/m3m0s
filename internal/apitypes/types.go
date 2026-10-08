@@ -640,8 +640,9 @@ type ReembedProgress struct {
 	Model      string     `json:"model,omitempty"`
 	Dimensions int        `json:"dimensions,omitempty"`
 	Total      int        `json:"total"`
-	Done       int        `json:"done"`
+	Done       int        `json:"done"` // rows written by this job
 	Errors     int        `json:"errors"`
+	Skipped    int        `json:"skipped"`     // rows counted in total that left the pending set without this job (deleted, edited, re-embedded by a normal write)
 	ETASeconds int        `json:"eta_seconds"` // 0 = unknown
 	StartedAt  *time.Time `json:"started_at,omitempty"`
 	FinishedAt *time.Time `json:"finished_at,omitempty"`

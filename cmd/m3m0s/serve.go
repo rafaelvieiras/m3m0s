@@ -152,7 +152,7 @@ func runServe(args []string) error {
 			if p.StartedAt.IsZero() {
 				return nil
 			}
-			return &jobs.Progress{Done: p.Done, Total: p.Total, Errors: p.Errors, ETA: p.ETA}
+			return &jobs.Progress{Done: p.Done + p.Skipped, Total: p.Total, Errors: p.Errors, ETA: p.ETA}
 		},
 		Run: func(ctx context.Context) (string, error) { return memStore.RunReembed(ctx) },
 	})
