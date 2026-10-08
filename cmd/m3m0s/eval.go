@@ -57,7 +57,7 @@ func runEval(ctx context.Context, args []string) error {
 	for _, k := range kList {
 		fmt.Printf(" recall@%-3d", k)
 	}
-	fmt.Printf(" %-12s %-10s %s\n", "mean tokens", "mean ms", "failed")
+	fmt.Printf(" %-8s %-12s %-10s %s\n", "MRR", "mean tokens", "mean ms", "failed")
 	for _, mode := range strings.Split(*modes, ",") {
 		mode = strings.TrimSpace(mode)
 		rep := eval.Run(ctx, golden, mode, append([]int(nil), kList...), search)
@@ -65,7 +65,7 @@ func runEval(ctx context.Context, args []string) error {
 		for _, k := range kList {
 			fmt.Printf(" %-10.3f", rep.Recall[k])
 		}
-		fmt.Printf(" %-12.0f %-10.0f %d\n", rep.MeanTokens, rep.MeanMillis, rep.Failed)
+		fmt.Printf(" %-8.3f %-12.0f %-10.0f %d\n", rep.MRR, rep.MeanTokens, rep.MeanMillis, rep.Failed)
 	}
 	return nil
 }

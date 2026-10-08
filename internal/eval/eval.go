@@ -61,6 +61,7 @@ type SearchFunc func(ctx context.Context, q Query, mode string, limit int) (Resu
 type Report struct {
 	Mode       string
 	Recall     map[int]float64 // k -> mean recall@k
+	MRR        float64         // mean reciprocal rank of the first expected id within the top max(k)
 	MeanTokens float64         // mean estimated tokens of the top max(k) results
 	MeanMillis float64         // mean search latency
 	Failed     int             // queries whose search errored (counted as recall 0)
@@ -87,12 +88,30 @@ func RecallAt(ids, expect []string, k int) float64 {
 	return float64(found) / float64(len(expect))
 }
 
+// ReciprocalRank is 1/rank of the first expected id within the first k ids
+// (rank starts at 1), or 0 when none of them is there.
+func ReciprocalRank(ids, expect []string, k int) float64 {
+	want := map[string]bool{}
+	for _, e := range expect {
+		want[e] = true
+	}
+	for i, id := range ids {
+		if i >= k {
+			break
+		}
+		if want[id] {
+			return 1 / float64(i+1)
+		}
+	}
+	return 0
+}
+
 // Run evaluates mode against every golden query for each k in ks.
 func Run(ctx context.Context, g Golden, mode string, ks []int, search SearchFunc) Report {
 	sort.Ints(ks)
 	maxK := ks[len(ks)-1]
 	rep := Report{Mode: mode, Recall: map[int]float64{}}
-	var tokens, millis float64
+	var tokens, millis, rr float64
 	for _, q := range g.Queries {
 		start := time.Now()
 		res, err := search(ctx, q, mode, maxK)
@@ -102,6 +121,7 @@ func Run(ctx context.Context, g Golden, mode string, ks []int, search SearchFunc
 			continue
 		}
 		tokens += float64(res.Tokens)
+		rr += ReciprocalRank(res.IDs, q.Expect, maxK)
 		for _, k := range ks {
 			rep.Recall[k] += RecallAt(res.IDs, q.Expect, k)
 		}
@@ -110,6 +130,7 @@ func Run(ctx context.Context, g Golden, mode string, ks []int, search SearchFunc
 	for _, k := range ks {
 		rep.Recall[k] /= n
 	}
+	rep.MRR = rr / n
 	rep.MeanTokens = tokens / n
 	rep.MeanMillis = millis / n
 	return rep
