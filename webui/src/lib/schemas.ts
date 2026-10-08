@@ -256,6 +256,7 @@ export const reembedProgressSchema = z.object({
   total: z.number(),
   done: z.number(),
   errors: z.number(),
+  skipped: z.number().default(0),
   eta_seconds: z.number(),
   started_at: z.iso.datetime({ offset: true }).nullable().optional(),
   finished_at: z.iso.datetime({ offset: true }).nullable().optional(),

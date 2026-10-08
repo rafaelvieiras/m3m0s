@@ -244,7 +244,7 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
   const estimate = useEstimateReembed();
   const p = config.reembed;
   const stale = config.vectors.stale;
-  const pct = progressPercent(p.done, p.total);
+  const pct = progressPercent(p.done + p.skipped, p.total);
   const upToDate = stale === 0 && !p.running;
 
   async function askStart() {
@@ -292,7 +292,8 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
               <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
             </div>
             <p className="text-sm text-muted-foreground">
-              {p.done.toLocaleString()} / {p.total.toLocaleString()} ({pct}%)
+              {(p.done + p.skipped).toLocaleString()} / {p.total.toLocaleString()} ({pct}%)
+              {p.skipped > 0 ? ` · ${p.skipped.toLocaleString()} already updated elsewhere` : ""}
               {p.errors > 0 ? ` · ${p.errors} errors` : ""}
               {p.running ? ` · ETA ${formatEta(p.eta_seconds)}` : ""}
             </p>

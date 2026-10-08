@@ -434,3 +434,48 @@ func TestEstimateReembed(t *testing.T) {
 		t.Errorf("empty model: %v", err)
 	}
 }
+
+// Rows can leave the pending set while the job runs without the job writing
+// them: a deleted row, an edited row (Update re-embeds it with the active
+// model), a new note. The counters must still add up at the end: every row
+// counted in Total is Done, an Error or Skipped.
+func TestReembedCountersAccountForRowsThatLeavePendingConcurrently(t *testing.T) {
+	p := newProvider(t)
+	s := staleStore(t, p, t.TempDir(), 8)
+	ctx := context.Background()
+	var once atomic.Bool
+	p.requests.Store(0)
+	p.setHook(func(n int, _ []string) int {
+		if !once.CompareAndSwap(false, true) {
+			return 0
+		}
+		pend, err := s.db.PendingEmbeddings(ctx, s.spaceOf(s.currentEmbedder()), "", 100)
+		if err != nil || len(pend) != 8 {
+			t.Errorf("pending in hook: %v %d", err, len(pend))
+			return 0
+		}
+		// one row of the batch in flight, one edited ahead of the cursor, one deleted ahead of it
+		if _, err := s.Delete(ctx, pend[0].ID); err != nil {
+			t.Errorf("delete: %v", err)
+		}
+		edited := "edited note ahead of the cursor"
+		if _, err := s.Update(ctx, pend[6].ID, UpdatePatch{Content: &edited}, time.Now()); err != nil {
+			t.Errorf("update: %v", err)
+		}
+		if _, err := s.Delete(ctx, pend[7].ID); err != nil {
+			t.Errorf("delete: %v", err)
+		}
+		addNote(t, s, "brand new note embedded with the active model")
+		return 0
+	})
+	if _, err := s.RunReembed(ctx); err != nil {
+		t.Fatalf("RunReembed: %v", err)
+	}
+	pr := s.ReembedStatus()
+	if st, _ := s.EmbeddingStatus(ctx); st.Stale != 0 {
+		t.Fatalf("still stale: %+v", st)
+	}
+	if pr.Total != 8 || pr.Errors != 0 || pr.Done != 5 || pr.Skipped != 3 || pr.Done+pr.Errors+pr.Skipped != pr.Total {
+		t.Errorf("progress = %+v, want total 8 = done 5 + skipped 3", pr)
+	}
+}

@@ -31,7 +31,7 @@ func toEmbeddingResponse(st store.EmbeddingStatus) apitypes.EmbeddingConfigRespo
 
 func toReembedProgress(p store.ReembedProgress) apitypes.ReembedProgress {
 	out := apitypes.ReembedProgress{
-		Running: p.Running, Model: p.Model, Dimensions: p.Dims, Total: p.Total, Done: p.Done,
+		Running: p.Running, Model: p.Model, Dimensions: p.Dims, Total: p.Total, Done: p.Done, Skipped: p.Skipped,
 		Errors: p.Errors, ETASeconds: int(p.ETA / time.Second), LastError: p.LastError,
 	}
 	if !p.StartedAt.IsZero() {

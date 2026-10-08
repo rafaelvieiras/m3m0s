@@ -159,7 +159,10 @@ func progressLine(p apitypes.ReembedProgress) string {
 	} else if p.FinishedAt != nil {
 		state = "finished"
 	}
-	s := fmt.Sprintf("%s, %d/%d done, %d errors", state, p.Done, p.Total, p.Errors)
+	s := fmt.Sprintf("%s, %d/%d done, %d errors", state, p.Done+p.Skipped, p.Total, p.Errors)
+	if p.Skipped > 0 {
+		s += fmt.Sprintf(", %d already updated elsewhere", p.Skipped)
+	}
 	if p.Running && p.ETASeconds > 0 {
 		s += ", ETA " + (time.Duration(p.ETASeconds) * time.Second).String()
 	}

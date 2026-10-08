@@ -76,6 +76,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Memory: the in-memory vector index no longer reallocates (and briefly doubles) its
   ~120 MB backing array on the first insert after boot; vectors now live in fixed-size
   blocks. Cuts the post-boot RSS peak by ~80 MB on a 78k-entry index.
+- Re-embedding progress no longer ends as "62/81" when rows leave the pending set during
+  the run (deleted, or re-embedded by a normal edit): they are now reported as `skipped`
+  and `done + errors + skipped == total` after a clean run.
 - Search no longer fails for a domain with more than ~32,700 entries (SQLite's
   bound-variable limit).
 - A failed capture no longer loses data: the per-session checkpoint advanced
