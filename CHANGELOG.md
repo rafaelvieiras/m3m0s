@@ -9,6 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Re-embedding job (D36, issue #39 phase 2): after a model or dimensions change, a manual,
+  cancellable, resumable job re-embeds the rows outside the active vector space in
+  batches (rate limited, with retry and backoff), with progress on the Jobs page;
+  `POST /api/v1/embedding-config/reembed/estimate` returns pending rows, approximate
+  tokens and, for known OpenAI models, the estimated cost before confirming.
 - Accounts (D35, migration 00004): first-run onboarding in the WebUI, username/password
   sign-in with revocable server-side sessions (HttpOnly cookie, CSRF header, login
   throttling), a password reset page reached from a single-use link, and

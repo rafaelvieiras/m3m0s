@@ -27,6 +27,9 @@ var ErrJobNotFound = errors.New("job not found")
 // run in progress; it never queues and never runs two in parallel.
 var ErrJobAlreadyRunning = errors.New("job is already running")
 
+// ErrJobNotRunning is returned by Cancel when the job has no run in progress.
+var ErrJobNotRunning = errors.New("job is not running")
+
 // historyLimit is how many recent runs each job keeps in memory (most recent
 // first): the "job log" exposed by Status(), meant for the WebUI to show
 // without growing unbounded.
@@ -41,11 +44,18 @@ type Job struct {
 	// Interval is the gap between the END of one run and the START of the
 	// next. It is deliberately not a fixed cron-style clock: a job that takes
 	// longer than Interval never fires a second run on top of the first. It
-	// can be changed at runtime via SetInterval.
+	// can be changed at runtime via SetInterval. Zero or negative means
+	// manual: the job only runs through TriggerNow (e.g. the re-embedding
+	// job, which costs money and is started by an explicit confirmation).
 	Interval time.Duration
 	// InitialDelay delays the first run after Register; 0 makes the job
 	// eligible already at the Scheduler's first tick after Start.
 	InitialDelay time.Duration
+	// Progress, when set, reports the live progress of a long run (shown by
+	// GET /api/v1/jobs); nil for jobs that finish in moments. Called with the
+	// scheduler lock held: it must be cheap, safe for concurrent use and must
+	// not call back into the Scheduler.
+	Progress func() *Progress
 	// Run executes the job and returns a short, human-readable summary
 	// (e.g. "15 memory(ies) processed"; "" when there is nothing relevant to
 	// say about this run) and an optional error. A returned error is only
@@ -54,6 +64,15 @@ type Job struct {
 	// logged/recorded (see Scheduler.run). A buggy job must not take the
 	// server down.
 	Run func(ctx context.Context) (summary string, err error)
+}
+
+// Progress is the live state of a long-running job: Done and Errors out of
+// Total units, and the estimated time left (0 = unknown).
+type Progress struct {
+	Done   int
+	Total  int
+	Errors int
+	ETA    time.Duration
 }
 
 // JobRun is one run recorded in a job's history (D27).
@@ -74,6 +93,8 @@ type JobStatus struct {
 	Interval time.Duration
 	Running  bool
 	NextRun  time.Time
+	// Progress is nil for jobs without progress reporting.
+	Progress *Progress
 	// LastRun is nil when the job has never run in this process instance
 	// (equivalent to History[0] when non-nil; kept separate only for the
 	// caller's convenience).
@@ -97,6 +118,8 @@ type scheduledJob struct {
 	Job
 	nextRun time.Time
 	running atomic.Bool
+	// cancel stops the run in progress (nil when idle); protected by Scheduler.mu.
+	cancel context.CancelFunc
 	// history/nextRun are protected by Scheduler.mu (the same concurrency
 	// discipline as before D27: a single mutex covers the job list and each
 	// job's mutable state, with low contention given that jobs run on a
@@ -147,7 +170,7 @@ func (s *Scheduler) runDue(ctx context.Context) {
 	s.mu.Lock()
 	due := make([]*scheduledJob, 0, len(s.jobs))
 	for _, j := range s.jobs {
-		if now.Before(j.nextRun) {
+		if j.Interval <= 0 || now.Before(j.nextRun) {
 			continue
 		}
 		// CompareAndSwap (not Load followed by Store) closes the race window
@@ -215,7 +238,12 @@ func (s *Scheduler) Status() []JobStatus {
 			lr := history[0]
 			lastRun = &lr
 		}
+		var progress *Progress
+		if j.Progress != nil {
+			progress = j.Progress()
+		}
 		out = append(out, JobStatus{
+			Progress: progress,
 			Name:     j.Name,
 			Interval: j.Interval,
 			Running:  j.running.Load(),
@@ -225,6 +253,24 @@ func (s *Scheduler) Status() []JobStatus {
 		})
 	}
 	return out
+}
+
+// Cancel stops the run in progress of the named job by cancelling its context.
+// The job decides how fast it reacts; a cancelled run is recorded in the
+// history like any other, with the error its Run returned.
+func (s *Scheduler) Cancel(name string) error {
+	target := s.findJob(name)
+	if target == nil {
+		return fmt.Errorf("%w: %s", ErrJobNotFound, name)
+	}
+	s.mu.Lock()
+	cancel := target.cancel
+	s.mu.Unlock()
+	if cancel == nil {
+		return fmt.Errorf("%w: %s", ErrJobNotRunning, name)
+	}
+	cancel()
+	return nil
 }
 
 func (s *Scheduler) findJob(name string) *scheduledJob {
@@ -240,6 +286,10 @@ func (s *Scheduler) findJob(name string) *scheduledJob {
 
 func (s *Scheduler) run(ctx context.Context, j *scheduledJob) {
 	start := time.Now()
+	ctx, cancel := context.WithCancel(ctx)
+	s.mu.Lock()
+	j.cancel = cancel
+	s.mu.Unlock()
 	var summary string
 	var runErr error
 	defer func() {
@@ -259,7 +309,9 @@ func (s *Scheduler) run(ctx context.Context, j *scheduledJob) {
 			entry.Err = runErr.Error()
 		}
 
+		cancel()
 		s.mu.Lock()
+		j.cancel = nil
 		j.nextRun = time.Now().Add(j.Interval)
 		j.history = append([]JobRun{entry}, j.history...)
 		if len(j.history) > historyLimit {

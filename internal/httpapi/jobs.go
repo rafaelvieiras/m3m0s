@@ -123,6 +123,9 @@ func toAPIJobStatus(st jobs.JobStatus) apitypes.JobStatus {
 		out.LastSummary = st.LastRun.Summary
 		out.LastError = st.LastRun.Err
 	}
+	if st.Progress != nil {
+		out.Progress = &apitypes.JobProgress{Done: st.Progress.Done, Total: st.Progress.Total, Errors: st.Progress.Errors, ETASeconds: int(st.Progress.ETA / time.Second)}
+	}
 	for _, run := range st.History {
 		out.History = append(out.History, apitypes.JobRun{
 			StartedAt:  run.StartedAt,

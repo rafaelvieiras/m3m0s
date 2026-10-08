@@ -403,3 +403,51 @@ func TestSchedulerSetIntervalTakesEffectWithoutRestart(t *testing.T) {
 
 	waitFor(t, time.Second, func() bool { return calls.Load() >= 2 })
 }
+
+func TestSchedulerManualJobOnlyRunsOnTriggerAndCanBeCancelled(t *testing.T) {
+	var runs atomic.Int32
+	started := make(chan struct{})
+	sched := NewScheduler(2 * time.Millisecond)
+	sched.Register(Job{
+		Name:     "manual", // Interval 0: never scheduled by the tick
+		Progress: func() *Progress { return &Progress{Done: 1, Total: 3, ETA: time.Minute} },
+		Run: func(ctx context.Context) (string, error) {
+			runs.Add(1)
+			close(started)
+			<-ctx.Done()
+			return "stopped", ctx.Err()
+		},
+	})
+	ctx, stop := context.WithCancel(context.Background())
+	defer stop()
+	go sched.Start(ctx)
+
+	time.Sleep(30 * time.Millisecond)
+	if runs.Load() != 0 {
+		t.Fatal("a manual job must not run on its own")
+	}
+	if err := sched.Cancel("manual"); !errors.Is(err, ErrJobNotRunning) {
+		t.Fatalf("cancel while idle = %v", err)
+	}
+	if err := sched.Cancel("nope"); !errors.Is(err, ErrJobNotFound) {
+		t.Fatalf("cancel unknown = %v", err)
+	}
+	if err := sched.TriggerNow("manual"); err != nil {
+		t.Fatal(err)
+	}
+	<-started
+	if st := sched.Status()[0]; !st.Running || st.Progress == nil || st.Progress.Done != 1 {
+		t.Fatalf("status while running = %+v", st)
+	}
+	if err := sched.Cancel("manual"); err != nil {
+		t.Fatal(err)
+	}
+	waitFor(t, time.Second, func() bool { return !sched.Status()[0].Running })
+	st := sched.Status()[0]
+	if st.LastRun == nil || st.LastRun.Success || st.LastRun.Summary != "stopped" {
+		t.Fatalf("cancelled run history = %+v", st.LastRun)
+	}
+	if runs.Load() != 1 {
+		t.Errorf("runs = %d", runs.Load())
+	}
+}

@@ -321,9 +321,19 @@ type JobStatus struct {
 	LastSummary     string     `json:"lastSummary,omitempty"`
 	LastError       string     `json:"lastError,omitempty"`
 	NextRunAt       time.Time  `json:"nextRunAt"`
+	// Progress is present only for jobs that report it (re-embedding, D36).
+	Progress *JobProgress `json:"progress,omitempty"`
 	// History is always non-nil (may be empty), most recent first, capped at
 	// the last ~20 executions (internal/jobs.historyLimit).
 	History []JobRun `json:"history"`
+}
+
+// JobProgress is the live progress of a long job.
+type JobProgress struct {
+	Done       int `json:"done"`
+	Total      int `json:"total"`
+	Errors     int `json:"errors"`
+	ETASeconds int `json:"etaSeconds"` // 0 = unknown
 }
 
 // JobsListResponse is the 200 response of GET /api/v1/jobs.
@@ -593,9 +603,13 @@ type EmbeddingConfigResponse struct {
 	// KeySource is "database", "environment" or "none".
 	KeySource string `json:"key_source"`
 	// Active reports whether vector search is running (enabled and a key).
-	Active    bool             `json:"active"`
-	Vectors   EmbeddingVectors `json:"vectors"`
-	UpdatedAt *time.Time       `json:"updated_at,omitempty"`
+	Active  bool             `json:"active"`
+	Vectors EmbeddingVectors `json:"vectors"`
+	// Reembed is the state of the re-embedding job; ReembedStarted is true on
+	// a PUT that confirmed a re-embedding and started it.
+	Reembed        ReembedProgress `json:"reembed"`
+	ReembedStarted bool            `json:"reembed_started,omitempty"`
+	UpdatedAt      *time.Time      `json:"updated_at,omitempty"`
 }
 
 // EmbeddingVectors counts the stored vectors by relation to the active
@@ -618,4 +632,52 @@ type EmbeddingConfigRequest struct {
 	Model          string  `json:"model"`
 	Dimensions     int     `json:"dimensions"`
 	ConfirmReembed bool    `json:"confirm_reembed"`
+}
+
+// ReembedProgress is the state of the re-embedding job (#39 phase 2, D36).
+type ReembedProgress struct {
+	Running    bool       `json:"running"`
+	Model      string     `json:"model,omitempty"`
+	Dimensions int        `json:"dimensions,omitempty"`
+	Total      int        `json:"total"`
+	Done       int        `json:"done"`
+	Errors     int        `json:"errors"`
+	ETASeconds int        `json:"eta_seconds"` // 0 = unknown
+	StartedAt  *time.Time `json:"started_at,omitempty"`
+	FinishedAt *time.Time `json:"finished_at,omitempty"`
+	LastError  string     `json:"last_error,omitempty"`
+}
+
+// ReembedEstimateRequest optionally describes a configuration that is not
+// active yet; omitted fields estimate the active one. The API key is not
+// part of it.
+type ReembedEstimateRequest struct {
+	Model      string `json:"model,omitempty"`
+	BaseURL    string `json:"base_url,omitempty"`
+	Dimensions int    `json:"dimensions,omitempty"`
+}
+
+// ReembedEstimateResponse is the body of POST /embedding-config/reembed/estimate.
+// Tokens are approximate (characters / 4); cost is null when the model has no
+// known list price or the endpoint is not the public OpenAI one.
+type ReembedEstimateResponse struct {
+	Model            string   `json:"model"`
+	Dimensions       int      `json:"dimensions"`
+	Pending          int      `json:"pending"`
+	Characters       int64    `json:"characters"`
+	EstimatedTokens  int64    `json:"estimated_tokens"`
+	Approximate      bool     `json:"approximate"`
+	PricePerMTokUSD  *float64 `json:"price_per_million_tokens_usd"`
+	EstimatedCostUSD *float64 `json:"estimated_cost_usd"`
+	PricesAsOf       string   `json:"prices_as_of"`
+}
+
+// ReembedStartResponse is the body of POST /embedding-config/reembed.
+type ReembedStartResponse struct {
+	Started bool `json:"started"`
+}
+
+// ReembedCancelResponse is the body of DELETE /embedding-config/reembed.
+type ReembedCancelResponse struct {
+	Cancelled bool `json:"cancelled"`
 }
