@@ -17,29 +17,42 @@ import (
 type vecIndex struct {
 	mu      sync.RWMutex
 	dims    int
-	data    []int8 // row-major, rows*dims
+	blocks  [][]int8 // row-major rows in fixed-size blocks of blockRows*dims (see blockRows)
 	scales  []float32
 	ids     []string // "" marks a free row
 	domains []uint32
 	rowOf   map[string]int
 	free    []int
 	domainN map[string]uint32 // domain name -> code
-	hint    int               // expected row count (see reserve); sizes data on the first insert
 	qbuf    []int8            // scratch for quantizing inserts, guarded by mu
+}
+
+// blockRows is how many rows share one backing block. The vectors are kept in
+// fixed-size blocks instead of one big slice so that growing the index never
+// copies it: appending to a single ~120 MB slice reallocates it (and, until
+// the next GC cycle, both copies are live), which pushed the process RSS up by
+// ~150 MB on the first insert after boot.
+const blockRows = 2048
+
+// rowSlice returns the dims-long int8 vector stored at row.
+func (v *vecIndex) rowSlice(row int) []int8 {
+	b := v.blocks[row/blockRows]
+	o := (row % blockRows) * v.dims
+	return b[o : o+v.dims]
 }
 
 func newVecIndex() *vecIndex {
 	return &vecIndex{rowOf: map[string]int{}, domainN: map[string]uint32{}}
 }
 
-// reserve pre-sizes the index for n rows so a bulk load does not grow the
-// backing arrays by repeated append (each growth copies the whole array and
-// leaves the old one as garbage). data is sized on the first insert, when
-// the dimension is known.
+// reserve pre-sizes the per-row bookkeeping for n rows (plus some headroom, so
+// the first inserts after a bulk load do not regrow the arrays and the map)
+// so a bulk load does not grow them by repeated append. The vector blocks are
+// allocated on demand.
 func (v *vecIndex) reserve(n int) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
-	v.hint = n
+	n += n/16 + 256
 	v.ids = make([]string, 0, n)
 	v.scales = make([]float32, 0, n)
 	v.domains = make([]uint32, 0, n)
@@ -52,10 +65,9 @@ func (v *vecIndex) reset(dims int) {
 	v.mu.Lock()
 	defer v.mu.Unlock()
 	v.dims = dims
-	v.data, v.scales, v.ids, v.domains = nil, nil, nil, nil
+	v.blocks, v.scales, v.ids, v.domains = nil, nil, nil, nil
 	v.rowOf = map[string]int{}
 	v.free = nil
-	v.hint = 0
 }
 
 // quantize returns the int8 form of the unit-normalized vec and its scale
@@ -107,9 +119,6 @@ func (v *vecIndex) upsert(id, domain string, vec []float32) {
 	if v.dims == 0 {
 		v.dims = len(q)
 	}
-	if v.hint > 0 && cap(v.data) == 0 {
-		v.data = make([]int8, 0, v.hint*v.dims)
-	}
 	if len(q) != v.dims {
 		v.removeLocked(id)
 		return
@@ -130,9 +139,11 @@ func (v *vecIndex) upsert(id, domain string, vec []float32) {
 		v.ids = append(v.ids, "")
 		v.scales = append(v.scales, 0)
 		v.domains = append(v.domains, 0)
-		v.data = append(v.data, make([]int8, v.dims)...)
+		if row/blockRows >= len(v.blocks) {
+			v.blocks = append(v.blocks, make([]int8, blockRows*v.dims))
+		}
 	}
-	copy(v.data[row*v.dims:(row+1)*v.dims], q)
+	copy(v.rowSlice(row), q)
 	v.scales[row] = scale
 	v.ids[row] = id
 	v.domains[row] = code
@@ -191,14 +202,12 @@ func (v *vecIndex) top(domain string, query []float32, k int) ([]string, bool) {
 
 	h := make([]rowScore, 0, k) // min-heap on score
 	matched := 0
-	d := v.dims
 	for row, id := range v.ids {
 		if id == "" || (filter && v.domains[row] != want) {
 			continue
 		}
 		matched++
-		r := v.data[row*d : (row+1)*d]
-		s := float32(dotInt8(r, qq)) * v.scales[row] * qscale
+		s := float32(dotInt8(v.rowSlice(row), qq)) * v.scales[row] * qscale
 		switch {
 		case len(h) < k:
 			h = append(h, rowScore{id, s})
