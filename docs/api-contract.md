@@ -1021,6 +1021,56 @@ applies). A test embeddings call is made first.
 | 409 `reembed_required` | The change leaves `stale` vectors from another model/dimension; repeat with `"confirm_reembed": true`. |
 | 422 `embedding_config_invalid` | Missing model/key, failed test call, or the provider returned a size different from `dimensions`. The active configuration is unchanged. |
 
+### Re-embedding (D36, phase 2)
+
+The `GET`/`PUT /embedding-config` bodies also carry `"reembed"`, the state below,
+and a confirmed `PUT` that leaves stale vectors starts the job
+(`"reembed_started": true`). The job is the `embedding-reembed` entry of
+`GET /api/v1/jobs`, with a `progress` object (`done`, `total`, `errors`,
+`etaSeconds`). It never runs on a timer. All four routes below need the same
+authentication as `/embedding-config`.
+
+#### `POST /api/v1/embedding-config/reembed/estimate`
+
+Read-only. Body optional: `{"model": "...", "base_url": "...", "dimensions": 512}`
+describes a configuration that is not applied yet (omitted `model`/`base_url`
+keep the active ones; omitted `dimensions` means the model default); with no body
+it sizes the active configuration.
+
+```json
+{
+  "model": "text-embedding-3-small", "dimensions": 512,
+  "pending": 75761, "characters": 41200000,
+  "estimated_tokens": 10300000, "approximate": true,
+  "price_per_million_tokens_usd": 0.02, "estimated_cost_usd": 0.206,
+  "prices_as_of": "2026-10-08"
+}
+```
+`pending` counts rows outside the target space, including rows with no vector.
+`estimated_tokens` is characters / 4, an approximation. The two price fields are
+`null` for a model without a known list price or a custom `base_url`.
+`422 embedding_config_invalid` for an empty model after override or negative
+`dimensions`.
+
+#### `POST /api/v1/embedding-config/reembed`
+
+Starts the job. `202 {"started": true}`; `409 job_already_running`;
+`422 embedding_inactive` (embeddings disabled or no key). It continues from the
+rows still pending, so it is also how a cancelled or interrupted run is resumed
+(the server does not restart it by itself at boot).
+
+#### `GET /api/v1/embedding-config/reembed`
+
+Progress of the current or last run since boot:
+`{"running": true, "model": "...", "dimensions": 512, "total": 75761, "done": 1200, "errors": 0, "eta_seconds": 840, "started_at": "...", "finished_at": "...", "last_error": "..."}`
+(`finished_at`/`last_error` absent while running or when clean). If the
+configuration changes mid-run, `total`/`done` restart for the new space.
+
+#### `DELETE /api/v1/embedding-config/reembed`
+
+Cancels the running job: `200 {"cancelled": true}`, or `409 reembed_not_running`.
+Vectors already written are kept.
+
 ## Errors (common format across the 3 surfaces)
 
 ```json

@@ -415,3 +415,38 @@ func TestLegacyEmbeddingsWithoutModelCountAsDefaultModel(t *testing.T) {
 		t.Errorf("CountEmbeddings(other) = %d, want 0", n)
 	}
 }
+
+func TestSetEmbeddingIfPendingGuardsContentAndSpace(t *testing.T) {
+	ctx := context.Background()
+	db, err := Open(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { _ = db.Close() }()
+	now := time.Now()
+	if err := db.UpsertEntry(ctx, EntryRow{ID: "a", Content: "old text", Domain: "x:y", Source: "manual", CreatedAt: now, UpdatedAt: now, Embedding: []float32{1, 2, 3, 4}, EmbeddingModel: "m1"}); err != nil {
+		t.Fatal(err)
+	}
+	sp := EmbeddingSpace{Model: "m2", Dims: 2}
+	pend, err := db.PendingEmbeddings(ctx, sp, "", 10)
+	if err != nil || len(pend) != 1 {
+		t.Fatalf("pending = %v, %v", pend, err)
+	}
+	// Content changed since it was read: refuse.
+	if ok, _ := db.SetEmbeddingIfPending(ctx, "a", "other text", sp, []float32{1, 0}); ok {
+		t.Fatal("stored a vector for stale content")
+	}
+	if ok, err := db.SetEmbeddingIfPending(ctx, "a", "old text", sp, []float32{1, 0}); err != nil || !ok {
+		t.Fatalf("store = %v, %v", ok, err)
+	}
+	// Already in the space now: a second write is a no-op.
+	if ok, _ := db.SetEmbeddingIfPending(ctx, "a", "old text", sp, []float32{0, 1}); ok {
+		t.Fatal("overwrote a vector that is already in the active space")
+	}
+	if n, chars, err := db.PendingStats(ctx, sp, 100); err != nil || n != 0 || chars != 0 {
+		t.Fatalf("stats after = %d %d %v", n, chars, err)
+	}
+	if n, chars, _ := db.PendingStats(ctx, EmbeddingSpace{Model: "m1", Dims: 2}, 3); n != 1 || chars != 3 {
+		t.Fatalf("stats cap = %d %d, want 1 row capped at 3 chars", n, chars)
+	}
+}

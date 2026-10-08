@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 )
 
 // DefaultBaseURL is the base URL of the public OpenAI API.
@@ -67,7 +68,7 @@ func New(baseURL, apiKey, model string, dimensions int) Func {
 		defer func() { _ = resp.Body.Close() }()
 
 		if resp.StatusCode != http.StatusOK {
-			return nil, fmt.Errorf("embeddings API response: %s", resp.Status)
+			return nil, &StatusError{Code: resp.StatusCode}
 		}
 
 		respBody, err := io.ReadAll(resp.Body)
@@ -82,5 +83,103 @@ func New(baseURL, apiKey, model string, dimensions int) Func {
 			return nil, errors.New("response contains no embeddings")
 		}
 		return parsed.Data[0].Embedding, nil
+	}
+}
+
+// BatchFunc embeds several texts in one request and returns their vectors in
+// input order (used by the re-embedding job, D36).
+type BatchFunc func(ctx context.Context, texts []string) ([][]float32, error)
+
+// StatusError is the error of a non-200 embeddings response. It never carries
+// the response body or any credential, only the status.
+type StatusError struct{ Code int }
+
+func (e *StatusError) Error() string {
+	return fmt.Sprintf("embeddings API response: %d %s", e.Code, http.StatusText(e.Code))
+}
+
+// IsTransient reports whether err is worth retrying with a backoff: network
+// errors, 408, 429 and 5xx. Context cancellation is not transient.
+func IsTransient(err error) bool {
+	if err == nil || errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return false
+	}
+	var se *StatusError
+	if errors.As(err, &se) {
+		return se.Code == http.StatusRequestTimeout || se.Code == http.StatusTooManyRequests || se.Code >= 500
+	}
+	return strings.HasPrefix(err.Error(), "send request:") || strings.HasPrefix(err.Error(), "read response:")
+}
+
+// IsFatal reports whether err means every further request with the same
+// configuration will fail too (bad key, forbidden, unknown model or endpoint).
+func IsFatal(err error) bool {
+	var se *StatusError
+	if errors.As(err, &se) {
+		return se.Code == http.StatusUnauthorized || se.Code == http.StatusForbidden || se.Code == http.StatusNotFound
+	}
+	return false
+}
+
+type batchResponse struct {
+	Data []struct {
+		Index     int       `json:"index"`
+		Embedding []float32 `json:"embedding"`
+	} `json:"data"`
+}
+
+// NewBatch returns a BatchFunc that sends the texts as the array form of the
+// "input" parameter of POST {baseURL}/embeddings. Same parameters as New.
+func NewBatch(baseURL, apiKey, model string, dimensions int) BatchFunc {
+	client := &http.Client{}
+	return func(ctx context.Context, texts []string) ([][]float32, error) {
+		body := map[string]any{"input": texts, "model": model}
+		if dimensions > 0 {
+			body["dimensions"] = dimensions
+		}
+		reqBody, err := json.Marshal(body)
+		if err != nil {
+			return nil, fmt.Errorf("marshal request: %w", err)
+		}
+		req, err := http.NewRequestWithContext(ctx, http.MethodPost, baseURL+"/embeddings", bytes.NewReader(reqBody))
+		if err != nil {
+			return nil, fmt.Errorf("create request: %w", err)
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		resp, err := client.Do(req)
+		if err != nil {
+			return nil, fmt.Errorf("send request: %w", err)
+		}
+		defer func() { _ = resp.Body.Close() }()
+		if resp.StatusCode != http.StatusOK {
+			return nil, &StatusError{Code: resp.StatusCode}
+		}
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("read response: %w", err)
+		}
+		var parsed batchResponse
+		if err := json.Unmarshal(respBody, &parsed); err != nil {
+			return nil, fmt.Errorf("decode response: %w", err)
+		}
+		if len(parsed.Data) != len(texts) {
+			return nil, fmt.Errorf("response has %d embeddings for %d inputs", len(parsed.Data), len(texts))
+		}
+		out := make([][]float32, len(texts))
+		for pos, d := range parsed.Data {
+			i := d.Index
+			if i < 0 || i >= len(texts) || out[i] != nil {
+				i = pos // providers that omit "index" answer in input order
+				if out[i] != nil {
+					return nil, errors.New("response has duplicate indexes")
+				}
+			}
+			if len(d.Embedding) == 0 {
+				return nil, errors.New("response contains an empty embedding")
+			}
+			out[i] = d.Embedding
+		}
+		return out, nil
 	}
 }

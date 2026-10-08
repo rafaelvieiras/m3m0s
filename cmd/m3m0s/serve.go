@@ -139,6 +139,24 @@ func runServe(args []string) error {
 		},
 	})
 
+	// Re-embedding after an embedding configuration change (#39 phase 2, D36).
+	// Manual (Interval 0): it spends provider tokens, so it only runs when an
+	// admin confirms it (POST /api/v1/embedding-config/reembed, or a confirmed
+	// PUT). Its state is the database, so it can be started again after a
+	// restart or a cancellation and continues where it stopped.
+	memStore.SetReembedOptions(store.ReembedOptionsFromEnv())
+	sched.Register(jobs.Job{
+		Name: store.ReembedJobName,
+		Progress: func() *jobs.Progress {
+			p := memStore.ReembedStatus()
+			if p.StartedAt.IsZero() {
+				return nil
+			}
+			return &jobs.Progress{Done: p.Done, Total: p.Total, Errors: p.Errors, ETA: p.ETA}
+		},
+		Run: func(ctx context.Context) (string, error) { return memStore.RunReembed(ctx) },
+	})
+
 	// LLM fact extraction (Phase 4, D12) — off by default, enabled only when
 	// M3M0S_EXTRACT_API_KEY/-extract-key is present (same toggle pattern that
 	// -openai-base already uses for embeddings).

@@ -117,6 +117,8 @@ Set through environment variables (or the matching `m3m0s serve` flags).
 |---|---|---|
 | `OPENAI_API_KEY` | — (keyword-only) | Key for embeddings (`text-embedding-3-small`). Without it the server runs keyword-only: FTS5 search and exact-match dedup. Model, endpoint, dimensions and key can also be set at runtime (`/api/v1/embedding-config`, D36), which then takes precedence. |
 | `M3M0S_OPENAI_BASE_URL` | OpenAI | Alternative OpenAI-compatible embeddings endpoint. |
+| `M3M0S_REEMBED_BATCH` | `64` | Texts per request in the re-embedding job (max 2048). |
+| `M3M0S_REEMBED_RPS` | `5` | Provider requests per second in the re-embedding job. |
 | `M3M0S_PORT` | `19234` | HTTP port. |
 | `M3M0S_DATA_DIR` | `~/.m3m0s/data` (`/data` in the Docker image) | Where the SQLite database lives. |
 | `M3M0S_HOST_PORT` | `19234` | Host port published by `compose.yaml`. |

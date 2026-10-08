@@ -19,6 +19,7 @@ import (
 // embedder is the live embedding provider plus the vector space it produces.
 type embedder struct {
 	fn    embed.Func
+	batch embed.BatchFunc // nil = embed one text at a time with fn (re-embedding job)
 	model string
 	dims  int // vector length, 0 = not known yet (learned from existing rows or the first vector)
 }
@@ -65,6 +66,7 @@ type EmbeddingStatus struct {
 	Current    int    // vectors from the active model/dimensions
 	Stale      int    // vectors from another model/dimensions, to re-embed
 	UpdatedAt  time.Time
+	Reembed    ReembedProgress // state of the re-embedding job
 }
 
 // ErrEmbeddingInvalid is wrapped by every rejected configuration; the active
@@ -111,7 +113,8 @@ func (s *MemoryStore) loadEmbedding(ctx context.Context, envKey, envBase string)
 		}
 	}
 	if st.cfg.Enabled && key != "" {
-		st.emb = &embedder{fn: embed.New(s.baseFor(st.cfg), key, st.cfg.Model, st.cfg.Dimensions), model: st.cfg.Model, dims: dims}
+		base := s.baseFor(st.cfg)
+		st.emb = &embedder{fn: embed.New(base, key, st.cfg.Model, st.cfg.Dimensions), batch: embed.NewBatch(base, key, st.cfg.Model, st.cfg.Dimensions), model: st.cfg.Model, dims: dims}
 	}
 	return nil
 }
@@ -166,7 +169,7 @@ func (s *MemoryStore) EmbeddingStatus(ctx context.Context) (EmbeddingStatus, err
 	if err != nil {
 		return EmbeddingStatus{}, err
 	}
-	out := EmbeddingStatus{EmbeddingSettings: cfg, Source: "environment", KeySource: "none", Active: e != nil}
+	out := EmbeddingStatus{Reembed: s.ReembedStatus(), EmbeddingSettings: cfg, Source: "environment", KeySource: "none", Active: e != nil}
 	switch {
 	case saved && row.APIKey != "":
 		out.HasAPIKey, out.KeySource = true, "database"
@@ -227,11 +230,14 @@ func (s *MemoryStore) SetEmbeddingSettings(ctx context.Context, in EmbeddingUpda
 
 	vectorDims := 0
 	var fn embed.Func
+	var batch embed.BatchFunc
 	if in.Enabled {
 		if effectiveKey == "" {
 			return EmbeddingStatus{}, fmt.Errorf("%w: an API key is required to enable embeddings", ErrEmbeddingInvalid)
 		}
-		fn = embed.New(s.baseFor(in.EmbeddingSettings), effectiveKey, in.Model, in.Dimensions)
+		base := s.baseFor(in.EmbeddingSettings)
+		fn = embed.New(base, effectiveKey, in.Model, in.Dimensions)
+		batch = embed.NewBatch(base, effectiveKey, in.Model, in.Dimensions)
 		probeCtx, cancel := context.WithTimeout(ctx, 30*time.Second)
 		defer cancel()
 		vec, err := fn(probeCtx, "m3m0s embedding configuration check")
@@ -269,7 +275,7 @@ func (s *MemoryStore) SetEmbeddingSettings(ctx context.Context, in EmbeddingUpda
 	s.emb.mu.Lock()
 	s.emb.cfg = in.EmbeddingSettings
 	if in.Enabled {
-		s.emb.emb = &embedder{fn: fn, model: in.Model, dims: vectorDims}
+		s.emb.emb = &embedder{fn: fn, batch: batch, model: in.Model, dims: vectorDims}
 	} else {
 		s.emb.emb = nil
 	}
