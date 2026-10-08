@@ -56,7 +56,7 @@ func seedBenchStore(tb testing.TB, n int) *MemoryStore {
 	}
 	tb.Cleanup(func() { _ = s.db.Close() })
 	qr := rand.New(rand.NewSource(2))
-	s.embedFunc = func(context.Context, string) ([]float32, error) { return randomUnitVector(qr), nil }
+	s.emb.emb = &embedder{fn: func(context.Context, string) ([]float32, error) { return randomUnitVector(qr), nil }, model: "bench"}
 	return s
 }
 

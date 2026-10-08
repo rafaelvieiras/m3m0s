@@ -33,9 +33,20 @@ type EntryRow struct {
 	CreatedAt      time.Time
 	UpdatedAt      time.Time
 	Embedding      []float32
+	// EmbeddingModel names the model that produced Embedding (empty means
+	// DefaultEmbeddingModel); the dimension is len(Embedding).
+	EmbeddingModel string
 }
 
 const timeLayout = time.RFC3339Nano
+
+// Rows written before migration 00005 have NULL embedding_model/dims; they
+// were all produced by DefaultEmbeddingModel at length(embedding)/4 floats.
+const (
+	effectiveModelSQL = `COALESCE(embedding_model, '` + DefaultEmbeddingModel + `')`
+	effectiveDimsSQL  = `COALESCE(embedding_dims, length(embedding) / 4)`
+	inSpaceSQL        = `embedding IS NOT NULL AND ` + effectiveModelSQL + ` = ? AND (? = 0 OR ` + effectiveDimsSQL + ` = ?)`
+)
 
 func encodeEmbedding(vec []float32) []byte {
 	if len(vec) == 0 {
@@ -72,9 +83,17 @@ func (db *DB) UpsertEntry(ctx context.Context, e EntryRow) error {
 	if err != nil {
 		return fmt.Errorf("marshal metadata: %w", err)
 	}
+	var embModel any
+	var embDims any
+	if len(e.Embedding) > 0 {
+		embModel, embDims = e.EmbeddingModel, len(e.Embedding)
+		if e.EmbeddingModel == "" {
+			embModel = DefaultEmbeddingModel
+		}
+	}
 	_, err = db.sql.ExecContext(ctx, `
-		INSERT INTO entries (id, content, domain, domain_category, source, agent, model, project, tags_json, metadata_json, created_at, updated_at, embedding)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+		INSERT INTO entries (id, content, domain, domain_category, source, agent, model, project, tags_json, metadata_json, created_at, updated_at, embedding, embedding_model, embedding_dims)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 		ON CONFLICT(id) DO UPDATE SET
 			content = excluded.content,
 			domain = excluded.domain,
@@ -87,9 +106,11 @@ func (db *DB) UpsertEntry(ctx context.Context, e EntryRow) error {
 			metadata_json = excluded.metadata_json,
 			created_at = excluded.created_at,
 			updated_at = excluded.updated_at,
-			embedding = excluded.embedding
+			embedding = excluded.embedding,
+			embedding_model = excluded.embedding_model,
+			embedding_dims = excluded.embedding_dims
 	`, e.ID, e.Content, e.Domain, e.DomainCategory, e.Source, e.Agent, e.Model, e.Project, string(tagsJSON), string(metadataJSON),
-		e.CreatedAt.UTC().Format(timeLayout), e.UpdatedAt.UTC().Format(timeLayout), encodeEmbedding(e.Embedding))
+		e.CreatedAt.UTC().Format(timeLayout), e.UpdatedAt.UTC().Format(timeLayout), encodeEmbedding(e.Embedding), embModel, embDims)
 	if err != nil {
 		return fmt.Errorf("upsert entry %s: %w", e.ID, err)
 	}
@@ -279,11 +300,11 @@ func (db *DB) EmbeddingsByIDs(ctx context.Context, ids []string) (map[string][]f
 	return out, nil
 }
 
-// CountEmbeddings returns how many rows carry an embedding, so the vector
+// CountEmbeddings returns how many rows carry an embedding of space sp (Dims 0 matches any dimension), so the vector
 // index can be sized once at boot instead of growing by append.
-func (db *DB) CountEmbeddings(ctx context.Context) (int, error) {
+func (db *DB) CountEmbeddings(ctx context.Context, sp EmbeddingSpace) (int, error) {
 	var n int
-	if err := db.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM entries WHERE embedding IS NOT NULL`).Scan(&n); err != nil {
+	if err := db.sql.QueryRowContext(ctx, `SELECT COUNT(*) FROM entries WHERE `+inSpaceSQL, sp.Model, sp.Dims, sp.Dims).Scan(&n); err != nil {
 		return 0, fmt.Errorf("count embeddings: %w", err)
 	}
 	return n, nil
@@ -291,11 +312,12 @@ func (db *DB) CountEmbeddings(ctx context.Context) (int, error) {
 
 // ForEachEmbedding streams every stored embedding (id, domain, vector) to fn
 // one row at a time, so building the in-memory vector index at boot never
-// holds all float32 vectors at once. Rows without an embedding are skipped.
+// holds all float32 vectors at once. Rows without an embedding, or from
+// another embedding space than sp (Dims 0 matches any dimension), are skipped.
 // The blob is read without a copy and decoded into one reused buffer: fn
 // must not retain vec after it returns.
-func (db *DB) ForEachEmbedding(ctx context.Context, fn func(id, domain string, vec []float32)) error {
-	rows, err := db.sql.QueryContext(ctx, `SELECT id, domain, embedding FROM entries WHERE embedding IS NOT NULL`)
+func (db *DB) ForEachEmbedding(ctx context.Context, sp EmbeddingSpace, fn func(id, domain string, vec []float32)) error {
+	rows, err := db.sql.QueryContext(ctx, `SELECT id, domain, embedding FROM entries WHERE `+inSpaceSQL, sp.Model, sp.Dims, sp.Dims)
 	if err != nil {
 		return fmt.Errorf("stream embeddings: %w", err)
 	}

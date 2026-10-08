@@ -225,7 +225,7 @@ func runServe(args []string) error {
 
 	addr := ":" + *port
 	log.Printf("m3m0s serve listening on %s", addr)
-	log.Printf("  data: %s | model: %s", dataDirExpanded, httpapi.EmbeddingModel)
+	log.Printf("  data: %s | model: %s", dataDirExpanded, memStore.EmbeddingModel())
 	log.Printf("  webui: served on %s (embedded)", addr)
 
 	return http.ListenAndServe(addr, srv.Handler())

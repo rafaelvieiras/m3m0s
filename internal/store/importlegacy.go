@@ -114,7 +114,8 @@ func (s *MemoryStore) ImportLegacyData(ctx context.Context) error {
 			embedding = vec
 		}
 
-		if err := s.db.UpsertEntry(ctx, entryToRow(e, embedding)); err != nil {
+		row, embedding := s.entryRow(e, embedding)
+		if err := s.db.UpsertEntry(ctx, row); err != nil {
 			log.Printf("m3m0s: legacy import: entry %s: %v", e.ID, err)
 			continue
 		}

@@ -38,10 +38,18 @@ type response struct {
 // New returns a Func that calls POST {baseURL}/embeddings in the
 // OpenAI-compatible format (used both by real OpenAI and by any compatible
 // proxy, via -openai-base/M3M0S_OPENAI_BASE_URL).
-func New(baseURL, apiKey, model string) Func {
+//
+// dimensions > 0 sends the optional "dimensions" parameter (supported by the
+// OpenAI text-embedding-3 family and compatible servers) to shrink the vector;
+// 0 leaves the provider default.
+func New(baseURL, apiKey, model string, dimensions int) Func {
 	client := &http.Client{}
 	return func(ctx context.Context, text string) ([]float32, error) {
-		reqBody, err := json.Marshal(map[string]string{"input": text, "model": model})
+		body := map[string]any{"input": text, "model": model}
+		if dimensions > 0 {
+			body["dimensions"] = dimensions
+		}
+		reqBody, err := json.Marshal(body)
 		if err != nil {
 			return nil, fmt.Errorf("marshal request: %w", err)
 		}
@@ -62,12 +70,12 @@ func New(baseURL, apiKey, model string) Func {
 			return nil, fmt.Errorf("embeddings API response: %s", resp.Status)
 		}
 
-		body, err := io.ReadAll(resp.Body)
+		respBody, err := io.ReadAll(resp.Body)
 		if err != nil {
 			return nil, fmt.Errorf("read response: %w", err)
 		}
 		var parsed response
-		if err := json.Unmarshal(body, &parsed); err != nil {
+		if err := json.Unmarshal(respBody, &parsed); err != nil {
 			return nil, fmt.Errorf("decode response: %w", err)
 		}
 		if len(parsed.Data) == 0 || len(parsed.Data[0].Embedding) == 0 {

@@ -576,3 +576,46 @@ type ResetLinkResponse struct {
 type UsersResponse struct {
 	Users []AccountUser `json:"users"`
 }
+
+// EmbeddingConfigResponse is the body of GET/PUT /embedding-config (#39,
+// D36). The API key is write-only: only HasAPIKey/KeySource say whether one
+// is set.
+type EmbeddingConfigResponse struct {
+	Enabled    bool   `json:"enabled"`
+	BaseURL    string `json:"base_url"`
+	Model      string `json:"model"`
+	Dimensions int    `json:"dimensions"`
+	VectorDims int    `json:"vector_dims"`
+	// Source is where the active configuration comes from: "database" (saved
+	// by an admin) or "environment" (the server's env defaults).
+	Source    string `json:"source"`
+	HasAPIKey bool   `json:"has_api_key"`
+	// KeySource is "database", "environment" or "none".
+	KeySource string `json:"key_source"`
+	// Active reports whether vector search is running (enabled and a key).
+	Active    bool             `json:"active"`
+	Vectors   EmbeddingVectors `json:"vectors"`
+	UpdatedAt *time.Time       `json:"updated_at,omitempty"`
+}
+
+// EmbeddingVectors counts the stored vectors by relation to the active
+// configuration; Stale ones come from another model or dimension and wait
+// for re-embedding.
+type EmbeddingVectors struct {
+	Total   int `json:"total"`
+	Current int `json:"current"`
+	Stale   int `json:"stale"`
+}
+
+// EmbeddingConfigRequest is the body of PUT /embedding-config. APIKey omitted
+// keeps the saved key; an empty string clears it (the environment key then
+// applies). ConfirmReembed must be true when the change leaves stored vectors
+// from another model/dimensions behind.
+type EmbeddingConfigRequest struct {
+	Enabled        bool    `json:"enabled"`
+	BaseURL        string  `json:"base_url"`
+	APIKey         *string `json:"api_key,omitempty"`
+	Model          string  `json:"model"`
+	Dimensions     int     `json:"dimensions"`
+	ConfirmReembed bool    `json:"confirm_reembed"`
+}
