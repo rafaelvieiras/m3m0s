@@ -379,7 +379,26 @@ func (s *MemoryStore) loadIndex() error {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	// A few hundred distinct values repeat across tens of thousands of entries
+	// (domain, source, agent, model, project): keep one copy of each.
+	seen := make(map[string]string)
+	intern := func(v string) string {
+		if c, ok := seen[v]; ok {
+			return c
+		}
+		seen[v] = v
+		return v
+	}
+	internPtr := func(p *string) *string {
+		if p == nil {
+			return nil
+		}
+		v := intern(*p)
+		return &v
+	}
 	return s.db.ForEachEntry(ctx, func(r sqlstore.EntryRow) {
+		r.Domain, r.DomainCategory, r.Source = intern(r.Domain), intern(r.DomainCategory), intern(r.Source)
+		r.Agent, r.Model, r.Project = internPtr(r.Agent), internPtr(r.Model), internPtr(r.Project)
 		e := rowToEntry(r)
 		if e.Metadata == nil {
 			// Legacy round-trip (the in-memory index should never reintroduce nil —

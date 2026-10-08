@@ -129,6 +129,8 @@ Set through environment variables (or the matching `m3m0s serve` flags).
 | `M3M0S_RETRO_EXTRACT_INTERVAL` | `2h` | Retroactive extraction job interval. |
 | `M3M0S_FORGET_SWEEP_INTERVAL` | `12h` | Forgetting sweep interval. |
 | `M3M0S_JOBS_TICK` | `30s` | Scheduler heartbeat. |
+| `GOGC` | `50` (set by m3m0s when unset) | Go GC target. Lower values trade a little CPU for a lower memory peak. |
+| `GOMEMLIMIT` | — (not set) | Optional soft memory limit for the Go runtime, e.g. `600MiB` on a small host; keep it above the live size (~250 MB for 75k entries). |
 | `M3M0S_URL` | `http://localhost:19234` | Server URL used by the CLI, MCP bridge, watcher and hooks. |
 | `M3M0S_API_KEY` | — | API key used by those clients. |
 
