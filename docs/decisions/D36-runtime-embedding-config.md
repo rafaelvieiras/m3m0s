@@ -30,3 +30,18 @@
 - **No backend change.** Both surfaces use the existing routes. The 409 flow is the same in each: on `reembed_required` they call `POST .../reembed/estimate` with the proposed model/endpoint/dimensions, show the pending rows, approximate tokens (characters / 4) and the cost (only when the server knows a list price, otherwise "unknown"), and resend with `confirm_reembed: true` only after an explicit confirmation.
 - **WebUI.** An "Embedding" page (`/embedding`) with the configuration form and a re-embedding panel (start with a cost confirmation, cancel, progress bar with done/total, errors and ETA, polled every 2s only while a run is active, "up to date" state). The key field is write-only and empty on load; empty means keep, a checkbox removes a saved key. 422 messages from the provider are shown inline.
 - **CLI.** `m3m0s embedding show|set|estimate|reembed start|status|cancel [--watch]`. `set` reads the current configuration and merges the given flags over it. The key comes from `--api-key-stdin` or `--api-key-env VAR` only, so it never reaches shell history or `ps`; output never contains it. Without a terminal, a 409 needs `--confirm-reembed`/`--yes`.
+
+## Phase 4: shrinking the index with `dimensions` (procedure and measurement)
+
+`text-embedding-3-small` is Matryoshka-trained, so `dimensions` 512 keeps most of the signal at a third of the size (int8 index ~38 MiB instead of ~114 MiB for ~78k entries at 1536). Whether the recall loss is acceptable for a given memory has to be measured on that memory, not assumed.
+
+**Measuring (never against production).** Take a read-only snapshot (`sqlite3 m3m0s.db ".backup snap.db"`), make one copy per candidate, run a local server on each copy (`m3m0s serve -port ... -data <dir>`), switch the copy with `m3m0s embedding set --dimensions N --confirm-reembed`, wait for the job (`m3m0s embedding reembed status --watch`), then run the same golden file on every copy (`m3m0s eval golden.json -k 1,3,5`, which reports recall@k and MRR). Record process `VmHWM`/`VmRSS` (`/proc/<pid>/status`) at boot and after the searches. `scripts/synthetic-golden.py` builds a larger objective dataset (see `docs/evaluation.md`). The cost of one pass is `m3m0s embedding estimate --dimensions N` (about 0.05 USD per full re-embed of a 78k-entry memory at 0.02 USD per 1M tokens).
+
+**Results.** Not yet recorded: the measurement run needs a working OpenAI key on the machine that does it.
+
+**Safe switch of a live server.**
+1. `m3m0s embedding estimate --dimensions N` and check the cost.
+2. `m3m0s embedding set --dimensions N` answers 409 with the pending count; repeat with `--confirm-reembed` only after the measurement above justified it.
+3. Follow the job with `m3m0s embedding reembed status --watch`. Search keeps working: rows already in the new space use the vector path, the rest are found by FTS5 (D32), so recall is lower than either steady state until the job ends.
+4. Run `m3m0s eval` again and compare with the numbers taken before the switch.
+5. Rollback: `m3m0s embedding set --dimensions 1536 --confirm-reembed` (or the default size) and re-embed again; the old vectors are overwritten as rows are re-embedded, so keep a database backup if a pass must be undoable without spending tokens.

@@ -43,6 +43,9 @@ func TestRunAveragesAndCountsFailures(t *testing.T) {
 	if rep.Recall[1] != 1.0/3 || rep.Recall[2] != 2.0/3 {
 		t.Errorf("recall = %v", rep.Recall)
 	}
+	if want := (1.0 + 0.5) / 3; rep.MRR != want { // q1 rank 1, q2 rank 2, q3 failed
+		t.Errorf("MRR = %v, want %v", rep.MRR, want)
+	}
 	if rep.MeanTokens != 100 { // (100+200+0)/3
 		t.Errorf("mean tokens = %v", rep.MeanTokens)
 	}
