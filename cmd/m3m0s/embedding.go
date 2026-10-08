@@ -122,26 +122,26 @@ func (e *embeddingEnv) show(ctx context.Context, args []string) error {
 
 func (e *embeddingEnv) printConfig(cfg apitypes.EmbeddingConfigResponse) {
 	w := e.out
-	fmt.Fprintf(w, "enabled:      %v (vector search %s)\n", cfg.Enabled, map[bool]string{true: "active", false: "inactive"}[cfg.Active])
+	_, _ = fmt.Fprintf(w, "enabled:      %v (vector search %s)\n", cfg.Enabled, map[bool]string{true: "active", false: "inactive"}[cfg.Active])
 	base := cfg.BaseURL
 	if base == "" {
 		base = "(default / environment)"
 	}
-	fmt.Fprintf(w, "base URL:     %s\n", base)
-	fmt.Fprintf(w, "model:        %s\n", cfg.Model)
-	fmt.Fprintf(w, "dimensions:   %s (vector size reported by the provider: %s)\n", dimsLabel(cfg.Dimensions), dimsLabel(cfg.VectorDims))
+	_, _ = fmt.Fprintf(w, "base URL:     %s\n", base)
+	_, _ = fmt.Fprintf(w, "model:        %s\n", cfg.Model)
+	_, _ = fmt.Fprintf(w, "dimensions:   %s (vector size reported by the provider: %s)\n", dimsLabel(cfg.Dimensions), dimsLabel(cfg.VectorDims))
 	key := "not set"
 	if cfg.HasAPIKey {
 		key = "set (from " + cfg.KeySource + ")"
 	}
-	fmt.Fprintf(w, "API key:      %s\n", key)
-	fmt.Fprintf(w, "configured:   %s\n", cfg.Source)
-	fmt.Fprintf(w, "vectors:      %d total, %d current, %d pending re-embedding\n", cfg.Vectors.Total, cfg.Vectors.Current, cfg.Vectors.Stale)
+	_, _ = fmt.Fprintf(w, "API key:      %s\n", key)
+	_, _ = fmt.Fprintf(w, "configured:   %s\n", cfg.Source)
+	_, _ = fmt.Fprintf(w, "vectors:      %d total, %d current, %d pending re-embedding\n", cfg.Vectors.Total, cfg.Vectors.Current, cfg.Vectors.Stale)
 	if cfg.Vectors.Stale == 0 && cfg.Vectors.Total > 0 {
-		fmt.Fprintln(w, "              everything is up to date")
+		_, _ = fmt.Fprintln(w, "              everything is up to date")
 	}
 	if cfg.Reembed.Running || cfg.Reembed.StartedAt != nil {
-		fmt.Fprintf(w, "re-embedding: %s\n", progressLine(cfg.Reembed))
+		_, _ = fmt.Fprintf(w, "re-embedding: %s\n", progressLine(cfg.Reembed))
 	}
 }
 
@@ -171,14 +171,14 @@ func progressLine(p apitypes.ReembedProgress) string {
 
 func (e *embeddingEnv) printEstimate(est apitypes.ReembedEstimateResponse) {
 	w := e.out
-	fmt.Fprintf(w, "re-embedding with %s (%s):\n", est.Model, dimsLabel(est.Dimensions))
-	fmt.Fprintf(w, "  rows to process:  %d\n", est.Pending)
-	fmt.Fprintf(w, "  characters:       %d\n", est.Characters)
-	fmt.Fprintf(w, "  tokens:           ~%d (characters / 4, an approximation)\n", est.EstimatedTokens)
+	_, _ = fmt.Fprintf(w, "re-embedding with %s (%s):\n", est.Model, dimsLabel(est.Dimensions))
+	_, _ = fmt.Fprintf(w, "  rows to process:  %d\n", est.Pending)
+	_, _ = fmt.Fprintf(w, "  characters:       %d\n", est.Characters)
+	_, _ = fmt.Fprintf(w, "  tokens:           ~%d (characters / 4, an approximation)\n", est.EstimatedTokens)
 	if est.EstimatedCostUSD != nil && est.PricePerMTokUSD != nil {
-		fmt.Fprintf(w, "  cost:             ~US$ %.4f at US$ %.2f per 1M tokens (list price as of %s)\n", *est.EstimatedCostUSD, *est.PricePerMTokUSD, est.PricesAsOf)
+		_, _ = fmt.Fprintf(w, "  cost:             ~US$ %.4f at US$ %.2f per 1M tokens (list price as of %s)\n", *est.EstimatedCostUSD, *est.PricePerMTokUSD, est.PricesAsOf)
 	} else {
-		fmt.Fprintln(w, "  cost:             unknown (no known list price for this model/endpoint)")
+		_, _ = fmt.Fprintln(w, "  cost:             unknown (no known list price for this model/endpoint)")
 	}
 }
 
@@ -298,10 +298,10 @@ func (e *embeddingEnv) set(ctx context.Context, args []string) error {
 	if *jsonOut {
 		return e.printJSON(resp)
 	}
-	fmt.Fprintln(e.out, "configuration saved")
+	_, _ = fmt.Fprintln(e.out, "configuration saved")
 	e.printConfig(resp)
 	if resp.ReembedStarted {
-		fmt.Fprintln(e.out, "re-embedding started; follow it with: m3m0s embedding reembed status --watch")
+		_, _ = fmt.Fprintln(e.out, "re-embedding started; follow it with: m3m0s embedding reembed status --watch")
 	}
 	return nil
 }
@@ -319,7 +319,7 @@ func (e *embeddingEnv) confirmAndRetry(ctx context.Context, req apitypes.Embeddi
 	if err != nil {
 		return zero, err
 	}
-	fmt.Fprintf(e.errOut, "This change makes the stored vectors unusable until they are re-embedded (%d of %d memories would need a new vector).\n", est.Pending, cur.Vectors.Total)
+	_, _ = fmt.Fprintf(e.errOut, "This change makes the stored vectors unusable until they are re-embedded (%d of %d memories would need a new vector).\n", est.Pending, cur.Vectors.Total)
 	saved := e.out
 	e.out = e.errOut
 	e.printEstimate(est)
@@ -328,7 +328,7 @@ func (e *embeddingEnv) confirmAndRetry(ctx context.Context, req apitypes.Embeddi
 		if !e.interactive || stdinUsed {
 			return zero, errors.New("re-embedding must be confirmed: repeat with --confirm-reembed (or --yes)")
 		}
-		fmt.Fprint(e.errOut, "Apply the change and start re-embedding? [y/N] ")
+		_, _ = fmt.Fprint(e.errOut, "Apply the change and start re-embedding? [y/N] ")
 		line, _ := bufio.NewReader(e.in).ReadString('\n')
 		if a := strings.ToLower(strings.TrimSpace(line)); a != "y" && a != "yes" {
 			return zero, errors.New("aborted: nothing was changed")
@@ -354,7 +354,7 @@ func (e *embeddingEnv) reembed(ctx context.Context, args []string) error {
 		if _, err := e.c.StartReembed(ctx); err != nil {
 			return err
 		}
-		fmt.Fprintln(e.out, "re-embedding started (cancel any time with: m3m0s embedding reembed cancel)")
+		_, _ = fmt.Fprintln(e.out, "re-embedding started (cancel any time with: m3m0s embedding reembed cancel)")
 		if *watch {
 			return e.watchProgress(ctx, *jsonOut)
 		}
@@ -370,13 +370,13 @@ func (e *embeddingEnv) reembed(ctx context.Context, args []string) error {
 		if *jsonOut {
 			return e.printJSON(p)
 		}
-		fmt.Fprintln(e.out, progressLine(p))
+		_, _ = fmt.Fprintln(e.out, progressLine(p))
 		return nil
 	case "cancel":
 		if _, err := e.c.CancelReembed(ctx); err != nil {
 			return err
 		}
-		fmt.Fprintln(e.out, "cancelled; vectors already written are kept, and a new start continues from what is pending")
+		_, _ = fmt.Fprintln(e.out, "cancelled; vectors already written are kept, and a new start continues from what is pending")
 		return nil
 	default:
 		return fmt.Errorf("unknown reembed command %q (expected start, status or cancel)", sub)
@@ -397,7 +397,7 @@ func (e *embeddingEnv) watchProgress(ctx context.Context, jsonOut bool) error {
 				return err
 			}
 		} else {
-			fmt.Fprintln(e.out, progressLine(p))
+			_, _ = fmt.Fprintln(e.out, progressLine(p))
 		}
 		if p.Running {
 			idle = 0
@@ -409,7 +409,7 @@ func (e *embeddingEnv) watchProgress(ctx context.Context, jsonOut bool) error {
 		}
 		select {
 		case <-ctx.Done():
-			fmt.Fprintln(e.errOut, "stopped watching (the job keeps running on the server)")
+			_, _ = fmt.Fprintln(e.errOut, "stopped watching (the job keeps running on the server)")
 			return nil
 		case <-time.After(e.pollEvery):
 		}
