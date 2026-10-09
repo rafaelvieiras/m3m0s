@@ -157,6 +157,24 @@ func runServe(args []string) error {
 		Run: func(ctx context.Context) (string, error) { return memStore.RunReembed(ctx) },
 	})
 
+	// Memory-hygiene analysis (D37). Manual (Interval 0) and strictly read-only
+	// over the memories: it reports duplicates and low-value candidates and
+	// stores one small JSON report. An interval can still be set from the Jobs
+	// page to run it periodically. Needs no network.
+	memStore.SetInsightsOptions(store.InsightsOptionsFromEnv())
+	sched.Register(jobs.Job{
+		Name:     store.InsightsJobName,
+		Interval: resolveJobInterval(store.InsightsJobName, 0),
+		Progress: func() *jobs.Progress {
+			st := memStore.HygieneStatus()
+			if !st.Running || st.Total == 0 {
+				return nil
+			}
+			return &jobs.Progress{Done: st.Done, Total: st.Total}
+		},
+		Run: func(ctx context.Context) (string, error) { return memStore.RunHygieneAnalysis(ctx) },
+	})
+
 	// LLM fact extraction (Phase 4, D12) — off by default, enabled only when
 	// M3M0S_EXTRACT_API_KEY/-extract-key is present (same toggle pattern that
 	// -openai-base already uses for embeddings).

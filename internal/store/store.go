@@ -134,9 +134,10 @@ type Classifier interface {
 // MemoryStore is the only component that touches SQLite directly (D28).
 type MemoryStore struct {
 	db        *sqlstore.DB
-	emb       embedState   // runtime embedding configuration (#39, D36)
-	re        reembedState // re-embedding job (#39 phase 2)
-	extractor Extractor    // nil = extraction disabled (D12, item 1)
+	emb       embedState    // runtime embedding configuration (#39, D36)
+	re        reembedState  // re-embedding job (#39 phase 2)
+	ins       insightsState // hygiene analysis job (D37)
+	extractor Extractor     // nil = extraction disabled (D12, item 1)
 
 	mu                      sync.RWMutex
 	index                   map[string]schema.Entry // in-memory cache, without embedding — reloaded from SQLite at boot

@@ -1,5 +1,5 @@
 import { Link, Outlet, useRouterState } from "@tanstack/react-router";
-import { LogOut, Search as SearchIcon, Clock, BarChart3, Plus, ListChecks, Eye, Cpu } from "lucide-react";
+import { LogOut, Search as SearchIcon, Clock, BarChart3, Plus, ListChecks, Eye, Cpu, HeartPulse } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { logout } from "@/lib/api";
@@ -9,6 +9,7 @@ const navItems = [
   { to: "/search", label: "Search", icon: SearchIcon },
   { to: "/recent", label: "Recent", icon: Clock },
   { to: "/stats", label: "Stats", icon: BarChart3 },
+  { to: "/insights", label: "Insights", icon: HeartPulse },
   { to: "/add", label: "Add", icon: Plus },
   { to: "/jobs", label: "Jobs", icon: ListChecks },
   { to: "/embedding", label: "Embedding", icon: Cpu },
@@ -33,7 +34,7 @@ export function AppShell() {
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
           <span className="text-sm font-semibold tracking-tight">M3m0s</span>
-          <nav className="flex items-center gap-1">
+          <nav className="flex flex-wrap items-center gap-1">
             {navItems.map(({ to, label, icon: Icon }) => {
               const active = pathname === to || pathname.startsWith(`${to}/`);
               return (

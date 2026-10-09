@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Memory health dashboard (D37, migration 00006): an Insights page in the WebUI, `GET
+  /api/v1/insights/overview` and `m3m0s insights show [--json]` with totals, distributions
+  (domain, tool, age, text length), `valid_until`/pinned/never-accessed counts, soft-deleted
+  per day and the forgetting outlook (cold now, waiting for hard-delete). A new manual,
+  cancellable, read-only job `insights-hygiene` (`POST /api/v1/insights/hygiene/run|cancel`,
+  `GET /api/v1/insights/hygiene`) finds identical and near-identical memories (cosine
+  0.98/0.95/0.92, same domain versus across domains and tools, using the in-memory int8
+  index and no extra vectors) and low-value candidates in the `codigo` domain, and stores
+  one small JSON report. It never changes memories; examples are truncated and exclude
+  secrets. Tuning: `M3M0S_INSIGHTS_CPU_PERCENT`, `M3M0S_INSIGHTS_MAX_MINUTES`.
 - Embedding settings in the WebUI and CLI (D36, issue #39 phase 3): an Embedding page
   (provider, model, dimensions, enable, write-only API key) with the 409 confirmation
   flow (stale counts plus approximate token/cost estimate), and a re-embedding panel with

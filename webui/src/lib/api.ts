@@ -12,6 +12,10 @@ import {
   resetInfoSchema,
   chatResponseSchema,
   embeddingConfigSchema,
+  hygieneCancelSchema,
+  hygieneResponseSchema,
+  hygieneStartSchema,
+  insightsOverviewSchema,
   entrySchema,
   errorBodySchema,
   jobRunResponseSchema,
@@ -35,6 +39,8 @@ import {
   type ChatResponse,
   type EmbeddingConfig,
   type EmbeddingConfigPayload,
+  type HygieneResponse,
+  type InsightsOverview,
   type Entry,
   type JobRunResponse,
   type JobStatus,
@@ -365,4 +371,22 @@ export function startReembed(): Promise<void> {
 
 export function cancelReembed(): Promise<void> {
   return request("/embedding-config/reembed", { method: "DELETE" }, reembedCancelSchema).then(() => undefined);
+}
+
+// ── Memory health · /insights (D37) ──
+
+export function getInsightsOverview(): Promise<InsightsOverview> {
+  return request("/insights/overview", { method: "GET" }, insightsOverviewSchema);
+}
+
+export function getHygiene(): Promise<HygieneResponse> {
+  return request("/insights/hygiene", { method: "GET" }, hygieneResponseSchema);
+}
+
+export function startHygiene(): Promise<void> {
+  return request("/insights/hygiene/run", { method: "POST" }, hygieneStartSchema).then(() => undefined);
+}
+
+export function cancelHygiene(): Promise<void> {
+  return request("/insights/hygiene/cancel", { method: "POST" }, hygieneCancelSchema).then(() => undefined);
 }

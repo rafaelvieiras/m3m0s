@@ -410,3 +410,18 @@ func (c *Client) CancelReembed(ctx context.Context) (apitypes.ReembedCancelRespo
 	err := c.do(ctx, http.MethodDelete, apiPrefix+"/embedding-config/reembed", nil, nil, &out)
 	return out, err
 }
+
+// GetInsightsOverview calls GET /api/v1/insights/overview (D37).
+func (c *Client) GetInsightsOverview(ctx context.Context) (apitypes.InsightsOverviewResponse, error) {
+	var out apitypes.InsightsOverviewResponse
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/insights/overview", nil, nil, &out)
+	return out, err
+}
+
+// GetHygiene calls GET /api/v1/insights/hygiene (D37): the last hygiene
+// analysis (nil report if it never ran) and the live job status.
+func (c *Client) GetHygiene(ctx context.Context) (apitypes.HygieneResponse, error) {
+	var out apitypes.HygieneResponse
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/insights/hygiene", nil, nil, &out)
+	return out, err
+}
