@@ -134,6 +134,9 @@ Set through environment variables (or the matching `m3m0s serve` flags).
 | `M3M0S_JOBS_TICK` | `30s` | Scheduler heartbeat. |
 | `M3M0S_INSIGHTS_CPU_PERCENT` | `60` | Duty cycle (1-100) of the memory-health analysis job while it runs. |
 | `M3M0S_INSIGHTS_MAX_MINUTES` | `30` | Wall-clock limit of that job; a longer run ends with a partial report. |
+| `M3M0S_FILTER_MODE` | `default` | Ingestion boilerplate filter, global mode: `default` (each rule's own action: drop for tool-prompt leaks, tag for diff trivia), `off`, `tag` or `drop`. Acts only on automatic capture; see [D12](docs/decisions/D12-llm-fact-extraction.md). |
+| `M3M0S_FILTER_MODES` | — | Per-rule modes that win over the global one, e.g. `diff-trivia-fact=drop,commit-prompt-*=tag` (`*` as a trailing prefix wildcard). |
+| `M3M0S_FILTER_RULES` | — | JSON file of rules that replace (same `id`), add or disable (`"action": "off"`) the built-in ones. Patterns must be anchored (`^`, and `$` for facts). |
 | `GOGC` | `50` (set by m3m0s when unset) | Go GC target. Lower values trade a little CPU for a lower memory peak. |
 | `GOMEMLIMIT` | — (not set) | Optional soft memory limit for the Go runtime, e.g. `600MiB` on a small host; keep it above the live size (~250 MB for 75k entries). |
 | `M3M0S_URL` | `http://localhost:19234` | Server URL used by the CLI, MCP bridge, watcher and hooks. |
@@ -149,6 +152,16 @@ changes a memory. See `docs/decisions/D37-insights-dashboard.md`.
 
 ```sh
 m3m0s insights show          # totals, forgetting outlook, last analysis (add --json for the raw data)
+```
+
+The same page lists the ingestion filter (tooling boilerplate stopped at automatic capture) with
+per-rule counters. To see what the rules would catch in an existing database without changing it
+(the file is opened read-only; run it on a copy if the server is writing to it):
+
+```sh
+m3m0s filter replay -data ~/.m3m0s/data              # counts per rule
+m3m0s filter replay -data ~/.m3m0s/data -examples 5  # plus redacted, truncated examples
+m3m0s filter replay -facts facts.txt -segments digest.txt -modes diff-trivia-fact=drop
 ```
 
 ### Embedding provider and re-embedding

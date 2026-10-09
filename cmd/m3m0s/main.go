@@ -40,6 +40,8 @@ func main() {
 		err = runInsights(ctx, os.Args[2:])
 	case "maintenance":
 		err = runMaintenance(ctx, os.Args[2:])
+	case "filter":
+		err = runFilter(ctx, os.Args[2:])
 	case "project":
 		err = runProject(os.Args[2:])
 	case "add":
@@ -86,6 +88,7 @@ commands:
   embedding runtime embedding config and re-embedding (show|set|estimate|reembed)
   insights memory health summary: totals, forgetting outlook, last hygiene analysis (show)
   maintenance offline repair jobs on the data directory (redact-scan)
+  filter   ingestion boilerplate rules: replay them over stored text without writing (replay)
   project  maps directories to project scopes (show|list|set|unset)
   user     accounts for the WebUI: list, add, reset (password link), delete
   add      stores a memory

@@ -118,6 +118,9 @@ func TestRunSendsDigestWithExpectedFields(t *testing.T) {
 	if req.Source != ClaudeCodeSource {
 		t.Errorf("Source = %q, want %q", req.Source, ClaudeCodeSource)
 	}
+	if !req.Capture {
+		t.Errorf("Capture = false, want true: the hook is the automatic capture path (#53)")
+	}
 	if req.Domain != "code:some-repo" {
 		t.Errorf("Domain = %q, want %q", req.Domain, "code:some-repo")
 	}

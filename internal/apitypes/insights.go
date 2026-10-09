@@ -58,6 +58,25 @@ type ForgettingStats struct {
 	RetentionHistogram []CountItem `json:"retention_histogram"` // eligible entries by retention score
 }
 
+// FilterRuleStats is one ingestion-filter rule with its in-memory counters
+// (they reset when the server restarts).
+type FilterRuleStats struct {
+	ID          string `json:"id"`
+	Scope       string `json:"scope"` // "segment" or "fact"
+	Description string `json:"description,omitempty"`
+	Action      string `json:"action"` // effective action: drop, tag or off
+	Seen        int64  `json:"seen"`
+	Dropped     int64  `json:"dropped"`
+	Tagged      int64  `json:"tagged"`
+}
+
+// FilterOverview reports the ingestion boilerplate filter (#53).
+type FilterOverview struct {
+	Mode         string            `json:"mode"` // global mode: default, off, tag or drop
+	RulesVersion int               `json:"rules_version"`
+	Rules        []FilterRuleStats `json:"rules"`
+}
+
 // InsightsOverviewResponse is the body of GET /insights/overview.
 type InsightsOverviewResponse struct {
 	GeneratedAt      time.Time       `json:"generated_at"`
@@ -71,6 +90,7 @@ type InsightsOverviewResponse struct {
 	TopDomains       []DomainStat    `json:"top_domains"`
 	VectorsIndexed   int             `json:"vectors_indexed"`
 	Forgetting       ForgettingStats `json:"forgetting"`
+	Filter           FilterOverview  `json:"filter"`
 }
 
 // ExampleEntry is a truncated, secret-free view of one memory.

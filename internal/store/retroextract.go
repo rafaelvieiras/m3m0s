@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/ingestfilter"
 	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
@@ -106,7 +107,24 @@ func (s *MemoryStore) pendingExtractionCandidates(limit int) []schema.Entry {
 // Accepted as a known limitation of this first version of the job (see
 // docs/decisions/).
 func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry) (processedOK bool, err error) {
-	pieces := s.extractPieces(ctx, snapshot.Content, snapshot.Domain)
+	// Boilerplate filter (#53): only raw entries that came from automatic
+	// capture, never pinned ones (see filteringApplies).
+	filtering := s.filter != nil && snapshot.Metadata[metadataKeyCapture] == metadataCaptureAuto &&
+		snapshot.Metadata[metadataKeyPinned] != "true"
+	text := snapshot.Content
+	if filtering {
+		kept, hits := s.filter.FilterSegments(text)
+		logFilterHits("segment", snapshot.Domain, hits)
+		if strings.TrimSpace(kept) == "" {
+			// The whole entry was boilerplate: nothing to extract, nothing to keep.
+			if _, err := s.Delete(ctx, snapshot.ID); err != nil {
+				return false, fmt.Errorf("delete filtered original: %w", err)
+			}
+			return true, nil
+		}
+		text = kept
+	}
+	pieces := s.extractPieces(ctx, text, snapshot.Domain)
 	if !anyExtracted(pieces) {
 		// No piece yielded real extraction, not even partial — deleting and
 		// reinserting the same sliced raw content changes nothing (same bytes,
@@ -160,6 +178,19 @@ func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry
 	for _, piece := range pieces {
 		for _, fact := range piece.facts {
 			factContent := redact.Redact(fact).Text
+			var tagRule string
+			if filtering {
+				d := s.filter.CheckFact(factContent)
+				if d.Matched() {
+					log.Printf("m3m0s: ingestion filter: rule %s %s a fact (retroactive, domain=%s)", d.RuleID, d.Action, snapshot.Domain)
+				}
+				if d.Action == ingestfilter.ActionDrop {
+					continue
+				}
+				if d.Action == ingestfilter.ActionTag {
+					tagRule = d.RuleID
+				}
+			}
 			// withSourceContent copies snapshot.Metadata for each fact (never reuses
 			// the same map across iterations) — otherwise the N facts would end up
 			// pointing to the same map[string]string, and a future mutation on one
@@ -173,6 +204,9 @@ func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry
 				factIn.Metadata = withSourceContent(snapshot.Metadata, piece.sourceContent)
 			} else {
 				factIn.Metadata = snapshot.Metadata
+			}
+			if tagRule != "" {
+				factIn.Metadata = withMetadata(factIn.Metadata, ingestfilter.MetadataKey, tagRule)
 			}
 			if _, err := s.addOne(ctx, factContent, factIn, time.Now()); err != nil {
 				restoreIn := baseIn

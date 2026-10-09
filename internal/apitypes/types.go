@@ -30,6 +30,10 @@ type AddRequest struct {
 	// IDs make it clear the memory came from a reindexed file chunk. No
 	// existing caller needs to change; the field is ignored when omitted.
 	IDPrefix string `json:"idPrefix,omitempty"`
+	// Capture marks an automatic capture path (the Claude Code hook). Only
+	// such requests go through the ingestion boilerplate filter (#53);
+	// explicit writes leave it false and are never filtered.
+	Capture bool `json:"capture,omitempty"`
 }
 
 // AddedEntry is 1 item of AddResponse.Entries — 1 stored memory, plus whether
@@ -56,6 +60,9 @@ type AddResponse struct {
 	Entries   []AddedEntry `json:"entries"`
 	Extracted bool         `json:"extracted"`
 	Status    string       `json:"status,omitempty"`
+	// Filtered is how many segments or facts the ingestion boilerplate filter
+	// dropped (#53); Entries may then be empty.
+	Filtered int `json:"filtered,omitempty"`
 }
 
 // AddPendingResponse is the 202 Accepted response of POST /memories when the

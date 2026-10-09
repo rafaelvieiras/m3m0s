@@ -347,6 +347,24 @@ export const forgettingStatsSchema = z.object({
 });
 export type ForgettingStats = z.infer<typeof forgettingStatsSchema>;
 
+const filterRuleStatsSchema = z.object({
+  id: z.string(),
+  scope: z.string(),
+  description: z.string().optional(),
+  action: z.string(),
+  seen: z.number(),
+  dropped: z.number(),
+  tagged: z.number(),
+});
+export type FilterRuleStats = z.infer<typeof filterRuleStatsSchema>;
+
+export const filterOverviewSchema = z.object({
+  mode: z.string(),
+  rules_version: z.number(),
+  rules: list(filterRuleStatsSchema),
+});
+export type FilterOverview = z.infer<typeof filterOverviewSchema>;
+
 export const insightsOverviewSchema = z.object({
   generated_at: z.iso.datetime({ offset: true }),
   totals: z.object({
@@ -370,6 +388,8 @@ export const insightsOverviewSchema = z.object({
   top_domains: list(domainStatSchema),
   vectors_indexed: z.number(),
   forgetting: forgettingStatsSchema,
+  // Absent on servers that predate the ingestion filter.
+  filter: filterOverviewSchema.optional(),
 });
 export type InsightsOverview = z.infer<typeof insightsOverviewSchema>;
 

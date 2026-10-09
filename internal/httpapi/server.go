@@ -309,6 +309,7 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 			Tags:     req.Tags,
 			Metadata: req.Metadata,
 			IDPrefix: req.IDPrefix,
+			Capture:  req.Capture,
 		}, time.Now())
 		if err != nil {
 			op.fail(err)
@@ -347,7 +348,7 @@ func buildAddResponse(out store.AddOutput, status string) apitypes.AddResponse {
 	for _, e := range out.Entries {
 		entries = append(entries, apitypes.AddedEntry{Entry: e.Entry, Deduped: e.Deduped})
 	}
-	return apitypes.AddResponse{Entries: entries, Extracted: out.Extracted, Status: status}
+	return apitypes.AddResponse{Entries: entries, Extracted: out.Extracted, Status: status, Filtered: out.Filtered}
 }
 
 // handlePendingAdd implements GET /api/v1/memories/pending/:id (D26), a poll

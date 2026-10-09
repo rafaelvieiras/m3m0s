@@ -194,6 +194,14 @@ depth — D12, item 4) → dedup check (high-similarity search within the same
 existing `id`) → otherwise insert a new one (`mem_<nanoid>`, or
 `chunk_<nanoid>` if `idPrefix` was passed), `deduped: false`.
 
+Automatic capture (D12 addendum, issue #53): the optional boolean field `capture`
+marks a request as coming from an automatic capture path (the Claude Code hook sets it).
+Only such requests go through the ingestion boilerplate filter: transcript messages that
+are tooling boilerplate are removed before extraction, and extracted facts that match a
+rule are dropped or tagged (`metadata.filtered_by`). Requests without `capture`, and
+content with `metadata.pinned = "true"`, are never filtered. The response may carry
+`filtered` (how many segments or facts were dropped) and `entries` may then be empty.
+
 Response — **two possible paths since D26 (`docs/decisions/`, async Add)**,
 depending on how long the fact-extraction pipeline takes relative to
 `-add-sync-timeout`/`M3M0S_ADD_SYNC_TIMEOUT` (default `300ms`; `<= 0` disables
@@ -1103,6 +1111,9 @@ counted). All lists may be empty, never missing.
   "domain_count": 66,
   "top_domains": [{"domain": "codigo:proj", "count": 28625, "never_accessed": 27700, "expired": 3100}],
   "vectors_indexed": 77253,
+  "filter": {"mode": "default", "rules_version": 1,
+             "rules": [{"id": "diff-trivia-fact", "scope": "fact", "action": "tag",
+                        "seen": 120, "dropped": 0, "tagged": 7}]},
   "forgetting": {"eligible": 76293, "exempt": 99, "cold_now": 120, "soft_deleted": 861,
                  "hard_delete_due": 0, "threshold": 0.15, "age_half_life_days": 30, "grace_days": 30,
                  "retention_histogram": [{"key": "< 0.15 (cold)", "count": 120}]}
@@ -1116,7 +1127,9 @@ Totals other than `total` and `soft_deleted` count active (not soft-deleted) mem
 and retention score) but only counts: `cold_now` is what a sweep started now would
 soft-delete, `soft_deleted` are waiting for the hard-delete and `hard_delete_due`
 are already past `grace_days`. It costs a pass over the in-memory index (about
-100 ms for 77k memories).
+100 ms for 77k memories). `filter` reports the ingestion boilerplate filter (D12
+addendum): the effective action of every rule and its `seen`/`dropped`/`tagged`
+counters since the server started.
 
 ### `GET /api/v1/insights/hygiene`
 

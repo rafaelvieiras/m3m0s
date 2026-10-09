@@ -33,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/ingestfilter"
 	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 	"github.com/rafaelvieiras/m3m0s/internal/sqlstore"
@@ -134,10 +135,11 @@ type Classifier interface {
 // MemoryStore is the only component that touches SQLite directly (D28).
 type MemoryStore struct {
 	db        *sqlstore.DB
-	emb       embedState    // runtime embedding configuration (#39, D36)
-	re        reembedState  // re-embedding job (#39 phase 2)
-	ins       insightsState // hygiene analysis job (D37)
-	extractor Extractor     // nil = extraction disabled (D12, item 1)
+	emb       embedState           // runtime embedding configuration (#39, D36)
+	re        reembedState         // re-embedding job (#39 phase 2)
+	ins       insightsState        // hygiene analysis job (D37)
+	extractor Extractor            // nil = extraction disabled (D12, item 1)
+	filter    *ingestfilter.Engine // boilerplate filter for automatic capture (#53)
 
 	mu                      sync.RWMutex
 	index                   map[string]schema.Entry // in-memory cache, without embedding — reloaded from SQLite at boot
@@ -305,6 +307,7 @@ func New(dataDir, apiKey, baseURL string) (*MemoryStore, error) {
 		index:   make(map[string]schema.Entry),
 		vecs:    newVecIndex(),
 		dataDir: dataDir,
+		filter:  ingestfilter.Default(),
 	}
 	// No API key = keyword-only mode (F5): entries are stored without an
 	// embedding, dedup falls back to exact content match and search to FTS5.
@@ -459,6 +462,11 @@ type AddInput struct {
 	// the memory came from a reindexed file chunk. Only used when the memory
 	// is new; on a duplicate (dedup) the existing ID is preserved.
 	IDPrefix string
+	// Capture marks an automatic capture path (the Claude Code hook): the
+	// only inputs the ingestion boilerplate filter (#53) may act on. Explicit
+	// writes (memory_add, the API, chat, watch) leave it false and are never
+	// filtered, nor is content carrying metadata pinned=true.
+	Capture bool
 }
 
 // validateProvenance checks the optional model/project of an add or update;
@@ -509,6 +517,9 @@ type AddedEntry struct {
 type AddOutput struct {
 	Entries   []AddedEntry
 	Extracted bool
+	// Filtered counts the segments and facts the ingestion boilerplate filter
+	// dropped (#53); Entries may be empty when everything was boilerplate.
+	Filtered int
 }
 
 // Add runs the full pipeline (Phase 1 + Phase 4/D12 extraction, sliced
@@ -532,6 +543,17 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 	redResult := redact.Redact(in.Content)
 	content := redResult.Text
 
+	filtering := s.filteringApplies(in)
+	filtered := 0
+	if filtering {
+		kept, hits := s.filter.FilterSegments(content)
+		filtered += logFilterHits("segment", in.Domain, hits)
+		if strings.TrimSpace(kept) == "" {
+			return AddOutput{Filtered: filtered}, nil
+		}
+		content = kept
+	}
+
 	var pieces []extractedPiece
 	if s.extractor != nil {
 		pieces = s.extractPieces(ctx, content, in.Domain)
@@ -544,6 +566,24 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 		for _, fact := range piece.facts {
 			factContent := redact.Redact(fact).Text
 			factIn := in
+			if filtering {
+				d := s.filter.CheckFact(factContent)
+				if d.Matched() {
+					log.Printf("m3m0s: ingestion filter: rule %s %s a fact (domain=%s, %d chars)", d.RuleID, d.Action, in.Domain, len([]rune(factContent)))
+				}
+				if d.Action == ingestfilter.ActionDrop {
+					filtered++
+					continue
+				}
+				if d.Action == ingestfilter.ActionTag {
+					factIn.Metadata = withMetadata(factIn.Metadata, ingestfilter.MetadataKey, d.RuleID)
+				}
+				if !piece.extracted {
+					// Raw fallback of a captured piece: remember it came from automatic
+					// capture, so the retroactive job may filter it when re-extracting.
+					factIn.Metadata = withMetadata(factIn.Metadata, metadataKeyCapture, metadataCaptureAuto)
+				}
+			}
 			if piece.extracted {
 				// Retroactive traceability (Phase 5, D13, item 3): each extracted fact
 				// carries metadata.source_content = the original text of the PIECE it
@@ -555,7 +595,7 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 				// would leak into another). It deliberately overwrites a source_content
 				// key the caller may have sent manually — the key is reserved by
 				// extraction when extracted == true (docs/api-contract.md).
-				factIn.Metadata = withSourceContent(in.Metadata, piece.sourceContent)
+				factIn.Metadata = withSourceContent(factIn.Metadata, piece.sourceContent)
 			}
 			added, err := s.addOne(ctx, factContent, factIn, now)
 			if err != nil {
@@ -565,7 +605,55 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 		}
 	}
 
-	return AddOutput{Entries: entries, Extracted: anyExtracted(pieces)}, nil
+	return AddOutput{Entries: entries, Extracted: anyExtracted(pieces), Filtered: filtered}, nil
+}
+
+// metadataKeyCapture marks a raw (not extracted) entry stored from an
+// automatic capture path; the retroactive extraction job only applies the
+// boilerplate filter to entries that carry it.
+const (
+	metadataKeyCapture  = "capture"
+	metadataCaptureAuto = "auto"
+)
+
+// filteringApplies says whether the boilerplate filter may act on in: only on
+// automatic capture, never on pinned content.
+func (s *MemoryStore) filteringApplies(in AddInput) bool {
+	return s.filter != nil && in.Capture && in.Metadata[metadataKeyPinned] != "true"
+}
+
+// logFilterHits logs each hit by rule id (never the content) and returns the
+// number of dropped segments.
+func logFilterHits(what, domain string, hits []ingestfilter.Decision) int {
+	dropped := 0
+	for _, h := range hits {
+		log.Printf("m3m0s: ingestion filter: rule %s %s a %s (domain=%s)", h.RuleID, h.Action, what, domain)
+		if h.Action == ingestfilter.ActionDrop {
+			dropped++
+		}
+	}
+	return dropped
+}
+
+// withMetadata returns a copy of base with key set; it never mutates base.
+func withMetadata(base map[string]string, key, value string) map[string]string {
+	md := make(map[string]string, len(base)+1)
+	for k, v := range base {
+		md[k] = v
+	}
+	md[key] = value
+	return md
+}
+
+// SetFilter replaces the boilerplate filter (nil disables it).
+func (s *MemoryStore) SetFilter(f *ingestfilter.Engine) { s.filter = f }
+
+// FilterStats returns the rules and counters of the boilerplate filter.
+func (s *MemoryStore) FilterStats() ingestfilter.Stats {
+	if s.filter == nil {
+		return ingestfilter.Stats{Mode: string(ingestfilter.ActionOff)}
+	}
+	return s.filter.Stats()
 }
 
 // withSourceContent returns a new map with all of base's keys plus
@@ -696,6 +784,8 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 	var entry schema.Entry
 	deduped := band == "dedup"
 	if deduped {
+		// Filter markers describe the incoming fact, not the entry it merges into.
+		in.Metadata = withoutKey(withoutKey(in.Metadata, ingestfilter.MetadataKey), metadataKeyCapture)
 		entry = mergeForDedup(*candidate, content, in, now)
 	} else {
 		entry, err = schema.NewEntry(content, in.Domain, in.Source, in.Agent, in.Tags, in.Metadata, now, in.IDPrefix)

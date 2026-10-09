@@ -210,7 +210,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		down = Replay(ctx, deps.HomeDir, c, replayPerHook, now).Unreachable
 	}
 	for i, chunk := range chunks {
-		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: ClaudeCodeSource, Model: model, Project: project}
+		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: ClaudeCodeSource, Model: model, Project: project, Capture: true}
 		var sendErr error
 		if down {
 			sendErr = errors.New("server unavailable")
