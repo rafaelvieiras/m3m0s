@@ -35,6 +35,9 @@ func runServe(args []string) error {
 	jobsTick := fs.Duration("jobs-tick", firstNonEmptyDuration(os.Getenv("M3M0S_JOBS_TICK"), 30*time.Second), "check interval of the job scheduler (internal/jobs) — not the frequency of each job, just the clock tick")
 	retroExtractInterval := fs.Duration("retro-extract-interval", firstNonEmptyDuration(os.Getenv("M3M0S_RETRO_EXTRACT_INTERVAL"), 2*time.Hour), "interval between runs of the retroactive extraction job (only runs with fact extraction enabled)")
 	forgetSweepInterval := fs.Duration("forget-sweep-interval", firstNonEmptyDuration(os.Getenv("M3M0S_FORGET_SWEEP_INTERVAL"), 12*time.Hour), "interval between runs of the automatic forgetting job (D22, docs/decisions/ — closes A9); always runs, regardless of whether fact extraction is enabled")
+	filterRules := fs.String("filter-rules", os.Getenv("M3M0S_FILTER_RULES"), "JSON file with ingestion-filter rules that replace or extend the built-in ones (#53)")
+	filterMode := fs.String("filter-mode", os.Getenv("M3M0S_FILTER_MODE"), "ingestion boilerplate filter, global mode: default (each rule's own action), off, tag or drop (#53)")
+	filterModes := fs.String("filter-modes", os.Getenv("M3M0S_FILTER_MODES"), "per-rule modes, e.g. diff-trivia-fact=drop,commit-prompt-*=tag (#53)")
 	chatKey := fs.String("chat-key", os.Getenv("M3M0S_CHAT_API_KEY"), "OpenRouter API key for the WebUI floating chat (D23) — empty falls back to the value of -extract-key/M3M0S_EXTRACT_API_KEY; absent in both disables POST /api/v1/chat")
 	chatBase := fs.String("chat-base", firstNonEmpty(os.Getenv("M3M0S_CHAT_BASE_URL"), chat.DefaultBaseURL), "OpenAI-compatible base URL for the WebUI chat")
 	chatModel := fs.String("chat-model", firstNonEmpty(os.Getenv("M3M0S_CHAT_MODEL"), chat.DefaultModel), "model used for the WebUI chat")
@@ -67,6 +70,17 @@ func runServe(args []string) error {
 	if err != nil {
 		return fmt.Errorf("start store: %w", err)
 	}
+
+	// Ingestion boilerplate filter (#53): drops/tags tooling boilerplate on the
+	// automatic capture path only. A bad configuration is a startup error so a
+	// typo never silently disables (or widens) the filter.
+	engine, err := loadFilterEngine(*filterRules, *filterMode, *filterModes)
+	if err != nil {
+		return fmt.Errorf("ingestion filter: %w", err)
+	}
+	memStore.SetFilter(engine)
+	fst := engine.Stats()
+	log.Printf("  ingestion filter: mode=%s, %d rule(s), rules v%d", fst.Mode, len(fst.Rules), fst.Version)
 
 	// One-time import of the 6 hand-rolled JSON files + chromem-go
 	// (pre-D28 architecture, docs/decisions/) into SQLite — a no-op

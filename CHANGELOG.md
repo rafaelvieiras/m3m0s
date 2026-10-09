@@ -77,6 +77,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   and holds 4000+ characters of new text.
 - `doctor` reports whether `m3m0s` is configured as an MCP server in Claude Code
   and opencode, and which optional hook events are missing.
+- Ingestion boilerplate filter (issue #53, D12 addendum): the automatic capture path (the
+  Claude Code hook) no longer turns tooling text into memories. Versioned, data-driven rules
+  (id, scope `segment|fact`, regex anchored on a full template, action `drop|tag`) ship as
+  defaults: the extractor's own prompt and JSON schema, session-continuation and compaction
+  boilerplate and commit-message generator prompts are dropped; diff arithmetic (byte
+  sizes, insertion counts) is only tagged `metadata.filtered_by=<rule id>` for review.
+  Segment rules run before extraction (saving tokens), fact rules after it. Modes
+  `off|tag|drop` globally and per rule, and an operator rules file, via
+  `M3M0S_FILTER_MODE`, `M3M0S_FILTER_MODES` and `M3M0S_FILTER_RULES`. Explicit writes
+  (`memory_add`, API, chat, watch) and pinned content are never filtered. Per-rule
+  seen/dropped/tagged counters appear in `GET /api/v1/insights/overview`, the Insights
+  page and the server log. `m3m0s filter replay` shows the hits over a stored database
+  (opened read-only) or text files without writing anything. `POST /api/v1/memories`
+  accepts `capture` and answers with `filtered`.
 
 ### Changed
 

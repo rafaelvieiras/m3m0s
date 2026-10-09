@@ -26,6 +26,7 @@ import {
 import type {
   CountItem,
   ExampleEntry,
+  FilterOverview,
   ForgettingStats,
   HygieneReport,
   HygieneStatus,
@@ -204,6 +205,42 @@ function ForgettingSection({ f }: { f: ForgettingStats }) {
           <BarList items={f.retention_histogram} empty="No memory is eligible to decay." />
         </div>
       </div>
+    </Section>
+  );
+}
+
+function FilterSection({ f }: { f: FilterOverview }) {
+  return (
+    <Section
+      title="Ingestion filter"
+      description={`Tooling boilerplate stopped at automatic capture (mode ${f.mode}, rules v${f.rules_version}). Counters reset when the server restarts. Explicit writes and pinned memories are never filtered.`}
+    >
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Rule</TableHead>
+            <TableHead>Scope</TableHead>
+            <TableHead>Action</TableHead>
+            <TableHead className="text-right">Seen</TableHead>
+            <TableHead className="text-right">Dropped</TableHead>
+            <TableHead className="text-right">Tagged</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {f.rules.map((r) => (
+            <TableRow key={r.id}>
+              <TableCell className="font-mono text-xs" title={r.description}>
+                {r.id}
+              </TableCell>
+              <TableCell>{r.scope}</TableCell>
+              <TableCell>{r.action}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatCount(r.seen)}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatCount(r.dropped)}</TableCell>
+              <TableCell className="text-right tabular-nums">{formatCount(r.tagged)}</TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
     </Section>
   );
 }
@@ -548,6 +585,7 @@ export default function InsightsPage() {
         <>
           <OverviewSection ov={data} />
           <ForgettingSection f={data.forgetting} />
+          {data.filter ? <FilterSection f={data.filter} /> : null}
         </>
       )}
       <HygieneSection />

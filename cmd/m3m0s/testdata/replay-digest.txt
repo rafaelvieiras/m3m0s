@@ -1,0 +1,14 @@
+[user]
+Please add retries to the uploader.
+
+[assistant]
+Done, it retries three times.
+
+[user]
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary: synthetic.
+
+[user]
+Write a commit message from this git diff:
++x

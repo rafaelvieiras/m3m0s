@@ -189,6 +189,7 @@ func (s *MemoryStore) InsightsOverview(now time.Time) apitypes.InsightsOverviewR
 
 	out.VectorsIndexed = s.vecs.len()
 	out.Forgetting = s.ForgettingStats(now)
+	out.Filter = s.filterOverview()
 	return out
 }
 
@@ -251,6 +252,19 @@ func (s *MemoryStore) ForgettingStats(now time.Time) apitypes.ForgettingStats {
 	out.RetentionHistogram = make([]apitypes.CountItem, len(retentionBuckets))
 	for i, b := range retentionBuckets {
 		out.RetentionHistogram[i] = apitypes.CountItem{Key: b.label, Count: hist[i]}
+	}
+	return out
+}
+
+// filterOverview adapts the ingestion filter's counters (#53) to the API type.
+func (s *MemoryStore) filterOverview() apitypes.FilterOverview {
+	st := s.FilterStats()
+	out := apitypes.FilterOverview{Mode: st.Mode, RulesVersion: st.Version, Rules: make([]apitypes.FilterRuleStats, 0, len(st.Rules))}
+	for _, r := range st.Rules {
+		out.Rules = append(out.Rules, apitypes.FilterRuleStats{
+			ID: r.ID, Scope: r.Scope, Description: r.Description, Action: r.Action,
+			Seen: r.Seen, Dropped: r.Dropped, Tagged: r.Tagged,
+		})
 	}
 	return out
 }

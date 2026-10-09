@@ -61,6 +61,23 @@ describe("insights schemas", () => {
     expect(parsed.forgetting.retention_histogram).toEqual([]);
   });
 
+  it("parses the ingestion filter section and tolerates its absence", () => {
+    const base = {
+      generated_at: "2026-10-08T12:00:00Z",
+      totals: { total: 0, active: 0, soft_deleted: 0, with_valid_until: 0, expired: 0, pinned: 0, extracted: 0, raw: 0, never_accessed: 0, never_accessed_pct: 0 },
+      text: { avg_chars: 0, median_chars: 0, p90_chars: 0, max_chars: 0 },
+      soft_deleted_by_day: [], by_category: [], by_source: [], by_age: [], domain_count: 0, top_domains: [],
+      vectors_indexed: 0, forgetting,
+    };
+    expect(insightsOverviewSchema.parse(base).filter).toBeUndefined();
+    const parsed = insightsOverviewSchema.parse({
+      ...base,
+      filter: { mode: "default", rules_version: 1, rules: [{ id: "diff-trivia-fact", scope: "fact", action: "tag", seen: 5, dropped: 0, tagged: 2 }] },
+    });
+    expect(parsed.filter?.rules[0].tagged).toBe(2);
+    expect(insightsOverviewSchema.parse({ ...base, filter: { mode: "off", rules_version: 1, rules: null } }).filter?.rules).toEqual([]);
+  });
+
   it("parses the never-analysed state", () => {
     const parsed = hygieneResponseSchema.parse({ status: { running: false, done: 0, total: 0 }, report: null });
     expect(parsed.report).toBeNull();
