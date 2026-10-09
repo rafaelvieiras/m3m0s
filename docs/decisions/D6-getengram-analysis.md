@@ -16,3 +16,22 @@
 6. **Tags + `agent_id` + free-form metadata per conversation** — confirms that the "essential typed fields + free JSON metadata + tags" shape is enough to cover varied domains; use it as a reference for shape (not literally the same fields) when closing the `scope`/`domain` schema (A3).
 
 **What NOT to bring:** zero compression/summarization (M3m0s wants compression of old low-value memories — a deliberate difference); the "conversation" data model (M3m0s indexes files/facts, not chat threads); Cloudflare infrastructure (contradicts the goal of running on a Raspberry Pi); the per-seat paid business model (irrelevant, personal use).
+
+## Redactor coverage (update, Oct 2026)
+
+The redactor (`internal/redact`) now covers, besides the original prefixes:
+
+- **Key names with a prefix or suffix**: the key words (`password`, `passwd`, `pwd`, `senha`, `secret`, `token`, `api_key`, `access_key`, `private_key`, `chave`, ...) are matched inside names, so `TEST_USER_PASSWORD=`, `refresh_token:`, `clientSecret =` and `"db_password": "..."` are caught (a `\b` never matched after `_`). Only the value is replaced; the key name stays so the fact remains readable. Short, low-entropy values are redacted too, since the key name is the evidence.
+- **Narrative forms** such as `a senha é 'X'` or `the admin password for staging is X` (quoted values always; bare words only when they look like a password: digit, symbol or inner capital).
+- `Authorization: Basic|Bearer|Token ...` (scheme kept), `scheme://user:password@host` (password only), `--password value` CLI flags, and extra provider formats (Slack, Google API keys, fine-grained GitHub tokens, `sk-proj-`).
+- **Source blobs** (`source_blobs`, D21) go through the redactor on the write path; the dedup hash is taken over the redacted text.
+
+False-positive control: placeholders and descriptions are left alone (`...`, `<token>`, `${VAR}`, `$VAR`, `process.env.X`, `YOUR_TOKEN`, function calls, `required`, `string`, masks such as `****`).
+
+The high-entropy layer no longer redacts identifiers. A token whose segments (split on `_`, `-`, `.`) are all plain words or numbers (camelCase functions, snake_case and kebab-case names, branch names, file names) is kept, and tokens of 20-31 characters need all three character classes or entropy >= 4.0.
+
+Known limits: the narrative and key=value rules are heuristics (a prose sentence such as "token: foo_bar" is redacted), letters-only random tokens are treated as identifiers, and passwords with no key word nearby and low entropy cannot be detected.
+
+### Cleaning existing data
+
+`m3m0s maintenance redact-scan` runs the current redactor over stored entries and source blobs. It is a dry run by default and reports blob hashes / entry ids plus the id of the matching rule, never any part of a value. `--apply` re-redacts blobs in place (the blob keeps its hash key, so entry references and a running server's cache stay valid). Entries are only listed: rewriting their text would invalidate their embeddings, so edit or delete them by hand. It opens the data directory directly; stop `serve` first or restart it afterwards. Rotate any credential that was ever stored, because backups and snapshots still hold the old text.

@@ -594,6 +594,10 @@ func (s *MemoryStore) internalizeMetadata(ctx context.Context, md map[string]str
 	if !has {
 		return md, nil
 	}
+	// Redact the blob too (D6): the source text is stored apart from the
+	// entry content and used to reach disk verbatim. The hash is taken over
+	// the redacted text so the dedup key never depends on a secret.
+	text = redact.Redact(text).Text
 	hash := hashSourceContent(text)
 	if err := s.db.PutSourceBlob(ctx, hash, text); err != nil {
 		return nil, fmt.Errorf("store source blob: %w", err)

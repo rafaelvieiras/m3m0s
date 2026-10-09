@@ -38,6 +38,8 @@ func main() {
 		err = runEmbedding(ctx, os.Args[2:])
 	case "insights":
 		err = runInsights(ctx, os.Args[2:])
+	case "maintenance":
+		err = runMaintenance(ctx, os.Args[2:])
 	case "project":
 		err = runProject(os.Args[2:])
 	case "add":
@@ -83,6 +85,7 @@ commands:
   doctor   checks server, key, hooks and the capture spool (--replay resends it)
   embedding runtime embedding config and re-embedding (show|set|estimate|reembed)
   insights memory health summary: totals, forgetting outlook, last hygiene analysis (show)
+  maintenance offline repair jobs on the data directory (redact-scan)
   project  maps directories to project scopes (show|list|set|unset)
   user     accounts for the WebUI: list, add, reset (password link), delete
   add      stores a memory
@@ -96,7 +99,8 @@ commands:
 
 "watch", "hook", "add", "search", "recent", "stats", "update", "get",
 "forget-sweep", "restore", "embedding" and "insights" talk to an already running "serve" via M3M0S_URL
-(default http://localhost:19234) and M3M0S_API_KEY.
+(default http://localhost:19234) and M3M0S_API_KEY. "maintenance" opens the data directory
+(--data / M3M0S_DATA_DIR) directly instead.
 
 Use "m3m0s <command> -h" to see the flags of each one.
 `)
