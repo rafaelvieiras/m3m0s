@@ -22,6 +22,7 @@ import (
 
 	chromem "github.com/philippgille/chromem-go"
 
+	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 	"github.com/rafaelvieiras/m3m0s/internal/sqlstore"
 )
@@ -57,7 +58,8 @@ func (s *MemoryStore) ImportLegacyData(ctx context.Context) error {
 		log.Printf("m3m0s: legacy import: sourceblobs.json: %v", err)
 	}
 	for hash, text := range blobs {
-		if err := s.db.PutSourceBlob(ctx, hash, text); err != nil {
+		// Redacted under the original key: entries reference the blob by it.
+		if err := s.db.PutSourceBlob(ctx, hash, redact.Redact(text).Text); err != nil {
 			log.Printf("m3m0s: legacy import: source blob %s: %v", hash, err)
 		}
 	}
@@ -79,6 +81,7 @@ func (s *MemoryStore) ImportLegacyData(ctx context.Context) error {
 		// installs that already ran D21 — only source_content_ref — and an
 		// install that never got to run D21 — raw source_content).
 		if text, has := e.Metadata[metadataKeySourceContent]; has {
+			text = redact.Redact(text).Text
 			hash := hashSourceContent(text)
 			if err := s.db.PutSourceBlob(ctx, hash, text); err != nil {
 				log.Printf("m3m0s: legacy import: source blob of %s: %v", e.ID, err)

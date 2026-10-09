@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -422,4 +423,33 @@ func containsSecret(s, secret string) bool {
 		}
 		return false
 	})()
+}
+
+// TestSourceBlobIsRedactedOnWrite: the source text stored apart from the
+// entry (D21) goes through the redactor too, and its hash is taken over the
+// redacted text.
+func TestSourceBlobIsRedactedOnWrite(t *testing.T) {
+	s := newTestStore(t)
+	ctx := context.Background()
+	out, err := s.Add(ctx, AddInput{
+		Content: "plain fact", Domain: "code:m3m0s",
+		Metadata: map[string]string{"source_content": "ADMIN_PASSWORD=Zx9-fake-password-1 in staging"},
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Add: %v", err)
+	}
+	got := out.Entries[0].Entry.Metadata["source_content"]
+	if strings.Contains(got, "fake-password") {
+		t.Fatalf("resolved source_content leaks the value: %q", got)
+	}
+	s.mu.RLock()
+	ref := s.index[out.Entries[0].Entry.ID].Metadata[metadataKeySourceContentRef]
+	s.mu.RUnlock()
+	stored, ok, err := s.db.GetSourceBlob(ctx, ref)
+	if err != nil || !ok {
+		t.Fatalf("GetSourceBlob: %v ok=%v", err, ok)
+	}
+	if strings.Contains(stored, "fake-password") || ref != hashSourceContent(stored) {
+		t.Fatalf("blob not redacted or hash not over redacted text: %q", stored)
+	}
 }

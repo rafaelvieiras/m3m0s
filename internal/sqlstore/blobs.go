@@ -41,3 +41,33 @@ func (db *DB) GetSourceBlob(ctx context.Context, hash string) (string, bool, err
 	}
 	return content, true, nil
 }
+
+// ForEachSourceBlob streams every blob to fn, ordered by hash. fn must not
+// write to the database (the connection is shared); collect what to change
+// and apply it afterwards.
+func (db *DB) ForEachSourceBlob(ctx context.Context, fn func(hash, content string)) error {
+	rows, err := db.sql.QueryContext(ctx, `SELECT hash, content FROM source_blobs ORDER BY hash`)
+	if err != nil {
+		return fmt.Errorf("list source blobs: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var hash, content string
+		if err := rows.Scan(&hash, &content); err != nil {
+			return fmt.Errorf("scan source blob: %w", err)
+		}
+		fn(hash, content)
+	}
+	return rows.Err()
+}
+
+// ReplaceSourceBlobContent rewrites the text of an existing blob while
+// keeping its key. Entries reference blobs by hash (D21), so keeping the key
+// leaves every reference valid, including the ones cached by a running
+// server; the hash is an opaque key, not a checksum anything verifies.
+func (db *DB) ReplaceSourceBlobContent(ctx context.Context, hash, content string) error {
+	if _, err := db.sql.ExecContext(ctx, `UPDATE source_blobs SET content = ? WHERE hash = ?`, content, hash); err != nil {
+		return fmt.Errorf("replace source blob %s: %w", hash, err)
+	}
+	return nil
+}
