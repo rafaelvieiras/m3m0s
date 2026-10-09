@@ -7,7 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- Secret redactor: key names with a prefix or suffix (`TEST_USER_PASSWORD=`, `access_token=`,
+  `CLIENT_SECRET=`) were missed because `\b` does not match after `_`. It now also knows
+  `senha`/`pwd`/`passwd`, narrative forms ("the password is ..."), short low-entropy values,
+  `Authorization: Basic|Bearer`, `user:password@host` URLs and more provider formats, keeps the
+  key name, and skips placeholders. The high-entropy layer no longer replaces identifiers
+  (camelCase, snake_case, branch names, file paths) with `[REDACTED]`.
+- Source blobs (D21) are redacted on the write path too.
+
 ### Added
+
+- `m3m0s maintenance redact-scan [--apply]`: scans stored entries and source blobs with the
+  current redactor. Dry run by default; reports ids/hashes and rule ids only (never values).
+  `--apply` re-redacts blobs in place; entries are only listed for manual review.
 
 - Memory health dashboard (D37, migration 00006): an Insights page in the WebUI, `GET
   /api/v1/insights/overview` and `m3m0s insights show [--json]` with totals, distributions

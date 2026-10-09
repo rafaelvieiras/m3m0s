@@ -176,7 +176,9 @@ leaves stored vectors in another model/size, `set` shows how many and an approxi
 M3m0s stores whatever you send it — including conversation transcripts — and
 you configure it with provider API keys. Text is passed through secret
 redaction before storage and before it is sent to an extraction provider, but
-redaction is best-effort. Put the server behind TLS and a trusted network
+redaction is best-effort (coverage notes in `docs/decisions/D6-getengram-analysis.md`;
+`m3m0s maintenance redact-scan` reports secrets that were stored before a rule existed
+and `--apply` re-redacts the stored source blobs; dry run by default). Put the server behind TLS and a trusted network
 boundary before exposing it, keep your `.env` out of version control, and read
 [`SECURITY.md`](SECURITY.md) for details and how to report a vulnerability.
 
