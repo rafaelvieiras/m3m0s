@@ -312,3 +312,163 @@ export interface ReembedEstimatePayload {
   base_url?: string;
   dimensions?: number;
 }
+
+// ── Memory health · /insights (D37) ──
+//
+// Go encodes an empty slice it never allocated as null, so every list is
+// accepted as null and read as [].
+
+const list = <T extends z.ZodType>(item: T) =>
+  z
+    .array(item)
+    .nullish()
+    .transform((v) => v ?? []);
+
+const countItemSchema = z.object({ key: z.string(), count: z.number() });
+export type CountItem = z.infer<typeof countItemSchema>;
+
+const domainStatSchema = z.object({
+  domain: z.string(),
+  count: z.number(),
+  never_accessed: z.number(),
+  expired: z.number(),
+});
+
+export const forgettingStatsSchema = z.object({
+  eligible: z.number(),
+  exempt: z.number(),
+  cold_now: z.number(),
+  soft_deleted: z.number(),
+  hard_delete_due: z.number(),
+  threshold: z.number(),
+  age_half_life_days: z.number(),
+  grace_days: z.number(),
+  retention_histogram: list(countItemSchema),
+});
+export type ForgettingStats = z.infer<typeof forgettingStatsSchema>;
+
+export const insightsOverviewSchema = z.object({
+  generated_at: z.iso.datetime({ offset: true }),
+  totals: z.object({
+    total: z.number(),
+    active: z.number(),
+    soft_deleted: z.number(),
+    with_valid_until: z.number(),
+    expired: z.number(),
+    pinned: z.number(),
+    extracted: z.number(),
+    raw: z.number(),
+    never_accessed: z.number(),
+    never_accessed_pct: z.number(),
+  }),
+  text: z.object({ avg_chars: z.number(), median_chars: z.number(), p90_chars: z.number(), max_chars: z.number() }),
+  soft_deleted_by_day: list(countItemSchema),
+  by_category: list(countItemSchema),
+  by_source: list(countItemSchema),
+  by_age: list(countItemSchema),
+  domain_count: z.number(),
+  top_domains: list(domainStatSchema),
+  vectors_indexed: z.number(),
+  forgetting: forgettingStatsSchema,
+});
+export type InsightsOverview = z.infer<typeof insightsOverviewSchema>;
+
+const exampleEntrySchema = z.object({
+  id: z.string(),
+  domain: z.string(),
+  source: z.string(),
+  text: z.string().optional(),
+});
+export type ExampleEntry = z.infer<typeof exampleEntrySchema>;
+
+const nearThresholdSchema = z.object({
+  threshold: z.number(),
+  pairs: z.number(),
+  clusters: z.number(),
+  redundant: z.number(),
+  largest_cluster: z.number(),
+  same_domain: z.number(),
+  cross_domain: z.number(),
+  cross_source: z.number(),
+  same_capture: z.number(),
+  numbers_differ: z.number(),
+});
+export type NearThreshold = z.infer<typeof nearThresholdSchema>;
+
+const noiseCriterionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tier: z.string(),
+  description: z.string(),
+  matches: z.number(),
+  never_accessed: z.number(),
+  examples: list(exampleEntrySchema),
+});
+export type NoiseCriterion = z.infer<typeof noiseCriterionSchema>;
+
+export const hygieneReportSchema = z.object({
+  version: z.number(),
+  computed_at: z.iso.datetime({ offset: true }),
+  duration_ms: z.number(),
+  partial: z.boolean(),
+  partial_reason: z.string().optional(),
+  scanned: z.number(),
+  exact_duplicates: z.object({
+    groups: z.number(),
+    entries: z.number(),
+    redundant: z.number(),
+    same_domain_groups: z.number(),
+    cross_domain_groups: z.number(),
+    cross_source_groups: z.number(),
+    examples: list(
+      z.object({ size: z.number(), domains: z.number(), text: z.string(), members: list(exampleEntrySchema) }),
+    ),
+  }),
+  near_duplicates: z.object({
+    available: z.boolean(),
+    reason: z.string().optional(),
+    method: z.string().optional(),
+    indexed: z.number().optional(),
+    tables: z.number().optional(),
+    bits: z.number().optional(),
+    oversized_buckets: z.number().optional(),
+    pairs_truncated: z.boolean().optional(),
+    thresholds: list(nearThresholdSchema),
+    cross_source: list(countItemSchema),
+    bands: list(
+      z.object({
+        label: z.string(),
+        examples: list(z.object({ similarity: z.number(), a: exampleEntrySchema, b: exampleEntrySchema })),
+      }),
+    ),
+  }),
+  noise: z.object({
+    category: z.string(),
+    scanned: z.number(),
+    criteria: list(noiseCriterionSchema),
+    conservative_union: z.number(),
+    conservative_eligible: z.number(),
+    review_union: z.number(),
+  }),
+});
+export type HygieneReport = z.infer<typeof hygieneReportSchema>;
+
+export const hygieneStatusSchema = z.object({
+  running: z.boolean(),
+  phase: z.string().optional(),
+  done: z.number(),
+  total: z.number(),
+  started_at: z.iso.datetime({ offset: true }).nullish(),
+  finished_at: z.iso.datetime({ offset: true }).nullish(),
+  last_error: z.string().optional(),
+});
+export type HygieneStatus = z.infer<typeof hygieneStatusSchema>;
+
+export const hygieneResponseSchema = z.object({
+  status: hygieneStatusSchema,
+  report: hygieneReportSchema.nullable(),
+});
+export type HygieneResponse = z.infer<typeof hygieneResponseSchema>;
+
+export const hygieneStartSchema = z.object({ started: z.boolean() });
+export const hygieneCancelSchema = z.object({ cancelled: z.boolean() });

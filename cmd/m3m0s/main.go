@@ -36,6 +36,8 @@ func main() {
 		err = runUser(ctx, os.Args[2:])
 	case "embedding":
 		err = runEmbedding(ctx, os.Args[2:])
+	case "insights":
+		err = runInsights(ctx, os.Args[2:])
 	case "project":
 		err = runProject(os.Args[2:])
 	case "add":
@@ -80,6 +82,7 @@ commands:
   eval     runs a golden dataset and prints recall@k per ranking mode (D30)
   doctor   checks server, key, hooks and the capture spool (--replay resends it)
   embedding runtime embedding config and re-embedding (show|set|estimate|reembed)
+  insights memory health summary: totals, forgetting outlook, last hygiene analysis (show)
   project  maps directories to project scopes (show|list|set|unset)
   user     accounts for the WebUI: list, add, reset (password link), delete
   add      stores a memory
@@ -92,7 +95,7 @@ commands:
   restore       reverts the soft-delete of a memory by id
 
 "watch", "hook", "add", "search", "recent", "stats", "update", "get",
-"forget-sweep", "restore" and "embedding" talk to an already running "serve" via M3M0S_URL
+"forget-sweep", "restore", "embedding" and "insights" talk to an already running "serve" via M3M0S_URL
 (default http://localhost:19234) and M3M0S_API_KEY.
 
 Use "m3m0s <command> -h" to see the flags of each one.

@@ -1077,6 +1077,114 @@ of this job already includes `skipped`, so it reaches `total`.
 Cancels the running job: `200 {"cancelled": true}`, or `409 reembed_not_running`.
 Vectors already written are kept.
 
+## Memory health / Insights (D37)
+
+A read-only dashboard over the collection. The overview is computed on request from
+the in-memory index; the hygiene analysis is a manual (or scheduled) job whose last
+result is stored and read back. Nothing here changes a memory. Auth: API key or
+account session, like the memory endpoints. No response carries an embedding;
+examples are cut at ~160 characters, e-mail addresses and phone numbers are masked,
+and memories that match a secret pattern are never shown as examples (they are still
+counted). All lists may be empty, never missing.
+
+### `GET /api/v1/insights/overview` · `m3m0s insights show`
+
+```json
+{
+  "generated_at": "2026-10-08T22:00:00Z",
+  "totals": {"total": 77253, "active": 76392, "soft_deleted": 861, "with_valid_until": 9912,
+             "expired": 9359, "pinned": 0, "extracted": 76293, "raw": 99,
+             "never_accessed": 73823, "never_accessed_pct": 96.6},
+  "text": {"avg_chars": 133.0, "median_chars": 117, "p90_chars": 208, "max_chars": 9000},
+  "soft_deleted_by_day": [{"key": "2026-10-07", "count": 247}],
+  "by_category": [{"key": "codigo", "count": 76392}],
+  "by_source": [{"key": "claude-code", "count": 75500}],
+  "by_age": [{"key": "0-7 days", "count": 12800}],
+  "domain_count": 66,
+  "top_domains": [{"domain": "codigo:proj", "count": 28625, "never_accessed": 27700, "expired": 3100}],
+  "vectors_indexed": 77253,
+  "forgetting": {"eligible": 76293, "exempt": 99, "cold_now": 120, "soft_deleted": 861,
+                 "hard_delete_due": 0, "threshold": 0.15, "age_half_life_days": 30, "grace_days": 30,
+                 "retention_histogram": [{"key": "< 0.15 (cold)", "count": 120}]}
+}
+```
+
+Totals other than `total` and `soft_deleted` count active (not soft-deleted) memories.
+`by_age` buckets are 0-7, 8-30, 31-60, 61-90, 91-180, 181-365 days and over a year;
+`top_domains` has the 15 largest; `soft_deleted_by_day` the last 60 days with any.
+`forgetting` classifies memories exactly like `forget-sweep` (D22: same eligibility
+and retention score) but only counts: `cold_now` is what a sweep started now would
+soft-delete, `soft_deleted` are waiting for the hard-delete and `hard_delete_due`
+are already past `grace_days`. It costs a pass over the in-memory index (about
+100 ms for 77k memories).
+
+### `GET /api/v1/insights/hygiene`
+
+The live state of the analysis job and the last stored result (`report` is `null`
+until it ran once):
+
+```json
+{
+  "status": {"running": false, "phase": "", "done": 0, "total": 0,
+             "started_at": "...", "finished_at": "...", "last_error": ""},
+  "report": {
+    "version": 1, "computed_at": "...", "duration_ms": 15700, "partial": false,
+    "scanned": 76392,
+    "exact_duplicates": {"groups": 124, "entries": 272, "redundant": 148, "same_domain_groups": 57,
+                         "cross_domain_groups": 67, "cross_source_groups": 0,
+                         "examples": [{"size": 5, "domains": 5, "text": "...", "members": [{"id": "...", "domain": "...", "source": "..."}]}]},
+    "near_duplicates": {"available": true, "method": "lsh", "indexed": 76392, "tables": 24, "bits": 14,
+                        "oversized_buckets": 0,
+                        "thresholds": [{"threshold": 0.98, "pairs": 212, "clusters": 107, "redundant": 152,
+                                        "largest_cluster": 6, "same_domain": 2, "cross_domain": 210,
+                                        "cross_source": 0, "same_capture": 16, "numbers_differ": 0}],
+                        "cross_source": [{"key": "claude-code x selfdocs", "count": 1}],
+                        "bands": [{"label": "cosine >= 0.98", "examples": [{"similarity": 0.993, "a": {"id": "...", "domain": "...", "source": "...", "text": "..."}, "b": {}}]}]},
+    "noise": {"category": "codigo", "scanned": 76392, "conservative_union": 271, "conservative_eligible": 267, "review_union": 1988,
+              "criteria": [{"id": "A", "name": "Extractor prompt leak", "tier": "conservative", "description": "...",
+                            "matches": 111, "never_accessed": 107, "examples": []}]}
+  }
+}
+```
+
+- **Identical text**: groups of active memories with the same text after lowercasing,
+  folding accents and dropping punctuation.
+- **Near-duplicates**: pairs of active memories with cosine similarity at or above
+  0.98, 0.95 and 0.92 (cumulative). Per threshold: `pairs`, union-find `clusters`,
+  `redundant` (copies beyond one per cluster), `largest_cluster`, the pairs `same_domain`
+  versus `cross_domain`, `cross_source` (different tool), `same_capture` (same
+  `source_content_ref`) and `numbers_differ` (the two texts hold different numbers, so
+  usually distinct facts of the same shape). `bands` carry the most similar example
+  pairs: `>= 0.98`, `0.95-0.98` within a domain, `0.95-0.98` across domains, `0.92-0.95`.
+  `method` is `exact` (all pairs, up to 3000 vectors) or `lsh` (random-hyperplane
+  hashing over the int8 vector index, candidates verified with the real int8 cosine; it
+  can miss a few pairs, about 1-4% in the 0.92-0.98 range on a 76k-memory snapshot, so
+  counts are a slight lower bound). `available: false` with a `reason` when the server
+  has no vectors (keyword-only mode).
+- **Noise** (only the `codigo` domain category): `conservative` criteria A (the
+  extractor's own prompt leaking into facts), B (`/compact` and session-continuation
+  boilerplate) and C (a commit-message generator's fixed prompt) are narrow patterns;
+  `review` criteria D (diff trivia: byte sizes, insertion counts), E (meta-descriptions
+  such as "The text describes ...") and F (short, no identifier) need a human look.
+  `conservative_eligible` also requires never accessed, not pinned and extracted. This
+  only reports: nothing is flagged or changed.
+- `partial: true` (with `partial_reason`) means the wall-clock limit ended the run early;
+  the counts are lower bounds. A cancelled or failed run keeps the previous report.
+
+### `POST /api/v1/insights/hygiene/run`
+
+Starts the job `insights-hygiene` (the same job that appears in `GET /api/v1/jobs`):
+`202 {"started": true}`, or `409 job_already_running`. It is manual by default; an
+interval can be set with `PATCH /api/v1/jobs/insights-hygiene` to run it periodically.
+Poll `GET /insights/hygiene` for `status` (`phase`, `done`/`total`).
+
+### `POST /api/v1/insights/hygiene/cancel`
+
+`200 {"cancelled": true}`, or `409 insights_not_running`. The previous report is kept.
+
+Tuning (environment): `M3M0S_INSIGHTS_CPU_PERCENT` (duty cycle while the job runs,
+default `60`) and `M3M0S_INSIGHTS_MAX_MINUTES` (wall-clock limit, default `30`).
+
 ## Errors (common format across the 3 surfaces)
 
 ```json

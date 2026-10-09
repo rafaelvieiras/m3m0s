@@ -57,8 +57,9 @@ Working today:
   operation when extraction is slow.
 - **WebUI** (embedded in the binary): search and browse by scope, stats and
   telemetry, add with extraction preview, edit/delete, an in-process jobs
-  panel (history, run now, change interval), a context-injection preview, and a
-  floating chat that answers from your memory and can save new memories.
+  panel (history, run now, change interval), a memory health page (distributions,
+  what forgetting would do next, duplicate and noise candidates; read-only), a
+  context-injection preview, and a floating chat that answers from your memory and can save new memories.
 - **Claude Code hooks**: `SessionStart` (inject recent memory),
   `PreCompact` and `SessionEnd` (capture the transcript delta).
 - **Self-documentation**: the project's own docs are embedded in the binary and
@@ -131,10 +132,24 @@ Set through environment variables (or the matching `m3m0s serve` flags).
 | `M3M0S_RETRO_EXTRACT_INTERVAL` | `2h` | Retroactive extraction job interval. |
 | `M3M0S_FORGET_SWEEP_INTERVAL` | `12h` | Forgetting sweep interval. |
 | `M3M0S_JOBS_TICK` | `30s` | Scheduler heartbeat. |
+| `M3M0S_INSIGHTS_CPU_PERCENT` | `60` | Duty cycle (1-100) of the memory-health analysis job while it runs. |
+| `M3M0S_INSIGHTS_MAX_MINUTES` | `30` | Wall-clock limit of that job; a longer run ends with a partial report. |
 | `GOGC` | `50` (set by m3m0s when unset) | Go GC target. Lower values trade a little CPU for a lower memory peak. |
 | `GOMEMLIMIT` | — (not set) | Optional soft memory limit for the Go runtime, e.g. `600MiB` on a small host; keep it above the live size (~250 MB for 75k entries). |
 | `M3M0S_URL` | `http://localhost:19234` | Server URL used by the CLI, MCP bridge, watcher and hooks. |
 | `M3M0S_API_KEY` | — | API key used by those clients. |
+
+### Memory health
+
+The Insights page (`/insights`) shows the shape of the collection and what forgetting would
+do next, and can run a read-only hygiene analysis (identical and near-duplicate memories,
+low-value candidates). The analysis is a manual job (`insights-hygiene`), uses the vector
+index already in memory and no network, keeps its last result in the database, and never
+changes a memory. See `docs/decisions/D37-insights-dashboard.md`.
+
+```sh
+m3m0s insights show          # totals, forgetting outlook, last analysis (add --json for the raw data)
+```
 
 ### Embedding provider and re-embedding
 
