@@ -11,6 +11,7 @@ import (
 	"strings"
 	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
@@ -147,5 +148,46 @@ func TestKindUsage(t *testing.T) {
 	var out, errOut bytes.Buffer
 	if err := kindMain(context.Background(), client.New("http://127.0.0.1:1", "k"), nil, &out, &errOut, false, nil); err == nil || !strings.Contains(err.Error(), "usage: m3m0s kind") {
 		t.Errorf("err = %v", err)
+	}
+}
+
+func TestKindRetentionOffline(t *testing.T) {
+	dir := t.TempDir()
+	sample := filepath.Join(dir, "s.json")
+	old := time.Now().Add(-70 * 24 * time.Hour).UTC().Format(time.RFC3339)
+	items := []factkind.SampleItem{
+		{ID: "a", CreatedAt: old, Content: "synthetic durable", Kind: "decision", KindSource: "llm", Label: "decision"},
+		{ID: "b", CreatedAt: old, Content: "synthetic transient", Kind: "noise", KindSource: "llm", Label: "noise"},
+		{ID: "c", CreatedAt: old, Content: "synthetic unlabelled"},
+	}
+	raw, _ := json.Marshal(items)
+	if err := os.WriteFile(sample, raw, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	var out, errOut bytes.Buffer
+	if err := kindMain(context.Background(), nil, nil, &out, &errOut, false, []string{"retention", "--file", sample}); err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{"2 labelled facts (1 skipped)", "horizon +30 days", "legacy", "durable forgotten 1 of 1", "durable forgotten 0 of 1"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output lacks %q:\n%s", want, out.String())
+		}
+	}
+	out.Reset()
+	if err := kindMain(context.Background(), nil, nil, &out, &errOut, false, []string{"retention", "--file", sample, "--json", "--horizon", "10", "--kinds", "label"}); err != nil {
+		t.Fatal(err)
+	}
+	var rep map[string]any
+	if err := json.Unmarshal(out.Bytes(), &rep); err != nil || rep["horizonDays"] != float64(10) || rep["kinds"] != "label" {
+		t.Errorf("json report = %s (%v)", out.String(), err)
+	}
+	for _, bad := range [][]string{{"retention"}, {"retention", "--file", sample, "--kinds", "guess"}, {"retention", "--file", sample, "--horizon", "-1"}} {
+		if err := kindMain(context.Background(), nil, nil, &out, &errOut, false, bad); err == nil {
+			t.Errorf("%v should fail", bad)
+		}
+	}
+	t.Setenv("M3M0S_RETENTION_HALFLIFE_NOISE_DAYS", "zero")
+	if err := kindMain(context.Background(), nil, nil, &out, &errOut, false, []string{"retention", "--file", sample}); err == nil {
+		t.Error("a malformed parameter must fail instead of silently using the default")
 	}
 }

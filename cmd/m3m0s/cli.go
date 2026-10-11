@@ -383,12 +383,16 @@ func runStats(ctx context.Context, args []string) error {
 func runForgetSweep(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("forget-sweep", flag.ExitOnError)
 	dryRun := fs.Bool("dry-run", false, "only report candidates, change nothing")
+	model := fs.String("model", "", "retention model to preview: legacy or per-kind (D39); only with --dry-run, default is the configured one")
 	jsonOut := fs.Bool("json", false, "print the raw response as JSON")
 	if err := fs.Parse(reorderFlagsFirst(args, "dry-run", "json")); err != nil {
 		return err
 	}
+	if *model != "" && !*dryRun {
+		return errors.New("--model only works with --dry-run: the model that deletes is set by M3M0S_RETENTION_MODEL")
+	}
 
-	resp, err := client.NewFromEnv().ForgetSweep(ctx, apitypes.ForgetSweepRequest{DryRun: *dryRun})
+	resp, err := client.NewFromEnv().ForgetSweep(ctx, apitypes.ForgetSweepRequest{DryRun: *dryRun, Model: *model})
 	if err != nil {
 		return err
 	}
@@ -397,11 +401,11 @@ func runForgetSweep(ctx context.Context, args []string) error {
 		return printJSON(resp)
 	}
 	if resp.DryRun {
-		fmt.Printf("dry-run: %d evaluated, %d soft-delete candidate(s), %d hard-delete candidate(s)\n",
-			resp.Evaluated, len(resp.SoftDeleteCandidates), len(resp.HardDeleteCandidates))
+		fmt.Printf("dry-run (%s model): %d evaluated, %d soft-delete candidate(s), %d hard-delete candidate(s), %d spared from hard-delete\n",
+			resp.Model, resp.Evaluated, len(resp.SoftDeleteCandidates), len(resp.HardDeleteCandidates), resp.HardDeleteSpared)
 	} else {
-		fmt.Printf("%d evaluated, %d soft-deleted, %d hard-deleted\n",
-			resp.Evaluated, len(resp.SoftDeleted), len(resp.HardDeleted))
+		fmt.Printf("%d evaluated, %d soft-deleted, %d hard-deleted (%s model)\n",
+			resp.Evaluated, len(resp.SoftDeleted), len(resp.HardDeleted), resp.Model)
 	}
 	return nil
 }

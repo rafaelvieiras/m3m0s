@@ -56,6 +56,38 @@ type ForgettingStats struct {
 	AgeHalfLifeDays    float64     `json:"age_half_life_days"`  // D22 constants, for display
 	GraceDays          int         `json:"grace_days"`          // reversible window
 	RetentionHistogram []CountItem `json:"retention_histogram"` // eligible entries by retention score
+	// Model is the retention model the job uses and the figures above refer to
+	// (D39): "legacy" or "per-kind".
+	Model string `json:"model"`
+	// Shadow compares both models side by side without changing behaviour.
+	Shadow RetentionShadow `json:"shadow"`
+}
+
+// RetentionShadow is the shadow-mode comparison of the legacy and the
+// per-kind retention scores (D39). Each figure is the number of eligible
+// memories the model would soft-delete at "now + horizon" if nothing read them
+// in the meantime; the first horizon is 0 (right now).
+type RetentionShadow struct {
+	Active       string       `json:"active"`        // the model the job really uses
+	HorizonsDays []int        `json:"horizons_days"` // e.g. [0, 30, 60, 90]
+	Legacy       []int        `json:"legacy"`        // forgotten per horizon, legacy score
+	PerKind      []int        `json:"per_kind"`      // forgotten per horizon, per-kind score
+	Eligible     int          `json:"eligible"`      // legacy-eligible memories compared
+	Protected    int          `json:"protected"`     // exempt only under per-kind (manual durable tag)
+	ByKind       []ShadowKind `json:"by_kind"`
+	// Parameters of the per-kind model, for display.
+	HalfLifeDays      map[string]float64 `json:"half_life_days"`
+	ExpiredCapEnabled bool               `json:"expired_cap_enabled"`
+	ExpiredCapDays    float64            `json:"expired_cap_days"`
+}
+
+// ShadowKind is one row of RetentionShadow.ByKind.
+type ShadowKind struct {
+	Kind      string `json:"kind"`
+	Eligible  int    `json:"eligible"`
+	Protected int    `json:"protected"`
+	Legacy    []int  `json:"legacy"`
+	PerKind   []int  `json:"per_kind"`
 }
 
 // FilterRuleStats is one ingestion-filter rule with its in-memory counters

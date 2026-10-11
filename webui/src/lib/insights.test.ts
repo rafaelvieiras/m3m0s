@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { barWidths, domainInstance, formatDuration, formatPercent, percent, progressPercent, tierLabel } from "./insights";
+import { barWidths, domainInstance, formatDuration, formatPercent, horizonLabel, percent, progressPercent, shadowDelta, tierLabel } from "./insights";
 import { hygieneResponseSchema, insightsOverviewSchema } from "./schemas";
 
 describe("insights helpers", () => {
@@ -97,5 +97,44 @@ describe("insights schemas", () => {
     const parsed = hygieneResponseSchema.parse({ status: { running: false, done: 0, total: 0 }, report: null });
     expect(parsed.report).toBeNull();
     expect(parsed.status.running).toBe(false);
+  });
+});
+
+describe("retention shadow", () => {
+  it("labels horizons and deltas", () => {
+    expect(horizonLabel(0)).toBe("now");
+    expect(horizonLabel(30)).toBe("+30 d");
+    expect(shadowDelta(1200, 80)).toBe("-1,120");
+    expect(shadowDelta(3, 5)).toBe("+2");
+    expect(shadowDelta(4, 4)).toBe("same");
+  });
+
+  it("parses the shadow section and tolerates its absence and null lists", () => {
+    const forgetting = {
+      eligible: 10, exempt: 1, cold_now: 2, soft_deleted: 3, hard_delete_due: 1,
+      threshold: 0.15, age_half_life_days: 30, grace_days: 30, retention_histogram: [],
+    };
+    const base = {
+      generated_at: "2026-10-08T12:00:00Z",
+      totals: { total: 0, active: 0, soft_deleted: 0, with_valid_until: 0, expired: 0, pinned: 0, extracted: 0, raw: 0, never_accessed: 0, never_accessed_pct: 0 },
+      text: { avg_chars: 0, median_chars: 0, p90_chars: 0, max_chars: 0 },
+      soft_deleted_by_day: [], by_category: [], by_source: [], by_age: [], domain_count: 0, top_domains: [],
+      vectors_indexed: 0,
+    };
+    expect(insightsOverviewSchema.parse({ ...base, forgetting }).forgetting.shadow).toBeUndefined();
+    const parsed = insightsOverviewSchema.parse({
+      ...base,
+      forgetting: {
+        ...forgetting,
+        model: "legacy",
+        shadow: {
+          active: "legacy", horizons_days: [0, 30], legacy: [3, 5], per_kind: [1, 1], eligible: 8, protected: 0,
+          by_kind: [{ kind: "decision", eligible: 4, protected: 0, legacy: [2, 3], per_kind: null }],
+          half_life_days: { decision: 365 }, expired_cap_enabled: false, expired_cap_days: 60,
+        },
+      },
+    });
+    expect(parsed.forgetting.shadow?.by_kind[0].per_kind).toEqual([]);
+    expect(parsed.forgetting.shadow?.half_life_days.decision).toBe(365);
   });
 });

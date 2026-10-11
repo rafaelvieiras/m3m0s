@@ -152,6 +152,9 @@ type MemoryStore struct {
 	extractor Extractor            // nil = extraction disabled (D12, item 1)
 	filter    *ingestfilter.Engine // boilerplate filter for automatic capture (#53)
 
+	retModel  RetentionModel  // forget-sweep score (D39); guarded by mu
+	retParams RetentionParams // parameters of the per-kind score (D39); guarded by mu
+
 	mu                      sync.RWMutex
 	index                   map[string]schema.Entry // in-memory cache, without embedding — reloaded from SQLite at boot
 	vecs                    *vecIndex               // compact int8 vector index for candidate selection (F5)
@@ -319,6 +322,9 @@ func New(dataDir, apiKey, baseURL string) (*MemoryStore, error) {
 		vecs:    newVecIndex(),
 		dataDir: dataDir,
 		filter:  ingestfilter.Default(),
+
+		retModel:  RetentionLegacy,
+		retParams: DefaultRetentionParams(),
 	}
 	// No API key = keyword-only mode (F5): entries are stored without an
 	// embedding, dedup falls back to exact content match and search to FTS5.

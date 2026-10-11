@@ -446,11 +446,12 @@ var toolDefs = []map[string]any{
 	},
 	{
 		"name":        "memory_forget_sweep",
-		"description": "Memory layers / automatic forgetting (D22): evaluates cold extracted facts (low retention score) and, if dryRun=false, soft-deletes the candidates and hard-deletes soft-deletes already past the grace window. dryRun=true only reports candidates, without changing anything.",
+		"description": "Memory layers / automatic forgetting (D22): evaluates cold extracted facts (low retention score) and, if dryRun=false, soft-deletes the candidates and hard-deletes soft-deletes already past the grace window. dryRun=true only reports candidates, without changing anything. With dryRun=true, model ('legacy' or 'per-kind', D39) previews what that retention model would do.",
 		"inputSchema": map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"dryRun": map[string]any{"type": "boolean", "default": false, "description": "true = only reports candidates, changes nothing."},
+				"model":  map[string]any{"type": "string", "enum": []string{"legacy", "per-kind"}, "description": "Retention model to preview; only allowed with dryRun=true. Default: the configured one."},
 			},
 		},
 	},

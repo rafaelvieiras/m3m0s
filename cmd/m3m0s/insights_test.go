@@ -18,8 +18,16 @@ func TestInsightsShow(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/api/v1/insights/overview", func(w http.ResponseWriter, r *http.Request) {
 		writeJSONT(w, 200, apitypes.InsightsOverviewResponse{
-			Totals:     apitypes.InsightsTotals{Total: 12, Active: 10, SoftDeleted: 2, NeverAccessed: 9, NeverAccessedPct: 90},
-			Forgetting: apitypes.ForgettingStats{Eligible: 8, ColdNow: 3, SoftDeleted: 2, GraceDays: 30},
+			Totals: apitypes.InsightsTotals{Total: 12, Active: 10, SoftDeleted: 2, NeverAccessed: 9, NeverAccessedPct: 90},
+			Forgetting: apitypes.ForgettingStats{Eligible: 8, ColdNow: 3, SoftDeleted: 2, GraceDays: 30, Model: "legacy",
+				Shadow: apitypes.RetentionShadow{
+					Active: "legacy", HorizonsDays: []int{0, 30, 60, 90}, Eligible: 8, Protected: 1,
+					Legacy: []int{3, 5, 7, 8}, PerKind: []int{1, 1, 2, 3},
+					ByKind: []apitypes.ShadowKind{
+						{Kind: "decision", Eligible: 4, Legacy: []int{2, 3, 4, 4}, PerKind: []int{0, 0, 0, 0}},
+						{Kind: "noise", Eligible: 0, Legacy: []int{0, 0, 0, 0}, PerKind: []int{0, 0, 0, 0}},
+					},
+				}},
 			TopDomains: []apitypes.DomainStat{{Domain: "codigo:x", Count: 10}},
 		})
 	})
@@ -39,10 +47,14 @@ func TestInsightsShow(t *testing.T) {
 	if err := insightsMain(context.Background(), c, &out, &errOut, []string{"show"}); err != nil {
 		t.Fatal(err)
 	}
-	for _, want := range []string{"10 active, 2 soft-deleted", "3 cold now", "identical:  1 groups", "cosine>=0.98: 2 pairs", "4 conservative"} {
+	for _, want := range []string{"10 active, 2 soft-deleted", "3 cold now", "job uses the \"legacy\" model", "all", "+30d 5 -> 1", "+90d 8 -> 3", "decision", "1 memories are protected only under per-kind", "identical:  1 groups", "cosine>=0.98: 2 pairs", "4 conservative"} {
 		if !strings.Contains(out.String(), want) {
 			t.Errorf("output lacks %q:\n%s", want, out.String())
 		}
+	}
+
+	if strings.Contains(out.String(), "noise        now") {
+		t.Errorf("kinds with no eligible memory must be left out:\n%s", out.String())
 	}
 
 	out.Reset()

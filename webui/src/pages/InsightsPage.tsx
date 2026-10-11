@@ -20,7 +20,9 @@ import {
   formatCount,
   formatDuration,
   formatPercent,
+  horizonLabel,
   progressPercent,
+  shadowDelta,
   tierLabel,
 } from "@/lib/insights";
 import type {
@@ -32,6 +34,7 @@ import type {
   HygieneStatus,
   InsightsOverview,
   NoiseCriterion,
+  RetentionShadow,
 } from "@/lib/schemas";
 
 const dateTimeFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
@@ -196,7 +199,7 @@ function ForgettingSection({ f }: { f: ForgettingStats }) {
   return (
     <Section
       title="Forgetting"
-      description={`What the next forget-sweep would do, with the same retention score (age half-life ${f.age_half_life_days} days, cold below ${f.threshold}). Nothing is changed here.`}
+      description={`What the next forget-sweep would do with the ${f.model ?? "legacy"} retention model (cold below ${f.threshold}). Nothing is changed here.`}
     >
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -213,8 +216,63 @@ function ForgettingSection({ f }: { f: ForgettingStats }) {
           <p className="mb-2 text-sm font-medium">Retention score of eligible memories</p>
           <BarList items={f.retention_histogram} empty="No memory is eligible to decay." />
         </div>
+        {f.shadow ? <ShadowSection s={f.shadow} /> : null}
       </div>
     </Section>
+  );
+}
+
+// Old versus new retention model, side by side (D39 shadow mode): how many
+// eligible memories each would forget by each horizon if nothing reads them.
+function ShadowSection({ s }: { s: RetentionShadow }) {
+  const horizons = s.horizons_days;
+  const rows = s.by_kind.filter((k) => k.eligible > 0);
+  const cell = (legacy: number[], perKind: number[], i: number) => (
+    <TableCell key={i} className="text-right tabular-nums">
+      {formatCount(legacy[i] ?? 0)} <span className="text-muted-foreground">to</span> {formatCount(perKind[i] ?? 0)}
+      <span className="block text-xs text-muted-foreground">{shadowDelta(legacy[i] ?? 0, perKind[i] ?? 0)}</span>
+    </TableCell>
+  );
+  return (
+    <div>
+      <p className="mb-1 text-sm font-medium">Per-kind retention, in shadow</p>
+      <p className="mb-2 text-xs text-muted-foreground">
+        Memories each model would forget, legacy to per-kind, assuming nothing reads them meanwhile. The sweep uses the{" "}
+        <strong>{s.active}</strong> model; nothing changes until M3M0S_RETENTION_MODEL is switched.
+        {s.protected > 0 ? ` ${formatCount(s.protected)} memories are exempt only under per-kind (manual durable tag).` : ""}
+        {s.expired_cap_enabled ? ` Expired valid_until caps the half-life at ${s.expired_cap_days} days.` : " The cap for an expired valid_until is off."}
+      </p>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Kind</TableHead>
+            <TableHead className="text-right">Half-life</TableHead>
+            <TableHead className="text-right">Eligible</TableHead>
+            {horizons.map((h) => (
+              <TableHead key={h} className="text-right">
+                {horizonLabel(h)}
+              </TableHead>
+            ))}
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((k) => (
+            <TableRow key={k.kind}>
+              <TableCell>{k.kind}</TableCell>
+              <TableCell className="text-right tabular-nums">{s.half_life_days[k.kind] ?? "-"} d</TableCell>
+              <TableCell className="text-right tabular-nums">{formatCount(k.eligible)}</TableCell>
+              {horizons.map((_, i) => cell(k.legacy, k.per_kind, i))}
+            </TableRow>
+          ))}
+          <TableRow className="font-medium">
+            <TableCell>All</TableCell>
+            <TableCell />
+            <TableCell className="text-right tabular-nums">{formatCount(s.eligible)}</TableCell>
+            {horizons.map((_, i) => cell(s.legacy, s.per_kind, i))}
+          </TableRow>
+        </TableBody>
+      </Table>
+    </div>
   );
 }
 

@@ -11,10 +11,12 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/client"
 	"github.com/rafaelvieiras/m3m0s/internal/factkind"
+	"github.com/rafaelvieiras/m3m0s/internal/store"
 )
 
 const kindUsage = `usage: m3m0s kind <sample|report|backfill> [flags]  (fact nature, D38)
@@ -26,6 +28,10 @@ const kindUsage = `usage: m3m0s kind <sample|report|backfill> [flags]  (fact nat
   report --file sample.json [--predictions sample.predictions.json] [--stored-source llm] [--json]
          agreement of the stored tag and of the heuristic with your labels (per class, and
          durable-vs-transient). Works offline on the file.
+  retention --file sample.json [--predictions ...] [--horizon 30] [--kinds stored|label] [--json]
+         offline: how many facts of your labelled sample the legacy and the per-kind retention
+         scores (D39) would forget within the horizon, and how many of those are durable. Parameters
+         come from M3M0S_RETENTION_* (defaults otherwise). Needs no server.
   backfill estimate | start [--yes] | status | cancel
          tag the facts stored before D38 (rate limited, resumable). "start" shows the estimate
          first and asks for confirmation (--yes to skip the prompt)`
@@ -50,6 +56,8 @@ func kindMain(ctx context.Context, c *client.Client, in io.Reader, out, errOut i
 		err = kindSample(ctx, c, out, errOut, args[1:])
 	case "report":
 		err = kindReport(out, errOut, args[1:])
+	case "retention":
+		err = kindRetention(out, errOut, args[1:])
 	case "backfill":
 		err = kindBackfill(ctx, c, in, out, errOut, interactive, args[1:])
 	default:
@@ -114,22 +122,39 @@ func kindReport(out, errOut io.Writer, args []string) error {
 	if *file == "" {
 		return errors.New("--file is required")
 	}
-	b, err := os.ReadFile(*file)
+	items, err := loadSample(*file, *predFile)
 	if err != nil {
 		return err
 	}
+	rep := factkind.Evaluate(items, *storedSource)
+	if *jsonOut {
+		enc := json.NewEncoder(out)
+		enc.SetIndent("", "  ")
+		return enc.Encode(rep)
+	}
+	_, err = fmt.Fprint(out, rep.String())
+	return err
+}
+
+// loadSample reads a labelled sample and, when given, merges the predictions
+// file written by `kind sample --blind` into it.
+func loadSample(file, predFile string) ([]factkind.SampleItem, error) {
+	b, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
 	var items []factkind.SampleItem
 	if err := json.Unmarshal(b, &items); err != nil {
-		return fmt.Errorf("parse %s: %w", *file, err)
+		return nil, fmt.Errorf("parse %s: %w", file, err)
 	}
-	if *predFile != "" {
-		pb, err := os.ReadFile(*predFile)
+	if predFile != "" {
+		pb, err := os.ReadFile(predFile)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		preds := map[string]map[string]string{}
 		if err := json.Unmarshal(pb, &preds); err != nil {
-			return fmt.Errorf("parse %s: %w", *predFile, err)
+			return nil, fmt.Errorf("parse %s: %w", predFile, err)
 		}
 		for i := range items {
 			if p, ok := preds[items[i].ID]; ok {
@@ -137,7 +162,40 @@ func kindReport(out, errOut io.Writer, args []string) error {
 			}
 		}
 	}
-	rep := factkind.Evaluate(items, *storedSource)
+	return items, nil
+}
+
+// kindRetention is `m3m0s kind retention`: the offline acceptance check of the
+// per-kind retention model (D39, issue #52) against a hand-labelled sample.
+func kindRetention(out, errOut io.Writer, args []string) error {
+	fs := flag.NewFlagSet("kind retention", flag.ContinueOnError)
+	fs.SetOutput(errOut)
+	file := fs.String("file", "", "labelled sample written by `kind sample` (required)")
+	predFile := fs.String("predictions", "", "predictions file written by `kind sample --blind`")
+	horizon := fs.Int("horizon", 30, "days ahead to evaluate (the acceptance horizon is 30)")
+	kinds := fs.String("kinds", store.SampleKindsStored, "kind given to each fact: stored (the sample's tag) or label (your label, as a perfect classifier)")
+	jsonOut := fs.Bool("json", false, "print the report as JSON")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	if *file == "" {
+		return errors.New("--file is required")
+	}
+	if *kinds != store.SampleKindsStored && *kinds != store.SampleKindsLabel {
+		return fmt.Errorf("--kinds must be %q or %q", store.SampleKindsStored, store.SampleKindsLabel)
+	}
+	if *horizon < 0 {
+		return errors.New("--horizon must not be negative")
+	}
+	params, err := store.RetentionParamsFromEnv(os.Getenv)
+	if err != nil {
+		return err
+	}
+	items, err := loadSample(*file, *predFile)
+	if err != nil {
+		return err
+	}
+	rep := store.EvaluateRetentionSample(items, params, store.RetentionSampleOptions{HorizonDays: *horizon, Now: time.Now(), Kinds: *kinds})
 	if *jsonOut {
 		enc := json.NewEncoder(out)
 		enc.SetIndent("", "  ")

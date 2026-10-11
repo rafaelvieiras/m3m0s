@@ -755,7 +755,22 @@ func (s *Server) handleForgetSweep(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	result, err := s.store.ForgetSweep(r.Context(), req.DryRun, time.Now())
+	// D39: the model is configured; a request may only preview another one.
+	model, _ := s.store.Retention()
+	if req.Model != "" {
+		m, perr := store.ParseRetentionModel(req.Model)
+		if perr != nil {
+			writeError(w, http.StatusBadRequest, "invalid_model", perr.Error())
+			return
+		}
+		if !req.DryRun && m != model {
+			writeError(w, http.StatusBadRequest, "model_requires_dry_run",
+				"only a dry-run can choose a retention model; the model that deletes is set by M3M0S_RETENTION_MODEL")
+			return
+		}
+		model = m
+	}
+	result, err := s.store.ForgetSweepModel(r.Context(), req.DryRun, time.Now(), model)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "forget_sweep_failed", err.Error())
 		return
@@ -763,9 +778,11 @@ func (s *Server) handleForgetSweep(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusOK, apitypes.ForgetSweepResponse{
 		DryRun:               result.DryRun,
+		Model:                string(result.Model),
 		Evaluated:            result.Evaluated,
 		SoftDeleteCandidates: result.SoftDeleteCandidates,
 		HardDeleteCandidates: result.HardDeleteCandidates,
+		HardDeleteSpared:     result.HardDeleteSpared,
 		SoftDeleted:          result.SoftDeleted,
 		HardDeleted:          result.HardDeleted,
 	})

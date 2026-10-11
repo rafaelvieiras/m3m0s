@@ -35,6 +35,7 @@ func runServe(args []string) error {
 	jobsTick := fs.Duration("jobs-tick", firstNonEmptyDuration(os.Getenv("M3M0S_JOBS_TICK"), 30*time.Second), "check interval of the job scheduler (internal/jobs) — not the frequency of each job, just the clock tick")
 	retroExtractInterval := fs.Duration("retro-extract-interval", firstNonEmptyDuration(os.Getenv("M3M0S_RETRO_EXTRACT_INTERVAL"), 2*time.Hour), "interval between runs of the retroactive extraction job (only runs with fact extraction enabled)")
 	forgetSweepInterval := fs.Duration("forget-sweep-interval", firstNonEmptyDuration(os.Getenv("M3M0S_FORGET_SWEEP_INTERVAL"), 12*time.Hour), "interval between runs of the automatic forgetting job (D22, docs/decisions/ — closes A9); always runs, regardless of whether fact extraction is enabled")
+	retentionModel := fs.String("retention-model", os.Getenv("M3M0S_RETENTION_MODEL"), "score the forget-sweep uses: legacy (D22, default) or per-kind (D39); per-kind half-lives are tuned with M3M0S_RETENTION_* (see docs/decisions/D39-per-kind-retention.md)")
 	filterRules := fs.String("filter-rules", os.Getenv("M3M0S_FILTER_RULES"), "JSON file with ingestion-filter rules that replace or extend the built-in ones (#53)")
 	filterMode := fs.String("filter-mode", os.Getenv("M3M0S_FILTER_MODE"), "ingestion boilerplate filter, global mode: default (each rule's own action), off, tag or drop (#53)")
 	filterModes := fs.String("filter-modes", os.Getenv("M3M0S_FILTER_MODES"), "per-rule modes, e.g. diff-trivia-fact=drop,commit-prompt-*=tag (#53)")
@@ -69,6 +70,20 @@ func runServe(args []string) error {
 	memStore, err := store.New(dataDirExpanded, *apiKey, *openaiBase)
 	if err != nil {
 		return fmt.Errorf("start store: %w", err)
+	}
+
+	// Retention model (D39). A bad value is a startup error so a typo never
+	// silently picks the model that decides what is deleted.
+	retModel, err := store.ParseRetentionModel(*retentionModel)
+	if err != nil {
+		return err
+	}
+	retParams, err := store.RetentionParamsFromEnv(os.Getenv)
+	if err != nil {
+		return err
+	}
+	if err := memStore.SetRetention(retModel, retParams); err != nil {
+		return err
 	}
 
 	// Ingestion boilerplate filter (#53): drops/tags tooling boilerplate on the
@@ -146,8 +161,8 @@ func runServe(args []string) error {
 			if len(result.SoftDeleted) == 0 && len(result.HardDeleted) == 0 {
 				return "", nil
 			}
-			summary := fmt.Sprintf("%d evaluated, %d soft-deleted, %d hard-deleted",
-				result.Evaluated, len(result.SoftDeleted), len(result.HardDeleted))
+			summary := fmt.Sprintf("%d evaluated, %d soft-deleted, %d hard-deleted (%s model)",
+				result.Evaluated, len(result.SoftDeleted), len(result.HardDeleted), result.Model)
 			log.Printf("  forget-sweep: %s", summary)
 			return summary, nil
 		},
@@ -243,7 +258,7 @@ func runServe(args []string) error {
 	}
 
 	go sched.Start(context.Background())
-	log.Printf("  jobs: forget-sweep every %s (tick of %s)", forgetSweepIntervalResolved, *jobsTick)
+	log.Printf("  jobs: forget-sweep every %s (tick of %s), %s retention model", forgetSweepIntervalResolved, *jobsTick, retModel)
 
 	keyStore, err := auth.LoadStore(memStore.DB())
 	if err != nil {
