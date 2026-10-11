@@ -447,3 +447,26 @@ func TestDefaultScopeFollowsSessionProject(t *testing.T) {
 		t.Errorf("explicit scope must win: %q %q", p, sc)
 	}
 }
+
+// TestKindInToolSchemas: the nature filter/correction is part of the tools
+// that search, list and update memories (D38), with the closed enum.
+func TestKindInToolSchemas(t *testing.T) {
+	want := []string{"decision", "rule", "preference", "gotcha", "procedure", "state", "noise", "other"}
+	for _, tool := range []string{"memory_search", "memory_recent", "memory_update"} {
+		var props map[string]any
+		for _, d := range toolDefs {
+			if d["name"] == tool {
+				props = d["inputSchema"].(map[string]any)["properties"].(map[string]any)
+			}
+		}
+		kind, ok := props["kind"].(map[string]any)
+		if !ok {
+			t.Errorf("%s has no kind property", tool)
+			continue
+		}
+		got, _ := kind["enum"].([]string)
+		if strings.Join(got, ",") != strings.Join(want, ",") {
+			t.Errorf("%s kind enum = %v", tool, got)
+		}
+	}
+}

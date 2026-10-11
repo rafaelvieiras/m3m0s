@@ -5,6 +5,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
@@ -44,6 +45,9 @@ func (f Filter) Validate() error {
 		if err := schema.ValidateProject(f.Project); err != nil {
 			return &ValidationError{Code: "invalid_project", Message: err.Error()}
 		}
+	}
+	if f.Kind != "" && !factkind.Valid(f.Kind) {
+		return &ValidationError{Code: "invalid_kind", Message: "invalid kind: " + f.Kind + " (expected one of " + strings.Join(factkind.All, ", ") + ")"}
 	}
 	return nil
 }

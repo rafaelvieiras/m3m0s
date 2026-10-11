@@ -158,6 +158,8 @@ func (s *MemoryStore) InsightsOverview(now time.Time) apitypes.InsightsOverviewR
 		out.ByAge[i] = apitypes.CountItem{Key: b.label, Count: byAge[i]}
 	}
 
+	out.ByKind, out.ByKindSource = s.KindDistribution()
+
 	out.DomainCount = len(byDomain)
 	doms := make([]apitypes.DomainStat, 0, len(byDomain))
 	for _, d := range byDomain {

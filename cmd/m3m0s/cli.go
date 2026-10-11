@@ -127,6 +127,7 @@ func runSearch(ctx context.Context, args []string) error {
 	model := fs.String("model", "", "exact model filter")
 	project := fs.String("project", "", "recall global memory plus this project's")
 	scope := fs.String("scope", "", `"global" (no project) or "project-only" (only --project)`)
+	kind := fs.String("kind", "", "only memories of this nature: decision, rule, preference, gotcha, procedure, state, noise or other")
 	mode := fs.String("mode", "", "ranking: hybrid (default), vector or keyword")
 	maxTokens := fs.Int("max-tokens", 0, "cap the estimated tokens of the results (0 = no cap)")
 	jsonOut := fs.Bool("json", false, "print raw results as JSON instead of the contextBlock")
@@ -150,6 +151,7 @@ func runSearch(ctx context.Context, args []string) error {
 		Project:        *project,
 		Scope:          *scope,
 		Tags:           tags,
+		Kind:           *kind,
 		Mode:           *mode,
 		MaxTokens:      *maxTokens,
 	})
@@ -174,6 +176,7 @@ func runRecent(ctx context.Context, args []string) error {
 	model := fs.String("model", "", "exact model filter")
 	project := fs.String("project", "", "recall global memory plus this project's")
 	scope := fs.String("scope", "", `"global" (no project) or "project-only" (only --project)`)
+	kind := fs.String("kind", "", "only memories of this nature: decision, rule, preference, gotcha, procedure, state, noise or other")
 	jsonOut := fs.Bool("json", false, "print the raw response as JSON")
 	if err := fs.Parse(args); err != nil {
 		return err
@@ -188,6 +191,7 @@ func runRecent(ctx context.Context, args []string) error {
 		Model:          *model,
 		Project:        *project,
 		Scope:          *scope,
+		Kind:           *kind,
 	})
 	if err != nil {
 		return err
@@ -223,6 +227,7 @@ func runUpdate(ctx context.Context, args []string) error {
 	agent := fs.String("agent", "", "new agent")
 	model := fs.String("model", "", "new model")
 	project := fs.String("project", "", "new project")
+	kind := fs.String("kind", "", "correct the nature of the fact: decision, rule, preference, gotcha, procedure, state, noise or other (marks it manual)")
 	clearModel := fs.Bool("clear-model", false, "remove the model (mutually exclusive with --model)")
 	clearProject := fs.Bool("clear-project", false, "make the memory global (mutually exclusive with --project)")
 	clearTags := fs.Bool("clear-tags", false, "remove all tags (mutually exclusive with --tag)")
@@ -237,7 +242,7 @@ func runUpdate(ctx context.Context, args []string) error {
 		return err
 	}
 	if fs.NArg() < 1 {
-		return errors.New(`usage: m3m0s update <id> [--content ...] [--domain ...] [--source ...] [--agent ...] [--model ...] [--project ...] [--tag ... --tag ...] [--meta key=value ...] [--clear-tags] [--clear-metadata] [--clear-agent] [--clear-model] [--clear-project]`)
+		return errors.New(`usage: m3m0s update <id> [--content ...] [--domain ...] [--source ...] [--agent ...] [--model ...] [--project ...] [--tag ... --tag ...] [--meta key=value ...] [--kind <kind>] [--clear-tags] [--clear-metadata] [--clear-agent] [--clear-model] [--clear-project]`)
 	}
 	id := fs.Arg(0)
 
@@ -262,6 +267,9 @@ func runUpdate(ctx context.Context, args []string) error {
 	var req apitypes.UpdateRequest
 	if visited["content"] {
 		req.Content = rawJSON(*content)
+	}
+	if visited["kind"] {
+		req.Kind = rawJSON(*kind)
 	}
 	if visited["domain"] {
 		req.Domain = rawJSON(*domain)
@@ -305,7 +313,7 @@ func runUpdate(ctx context.Context, args []string) error {
 	}
 
 	if !req.HasAnyField() {
-		return errors.New("no fields to update: provide at least one flag (--content/--domain/--source/--agent/--model/--project/--tag/--meta/--clear-tags/--clear-metadata/--clear-agent/--clear-model/--clear-project)")
+		return errors.New("no fields to update: provide at least one flag (--content/--domain/--source/--agent/--model/--project/--tag/--meta/--kind/--clear-tags/--clear-metadata/--clear-agent/--clear-model/--clear-project)")
 	}
 
 	entry, err := client.NewFromEnv().Update(ctx, id, req)

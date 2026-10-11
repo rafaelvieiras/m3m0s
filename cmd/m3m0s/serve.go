@@ -171,6 +171,23 @@ func runServe(args []string) error {
 		Run: func(ctx context.Context) (string, error) { return memStore.RunReembed(ctx) },
 	})
 
+	// Backfill of the fact nature tag (D38). Manual (Interval 0): with an LLM
+	// classifier it spends provider tokens, so it only runs after an estimate
+	// and an explicit confirmation (POST /api/v1/kinds/backfill). Resumable: the
+	// pending set is "entries without a tag", so a new run continues.
+	memStore.SetKindBackfillOptions(store.KindBackfillOptionsFromEnv())
+	sched.Register(jobs.Job{
+		Name: store.KindBackfillJobName,
+		Progress: func() *jobs.Progress {
+			p := memStore.KindBackfillStatus()
+			if p.StartedAt.IsZero() {
+				return nil
+			}
+			return &jobs.Progress{Done: p.Done + p.Skipped, Total: p.Total, Errors: p.Errors, ETA: p.ETA}
+		},
+		Run: func(ctx context.Context) (string, error) { return memStore.RunKindBackfill(ctx) },
+	})
+
 	// Memory-hygiene analysis (D37). Manual (Interval 0) and strictly read-only
 	// over the memories: it reports duplicates and low-value candidates and
 	// stores one small JSON report. An interval can still be set from the Jobs

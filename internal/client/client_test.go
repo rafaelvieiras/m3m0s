@@ -174,3 +174,40 @@ func TestClientAddPollingRespectsContextCancel(t *testing.T) {
 		t.Errorf("Add took %s to fail, expected it to exit quickly after ctx expired", elapsed)
 	}
 }
+
+// TestClientKindMethods covers the kind query param on recent and the
+// backfill/sample calls (D38).
+func TestClientKindMethods(t *testing.T) {
+	var gotKind, gotSample string
+	var confirm bool
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/recent", func(w http.ResponseWriter, r *http.Request) {
+		gotKind = r.URL.Query().Get("kind")
+		_ = json.NewEncoder(w).Encode(apitypes.RecentResponse{})
+	})
+	mux.HandleFunc("GET /api/v1/kinds/sample", func(w http.ResponseWriter, r *http.Request) {
+		gotSample = r.URL.RawQuery
+		_ = json.NewEncoder(w).Encode(apitypes.KindSampleResponse{})
+	})
+	mux.HandleFunc("POST /api/v1/kinds/backfill", func(w http.ResponseWriter, r *http.Request) {
+		var req apitypes.KindBackfillStartRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		confirm = req.Confirm
+		w.WriteHeader(http.StatusAccepted)
+		_ = json.NewEncoder(w).Encode(apitypes.KindBackfillStartResponse{Started: true})
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+	c := New(srv.URL, "k")
+	ctx := context.Background()
+
+	if _, err := c.Recent(ctx, apitypes.RecentParams{Kind: "gotcha"}); err != nil || gotKind != "gotcha" {
+		t.Errorf("recent kind = %q (%v)", gotKind, err)
+	}
+	if _, err := c.GetKindSample(ctx, 50, 4); err != nil || !strings.Contains(gotSample, "n=50") || !strings.Contains(gotSample, "seed=4") {
+		t.Errorf("sample query = %q (%v)", gotSample, err)
+	}
+	if r, err := c.StartKindBackfill(ctx); err != nil || !r.Started || !confirm {
+		t.Errorf("start: %+v confirm=%v (%v)", r, confirm, err)
+	}
+}

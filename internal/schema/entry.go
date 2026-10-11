@@ -7,6 +7,7 @@
 package schema
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"regexp"
@@ -14,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 	"github.com/rafaelvieiras/m3m0s/internal/idgen"
 )
 
@@ -189,6 +191,36 @@ func (e Entry) AgentValue() string {
 		return ""
 	}
 	return *e.Agent
+}
+
+// KindValue returns the nature of the fact (D38): the metadata value when it
+// is a valid kind, otherwise "other" — which is also what every row written
+// before the feature reads as.
+func (e Entry) KindValue() string {
+	if k := e.Metadata[factkind.MetadataKey]; factkind.Valid(k) {
+		return k
+	}
+	return factkind.Other
+}
+
+// KindSourceValue returns how the kind was set ("llm", "heuristic" or
+// "manual"), or an empty string when the entry was never classified.
+func (e Entry) KindSourceValue() string {
+	if src := e.Metadata[factkind.MetadataSourceKey]; factkind.ValidSource(src) {
+		return src
+	}
+	return ""
+}
+
+// MarshalJSON adds the derived top-level `kind` and `kindSource` fields to the
+// public representation; the stored form stays in Metadata only.
+func (e Entry) MarshalJSON() ([]byte, error) {
+	type plain Entry
+	return json.Marshal(struct {
+		plain
+		Kind       string `json:"kind"`
+		KindSource string `json:"kindSource,omitempty"`
+	}{plain(e), e.KindValue(), e.KindSourceValue()})
 }
 
 // HasTag checks whether the entry has the given tag (exact comparison).

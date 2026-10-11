@@ -1,0 +1,45 @@
+{
+  "comment": "Synthetic golden cases for the fact extractor (D38). `reply` is a canned model answer used by the offline parsing test; `expected` is the reference output used both there and, when M3M0S_GOLDEN_LIVE=1, to compare a real model/prompt against it.",
+  "cases": [
+    {
+      "name": "mixed natures in one note",
+      "domain": "code:demo",
+      "input": "We decided to store sessions in Postgres instead of Redis because backups are simpler. Always run migrations before deploying. The failing job was caused by a missing timezone in the container. Branch feature/login is currently waiting for review.",
+      "reply": "{\"facts\":[{\"text\":\"Sessions are stored in Postgres instead of Redis because backups are simpler.\",\"kind\":\"decision\"},{\"text\":\"Always run migrations before deploying.\",\"kind\":\"rule\"},{\"text\":\"The failing job was caused by a missing timezone in the container.\",\"kind\":\"gotcha\"},{\"text\":\"Branch feature/login is waiting for review.\",\"kind\":\"state\"}]}",
+      "expected": [
+        {"text": "Sessions are stored in Postgres instead of Redis because backups are simpler.", "kind": "decision"},
+        {"text": "Always run migrations before deploying.", "kind": "rule"},
+        {"text": "The failing job was caused by a missing timezone in the container.", "kind": "gotcha"},
+        {"text": "Branch feature/login is waiting for review.", "kind": "state"}
+      ]
+    },
+    {
+      "name": "unknown kind becomes other",
+      "domain": "code:demo",
+      "input": "The cache TTL is 5 minutes.",
+      "reply": "{\"facts\":[{\"text\":\"The cache TTL is 5 minutes.\",\"kind\":\"Configuration\"}]}",
+      "expected": [{"text": "The cache TTL is 5 minutes.", "kind": "other"}]
+    },
+    {
+      "name": "kind casing and padding are normalized",
+      "domain": "code:demo",
+      "input": "To reset the dev database run make reset-db and then make seed.",
+      "reply": "{\"facts\":[{\"text\":\"To reset the dev database run make reset-db and then make seed.\",\"kind\":\"  Procedure \"}]}",
+      "expected": [{"text": "To reset the dev database run make reset-db and then make seed.", "kind": "procedure"}]
+    },
+    {
+      "name": "provider ignored the schema (bare strings carry no kind)",
+      "domain": "code:demo",
+      "input": "The user prefers short commit messages.",
+      "reply": "{\"facts\":[\"The user prefers short commit messages.\"]}",
+      "expected": [{"text": "The user prefers short commit messages.", "kind": ""}]
+    },
+    {
+      "name": "fenced array with objects",
+      "domain": "code:demo",
+      "input": "12 files changed, 340 insertions(+), 12 deletions(-)",
+      "reply": "Sure:\n```json\n[{\"text\":\"12 files changed, 340 insertions(+), 12 deletions(-)\",\"kind\":\"noise\"}]\n```",
+      "expected": [{"text": "12 files changed, 340 insertions(+), 12 deletions(-)", "kind": "noise"}]
+    }
+  ]
+}

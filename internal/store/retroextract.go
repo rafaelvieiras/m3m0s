@@ -8,6 +8,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 	"github.com/rafaelvieiras/m3m0s/internal/ingestfilter"
 	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
@@ -175,8 +176,12 @@ func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry
 		Tags:     snapshot.Tags,
 		IDPrefix: idPrefixOf(snapshot.ID),
 	}
+	totalFacts := 0
 	for _, piece := range pieces {
-		for _, fact := range piece.facts {
+		totalFacts += len(piece.facts)
+	}
+	for _, piece := range pieces {
+		for fi, fact := range piece.facts {
 			factContent := redact.Redact(fact).Text
 			var tagRule string
 			if filtering {
@@ -207,6 +212,17 @@ func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry
 			}
 			if tagRule != "" {
 				factIn.Metadata = withMetadata(factIn.Metadata, ingestfilter.MetadataKey, tagRule)
+			}
+			// The kind comes from this fact (extractor tag, else heuristic on its
+			// text), never from the original entry's tag: a raw entry was tagged as
+			// a whole. A manual correction on the original is the one thing kept,
+			// and only when extraction yields a single fact (otherwise there is no
+			// telling which of the N facts the human meant).
+			factIn.Metadata = withKind(factIn.Metadata, factContent, piece.kindAt(fi))
+			if keep := keepKind(snapshot.Metadata); totalFacts == 1 && keep[factkind.MetadataSourceKey] == factkind.SourceManual {
+				for k, v := range keep {
+					factIn.Metadata = withMetadata(factIn.Metadata, k, v)
+				}
 			}
 			if _, err := s.addOne(ctx, factContent, factIn, time.Now()); err != nil {
 				restoreIn := baseIn

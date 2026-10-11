@@ -104,6 +104,9 @@ type SearchRequest struct {
 	// recall is global + that project (D34).
 	Scope string   `json:"scope,omitempty"`
 	Tags  []string `json:"tags,omitempty"`
+	// Kind keeps only memories of that nature (D38); "other" also matches
+	// memories that were never classified.
+	Kind string `json:"kind,omitempty"`
 	// Mode selects the ranking: "hybrid" (default: vector + keyword fused),
 	// "vector" or "keyword".
 	Mode string `json:"mode,omitempty"`
@@ -130,6 +133,7 @@ type RecentParams struct {
 	Model          string
 	Project        string
 	Scope          string
+	Kind           string
 }
 
 // RecentResponse is the 200 response of GET /recent.
@@ -212,6 +216,9 @@ type UpdateRequest struct {
 	Project  json.RawMessage `json:"project,omitempty"`
 	Tags     json.RawMessage `json:"tags,omitempty"`
 	Metadata json.RawMessage `json:"metadata,omitempty"`
+	// Kind corrects the nature of the fact (D38): a string from the closed
+	// enum; it also records kind_source=manual, which backfills never overwrite.
+	Kind json.RawMessage `json:"kind,omitempty"`
 }
 
 // HasAnyField reports whether at least one of the 8 editable fields is
@@ -219,7 +226,7 @@ type UpdateRequest struct {
 // 400 no_fields_to_update error (docs/api-contract.md).
 func (r UpdateRequest) HasAnyField() bool {
 	return len(r.Content) > 0 || len(r.Domain) > 0 || len(r.Source) > 0 ||
-		len(r.Agent) > 0 || len(r.Model) > 0 || len(r.Project) > 0 || len(r.Tags) > 0 || len(r.Metadata) > 0
+		len(r.Agent) > 0 || len(r.Model) > 0 || len(r.Project) > 0 || len(r.Tags) > 0 || len(r.Metadata) > 0 || len(r.Kind) > 0
 }
 
 // UpdateResponse is the 200 response of PATCH /memories/:id: the complete

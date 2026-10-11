@@ -38,6 +38,8 @@ func main() {
 		err = runEmbedding(ctx, os.Args[2:])
 	case "insights":
 		err = runInsights(ctx, os.Args[2:])
+	case "kind":
+		err = runKind(ctx, os.Args[2:])
 	case "maintenance":
 		err = runMaintenance(ctx, os.Args[2:])
 	case "filter":
@@ -87,6 +89,7 @@ commands:
   doctor   checks server, key, hooks and the capture spool (--replay resends it)
   embedding runtime embedding config and re-embedding (show|set|estimate|reembed)
   insights memory health summary: totals, forgetting outlook, last hygiene analysis (show)
+  kind     fact nature tag: labelling sample, agreement report, backfill (sample|report|backfill)
   maintenance offline repair jobs on the data directory (redact-scan)
   filter   ingestion boilerplate rules: replay them over stored text without writing (replay)
   project  maps directories to project scopes (show|list|set|unset)
@@ -101,7 +104,7 @@ commands:
   restore       reverts the soft-delete of a memory by id
 
 "watch", "hook", "add", "search", "recent", "stats", "update", "get",
-"forget-sweep", "restore", "embedding" and "insights" talk to an already running "serve" via M3M0S_URL
+"forget-sweep", "restore", "embedding", "insights" and "kind" talk to an already running "serve" via M3M0S_URL
 (default http://localhost:19234) and M3M0S_API_KEY. "maintenance" opens the data directory
 (--data / M3M0S_DATA_DIR) directly instead.
 
