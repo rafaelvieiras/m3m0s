@@ -246,8 +246,13 @@ type GetResponse = schema.Entry
 // qualify for soft/hard-delete in this call, without changing anything;
 // omitted/false actually executes. An empty body is valid (equivalent to
 // {"dryRun": false}).
+//
+// Model ("legacy" or "per-kind", D39) previews another retention model; it is
+// only accepted together with dryRun=true, because the model that deletes is
+// the configured one (M3M0S_RETENTION_MODEL). Empty = the configured model.
 type ForgetSweepRequest struct {
-	DryRun bool `json:"dryRun,omitempty"`
+	DryRun bool   `json:"dryRun,omitempty"`
+	Model  string `json:"model,omitempty"`
 }
 
 // ForgetSweepResponse is the 200 response of POST /memories/forget-sweep.
@@ -255,12 +260,17 @@ type ForgetSweepRequest struct {
 // not); SoftDeleted/HardDeleted are only filled in a real call
 // (dryRun=false) — null in every dry-run response.
 type ForgetSweepResponse struct {
-	DryRun               bool     `json:"dryRun"`
+	DryRun bool `json:"dryRun"`
+	// Model is the retention model that scored this call (D39).
+	Model                string   `json:"model"`
 	Evaluated            int      `json:"evaluated"`
 	SoftDeleteCandidates []string `json:"softDeleteCandidates"`
 	HardDeleteCandidates []string `json:"hardDeleteCandidates"`
-	SoftDeleted          []string `json:"softDeleted"`
-	HardDeleted          []string `json:"hardDeleted"`
+	// HardDeleteSpared: soft-deleted past the grace window that the per-kind
+	// model kept instead of hard-deleting (always 0 in the legacy model).
+	HardDeleteSpared int      `json:"hardDeleteSpared"`
+	SoftDeleted      []string `json:"softDeleted"`
+	HardDeleted      []string `json:"hardDeleted"`
 }
 
 // RestoreResponse is the 200 response of POST /memories/:id/restore (D22):

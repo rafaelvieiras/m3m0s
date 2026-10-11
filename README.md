@@ -131,6 +131,7 @@ Set through environment variables (or the matching `m3m0s serve` flags).
 | `M3M0S_ADD_SYNC_TIMEOUT` | `300ms` | How long `add` waits before answering `202` and finishing in the background (`<= 0` disables). |
 | `M3M0S_RETRO_EXTRACT_INTERVAL` | `2h` | Retroactive extraction job interval. |
 | `M3M0S_FORGET_SWEEP_INTERVAL` | `12h` | Forgetting sweep interval. |
+| `M3M0S_RETENTION_MODEL` | `legacy` | Score the forgetting sweep uses: `legacy` (one 30-day half-life) or `per-kind` (half-life by nature of fact; opt-in). Half-lives and bonuses: `M3M0S_RETENTION_*`, see [D39](docs/decisions/D39-per-kind-retention.md). |
 | `M3M0S_JOBS_TICK` | `30s` | Scheduler heartbeat. |
 | `M3M0S_INSIGHTS_CPU_PERCENT` | `60` | Duty cycle (1-100) of the memory-health analysis job while it runs. |
 | `M3M0S_INSIGHTS_MAX_MINUTES` | `30` | Wall-clock limit of that job; a longer run ends with a partial report. |
@@ -159,6 +160,11 @@ other), tagged by the extractor or a heuristic and shown as a distribution on th
 list filter on it (`m3m0s search "..." --kind rule`), `m3m0s update <id> --kind gotcha` corrects it,
 and `m3m0s kind backfill estimate` sizes the optional tagging of older facts. See
 `docs/decisions/D38-fact-kind.md`.
+
+The page also compares, in shadow, the current retention score with a per-kind one (a half-life by
+nature of fact) without changing anything; `m3m0s forget-sweep --dry-run --model per-kind` previews it
+and `m3m0s kind retention --file sample.json` checks it against a labelled sample. See
+`docs/decisions/D39-per-kind-retention.md`.
 
 The same page lists the ingestion filter (tooling boilerplate stopped at automatic capture) with
 per-rule counters. To see what the rules would catch in an existing database without changing it

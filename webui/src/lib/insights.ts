@@ -48,3 +48,16 @@ export function domainInstance(domain: string): string {
   const i = domain.indexOf(":");
   return i < 0 ? domain : domain.slice(i + 1);
 }
+
+// horizonLabel names a shadow horizon: 0 is "now", others "+30 d".
+export function horizonLabel(days: number): string {
+  return days <= 0 ? "now" : `+${days} d`;
+}
+
+// shadowDelta describes how many fewer (or more) memories the per-kind model
+// forgets than the legacy one at a horizon, e.g. "-120" or "+3" or "same".
+export function shadowDelta(legacy: number, perKind: number): string {
+  const d = perKind - legacy;
+  if (d === 0) return "same";
+  return `${d > 0 ? "+" : "-"}${formatCount(Math.abs(d))}`;
+}

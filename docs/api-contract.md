@@ -768,8 +768,10 @@ queried memories resist forgetting better. `memory_recent` does not reinforce.
 
 ### `memory_forget_sweep` · `POST /api/v1/memories/forget-sweep` · `m3m0s forget-sweep [--dry-run]`
 
-Optional body: `{ "dryRun": boolean }` (default `false`, an empty body is
-equivalent to `dryRun: false`).
+Optional body: `{ "dryRun": boolean, "model": "legacy" | "per-kind" }` (default `false`, an empty body is
+equivalent to `dryRun: false`). `model` (D39) previews another retention model and is only accepted with
+`dryRun: true` (`400 model_requires_dry_run` otherwise, `400 invalid_model` for an unknown value); omitted =
+the configured model (`M3M0S_RETENTION_MODEL`, default `legacy`).
 
 Evaluates every eligible memory against the retention formula; below the floor
 (`ColdRetentionThreshold`), it becomes a soft-delete candidate. Memories
@@ -782,9 +784,11 @@ Response (`200`), same shape in dry-run and real execution (`softDeleted`/
 ```json
 {
   "dryRun": false,
+  "model": "legacy",
   "evaluated": 42,
   "softDeleteCandidates": ["mem_abc", "mem_def"],
   "hardDeleteCandidates": ["mem_ghi"],
+  "hardDeleteSpared": 0,
   "softDeleted": ["mem_abc", "mem_def"],
   "hardDeleted": ["mem_ghi"]
 }
@@ -1131,7 +1135,15 @@ counted). All lists may be empty, never missing.
                         "seen": 120, "dropped": 0, "tagged": 7}]},
   "forgetting": {"eligible": 76293, "exempt": 99, "cold_now": 120, "soft_deleted": 861,
                  "hard_delete_due": 0, "threshold": 0.15, "age_half_life_days": 30, "grace_days": 30,
-                 "retention_histogram": [{"key": "< 0.15 (cold)", "count": 120}]}
+                 "retention_histogram": [{"key": "< 0.15 (cold)", "count": 120}],
+                 "model": "legacy",
+                 "shadow": {"active": "legacy", "horizons_days": [0, 30, 60, 90],
+                            "legacy": [120, 21000, 52000, 75000], "per_kind": [90, 4000, 6500, 9000],
+                            "eligible": 76293, "protected": 3,
+                            "by_kind": [{"kind": "noise", "eligible": 900, "protected": 0,
+                                         "legacy": [4, 120, 800, 900], "per_kind": [60, 900, 900, 900]}],
+                            "half_life_days": {"decision": 365, "other": 90, "state": 21, "noise": 7},
+                            "expired_cap_enabled": false, "expired_cap_days": 60}}
 }
 ```
 
@@ -1141,7 +1153,11 @@ Totals other than `total` and `soft_deleted` count active (not soft-deleted) mem
 `forgetting` classifies memories exactly like `forget-sweep` (D22: same eligibility
 and retention score) but only counts: `cold_now` is what a sweep started now would
 soft-delete, `soft_deleted` are waiting for the hard-delete and `hard_delete_due`
-are already past `grace_days`. `by_kind` is the distribution of active memories by nature (D38;
+are already past `grace_days`. `model` is the retention model the job uses (D39) and the figures above
+refer to it; `shadow` compares both models without changing anything: per horizon (days from now), how many
+eligible memories each would soft-delete if nothing reads them, in total and `by_kind` (kinds with no
+eligible memory have zeros), the memories `protected` only under `per-kind` (a manual durable tag), and the
+parameters shown. `by_kind` is the distribution of active memories by nature (D38;
 every kind listed in enum order, untagged counted as `other`); `by_kind_source` says who tagged them
 (`none` = never classified). It costs a pass over the in-memory index (about
 100 ms for 77k memories). `filter` reports the ingestion boilerplate filter (D12

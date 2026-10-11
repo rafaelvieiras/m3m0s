@@ -19,6 +19,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Per-kind retention (D39, revises D22), shadow mode: a half-life by nature of fact (durable kinds 365 d,
+  `other` 90 d, `state` 21 d, `noise` 7 d) with a hub bonus, an optional cap for an expired
+  `valid_until` (off) and access counted per day. The Insights page, `GET /insights/overview` and
+  `m3m0s insights show` compare the old and new scores per kind at now/+30/+60/+90 days. The default is
+  unchanged: `forget-sweep` keeps the legacy score until `M3M0S_RETENTION_MODEL=per-kind`. Dry-runs can
+  preview either model (`forget-sweep --dry-run --model per-kind`); `m3m0s kind retention` checks both
+  against a labelled sample offline. Parameters: `M3M0S_RETENTION_*`.
 - Fact nature (D38): every new fact gets a `kind` (`decision`, `rule`, `preference`, `gotcha`,
   `procedure`, `state`, `noise`, `other`) from the extractor in the same call (`kind_source=llm`) or a
   conservative heuristic (`heuristic`); existing rows are not rewritten and read as `other`. `kind`

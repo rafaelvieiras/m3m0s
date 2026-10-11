@@ -338,6 +338,30 @@ const domainStatSchema = z.object({
   expired: z.number(),
 });
 
+const shadowKindSchema = z.object({
+  kind: z.string(),
+  eligible: z.number(),
+  protected: z.number(),
+  legacy: list(z.number()),
+  per_kind: list(z.number()),
+});
+export type ShadowKind = z.infer<typeof shadowKindSchema>;
+
+// Shadow-mode comparison of the two retention models (D39).
+export const retentionShadowSchema = z.object({
+  active: z.string(),
+  horizons_days: list(z.number()),
+  legacy: list(z.number()),
+  per_kind: list(z.number()),
+  eligible: z.number(),
+  protected: z.number(),
+  by_kind: list(shadowKindSchema),
+  half_life_days: z.record(z.string(), z.number()).nullish().transform((v) => v ?? {}),
+  expired_cap_enabled: z.boolean(),
+  expired_cap_days: z.number(),
+});
+export type RetentionShadow = z.infer<typeof retentionShadowSchema>;
+
 export const forgettingStatsSchema = z.object({
   eligible: z.number(),
   exempt: z.number(),
@@ -348,6 +372,9 @@ export const forgettingStatsSchema = z.object({
   age_half_life_days: z.number(),
   grace_days: z.number(),
   retention_histogram: list(countItemSchema),
+  // Absent on servers that predate per-kind retention (D39).
+  model: z.string().optional(),
+  shadow: retentionShadowSchema.optional(),
 });
 export type ForgettingStats = z.infer<typeof forgettingStatsSchema>;
 

@@ -20,6 +20,7 @@ package store
 
 import (
 	"context"
+	"errors"
 	"log"
 	"math"
 	"strconv"
@@ -37,6 +38,11 @@ const (
 	metadataKeyPinned       = "pinned"
 	metadataKeyDeletedAt    = "deleted_at"
 )
+
+// ErrRetentionModelMismatch is returned by ForgetSweepModel when a real
+// (not dry-run) sweep is asked to use a model other than the configured one:
+// the model that deletes is only ever changed by the setting.
+var ErrRetentionModelMismatch = errors.New("a real forget-sweep must use the configured retention model; only dry-run may preview another")
 
 // Retention formula constants — all in days, chosen in the spirit of
 // ai-memory's tiers ("30d hot") but without replicating their 4 tiers
@@ -167,10 +173,23 @@ func withoutDeletedAt(base map[string]string) map[string]string {
 // Get and the primary Search results apply on every real read. Never
 // mutates base.
 func bumpAccessMetadata(base map[string]string, now time.Time) map[string]string {
-	md := make(map[string]string, len(base)+2)
+	md := make(map[string]string, len(base)+3)
 	for k, v := range base {
 		md[k] = v
 	}
+	// access_days (D39) counts distinct UTC days with a read: a burst inside
+	// one day adds to access_count (the legacy score) but only once here.
+	days := parseAccessCount(md[metadataKeyAccessDays])
+	sameDay := false
+	if raw := md[metadataKeyLastAccessed]; raw != "" {
+		if t, err := time.Parse(time.RFC3339, raw); err == nil {
+			sameDay = t.UTC().Format("2006-01-02") == now.UTC().Format("2006-01-02")
+		}
+	}
+	if !sameDay || days == 0 {
+		days++
+	}
+	md[metadataKeyAccessDays] = strconv.Itoa(days)
 	md[metadataKeyAccessCount] = strconv.Itoa(parseAccessCount(md[metadataKeyAccessCount]) + 1)
 	md[metadataKeyLastAccessed] = now.UTC().Format(time.RFC3339)
 	return md
@@ -230,12 +249,19 @@ func (s *MemoryStore) softDeleteOne(ctx context.Context, e schema.Entry, now tim
 // who qualifies in this call (dry-run or not); Applied is only filled in a
 // real call (dry_run=false).
 type SweepResult struct {
-	DryRun               bool     `json:"dryRun"`
-	Evaluated            int      `json:"evaluated"`
-	SoftDeleteCandidates []string `json:"softDeleteCandidates"`
-	HardDeleteCandidates []string `json:"hardDeleteCandidates"`
-	SoftDeleted          []string `json:"softDeleted"`
-	HardDeleted          []string `json:"hardDeleted"`
+	DryRun bool `json:"dryRun"`
+	// Model is the retention model that scored this call (D39).
+	Model                RetentionModel `json:"model"`
+	Evaluated            int            `json:"evaluated"`
+	SoftDeleteCandidates []string       `json:"softDeleteCandidates"`
+	HardDeleteCandidates []string       `json:"hardDeleteCandidates"`
+	// HardDeleteSpared counts soft-deleted entries past the grace window that
+	// the per-kind model refused to hard-delete because it would not have
+	// soft-deleted them (they stay soft-deleted and restorable). Always 0 in
+	// the legacy model.
+	HardDeleteSpared int      `json:"hardDeleteSpared"`
+	SoftDeleted      []string `json:"softDeleted"`
+	HardDeleted      []string `json:"hardDeleted"`
 }
 
 // sweepCandidates sweeps the index under RLock and classifies each entry
@@ -245,10 +271,16 @@ type SweepResult struct {
 // counts only the eligible ones that took part in the score calculation —
 // not the already soft-deleted ones, which are not "evaluated" again, only
 // checked by the age of their own deletion.
-func (s *MemoryStore) sweepCandidates(now time.Time) (soft, hard []schema.Entry, evaluated int) {
+//
+// With the per-kind model (D39) a soft-deleted entry past the grace window is
+// hard-deleted only if the model would also soft-delete it now: entries that
+// the legacy score soft-deleted but the per-kind score keeps are spared (and
+// counted), because the hard-delete is the irreversible step.
+func (s *MemoryStore) sweepCandidates(now time.Time, model RetentionModel, p RetentionParams) (soft, hard []schema.Entry, evaluated, spared int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	ev := newRetentionEval(s.index, model, p)
 	for _, e := range s.index {
 		if isSoftDeleted(e) {
 			deletedAt, err := time.Parse(time.RFC3339, e.Metadata[metadataKeyDeletedAt])
@@ -256,19 +288,23 @@ func (s *MemoryStore) sweepCandidates(now time.Time) (soft, hard []schema.Entry,
 				continue
 			}
 			if now.Sub(deletedAt) >= SoftDeleteGraceDays*24*time.Hour {
+				if model == RetentionPerKind && (!ev.eligible(e) || !ev.cold(e, now)) {
+					spared++
+					continue
+				}
 				hard = append(hard, e)
 			}
 			continue
 		}
-		if !isDecayEligible(e) {
+		if !ev.eligible(e) {
 			continue
 		}
 		evaluated++
-		if retentionScore(e, now) < ColdRetentionThreshold {
+		if ev.cold(e, now) {
 			soft = append(soft, e)
 		}
 	}
-	return soft, hard, evaluated
+	return soft, hard, evaluated, spared
 }
 
 // ForgetSweep is D22's "automatic forgetting" (closes A9): dryRun=true only
@@ -279,14 +315,35 @@ func (s *MemoryStore) sweepCandidates(now time.Time) (soft, hard []schema.Entry,
 // been soft-deleted for more than SoftDeleteGraceDays. An isolated failure
 // (network, id gone midway) is logged and skipped — it never aborts the
 // whole sweep, same spirit as RunRetroactiveExtraction.
+//
+// It scores with the configured retention model (D39, legacy by default).
 func (s *MemoryStore) ForgetSweep(ctx context.Context, dryRun bool, now time.Time) (SweepResult, error) {
-	soft, hard, evaluated := s.sweepCandidates(now)
+	model, _ := s.Retention()
+	return s.ForgetSweepModel(ctx, dryRun, now, model)
+}
+
+// ForgetSweepModel is ForgetSweep with an explicit model, so a dry-run can
+// preview what another model would do. A real sweep must use the configured
+// model (ErrRetentionModelMismatch otherwise): flipping the setting is the
+// only way to change what gets deleted.
+func (s *MemoryStore) ForgetSweepModel(ctx context.Context, dryRun bool, now time.Time, model RetentionModel) (SweepResult, error) {
+	model, err := ParseRetentionModel(string(model))
+	if err != nil {
+		return SweepResult{}, err
+	}
+	configured, params := s.Retention()
+	if !dryRun && model != configured {
+		return SweepResult{}, ErrRetentionModelMismatch
+	}
+	soft, hard, evaluated, spared := s.sweepCandidates(now, model, params)
 
 	result := SweepResult{
 		DryRun:               dryRun,
+		Model:                model,
 		Evaluated:            evaluated,
 		SoftDeleteCandidates: idsOf(soft),
 		HardDeleteCandidates: idsOf(hard),
+		HardDeleteSpared:     spared,
 	}
 	if dryRun {
 		return result, nil

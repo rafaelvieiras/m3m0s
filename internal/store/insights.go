@@ -6,6 +6,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
@@ -212,23 +213,41 @@ func histPercentile(hist []int, n int, q float64) int {
 	return len(hist) - 1
 }
 
+// shadowHorizonsDays are the points in time, relative to now, at which the
+// shadow comparison counts what each retention model would forget (D39),
+// assuming nothing reads the memories in the meantime. 0 = right now.
+var shadowHorizonsDays = []int{0, 30, 60, 90}
+
 // ForgettingStats reports what the next forget-sweep would do, classifying
 // entries exactly like sweepCandidates (the same eligibility rules and
-// retentionScore) but only counting, so nothing is allocated per candidate.
+// score, for the configured retention model) but only counting, so nothing is
+// allocated per candidate. It also fills the shadow comparison of both models.
 func (s *MemoryStore) ForgettingStats(now time.Time) apitypes.ForgettingStats {
+	model, params := s.Retention()
 	out := apitypes.ForgettingStats{
 		Threshold:       ColdRetentionThreshold,
 		AgeHalfLifeDays: DecayAgeHalfLifeDays,
 		GraceDays:       SoftDeleteGraceDays,
+		Model:           string(model),
 	}
 	hist := make([]int, len(retentionBuckets))
 
 	s.mu.RLock()
+	// Both models are scored in the same pass; the incoming-link table is
+	// needed by the per-kind one only.
+	legacy := newRetentionEval(s.index, RetentionLegacy, params)
+	perKind := newRetentionEval(s.index, RetentionPerKind, params)
+	active := legacy
+	if model == RetentionPerKind {
+		active = perKind
+	}
+	shadow := newShadowAccumulator(params)
 	for _, e := range s.index {
 		if isSoftDeleted(e) {
 			out.SoftDeleted++
 			if deletedAt, err := time.Parse(time.RFC3339, e.Metadata[metadataKeyDeletedAt]); err == nil &&
-				now.Sub(deletedAt) >= SoftDeleteGraceDays*24*time.Hour {
+				now.Sub(deletedAt) >= SoftDeleteGraceDays*24*time.Hour &&
+				(model != RetentionPerKind || (active.eligible(e) && active.cold(e, now))) {
 				out.HardDeleteDue++
 			}
 			continue
@@ -237,8 +256,13 @@ func (s *MemoryStore) ForgettingStats(now time.Time) apitypes.ForgettingStats {
 			out.Exempt++
 			continue
 		}
+		shadow.add(e, now, legacy, perKind)
+		if !active.eligible(e) {
+			out.Exempt++
+			continue
+		}
 		out.Eligible++
-		score := retentionScore(e, now)
+		score := active.score(e, now)
 		if score < ColdRetentionThreshold {
 			out.ColdNow++
 		}
@@ -254,6 +278,68 @@ func (s *MemoryStore) ForgettingStats(now time.Time) apitypes.ForgettingStats {
 	out.RetentionHistogram = make([]apitypes.CountItem, len(retentionBuckets))
 	for i, b := range retentionBuckets {
 		out.RetentionHistogram[i] = apitypes.CountItem{Key: b.label, Count: hist[i]}
+	}
+	out.Shadow = shadow.result(model)
+	return out
+}
+
+// shadowAccumulator counts, per kind and horizon, how many eligible entries
+// each model would soft-delete (D39).
+type shadowAccumulator struct {
+	params RetentionParams
+	rows   map[string]*apitypes.ShadowKind
+}
+
+func newShadowAccumulator(p RetentionParams) *shadowAccumulator {
+	a := &shadowAccumulator{params: p, rows: make(map[string]*apitypes.ShadowKind, len(factkind.All))}
+	for _, k := range factkind.All {
+		a.rows[k] = &apitypes.ShadowKind{
+			Kind:    k,
+			Legacy:  make([]int, len(shadowHorizonsDays)),
+			PerKind: make([]int, len(shadowHorizonsDays)),
+		}
+	}
+	return a
+}
+
+// add counts e, which must be legacy-eligible and active.
+func (a *shadowAccumulator) add(e schema.Entry, now time.Time, legacy, perKind retentionEval) {
+	row := a.rows[e.KindValue()]
+	row.Eligible++
+	protected := !perKind.eligible(e)
+	if protected {
+		row.Protected++
+	}
+	for i, d := range shadowHorizonsDays {
+		at := now.Add(time.Duration(d) * 24 * time.Hour)
+		if legacy.cold(e, at) {
+			row.Legacy[i]++
+		}
+		if !protected && perKind.cold(e, at) {
+			row.PerKind[i]++
+		}
+	}
+}
+
+func (a *shadowAccumulator) result(active RetentionModel) apitypes.RetentionShadow {
+	out := apitypes.RetentionShadow{
+		Active:            string(active),
+		HorizonsDays:      append([]int(nil), shadowHorizonsDays...),
+		Legacy:            make([]int, len(shadowHorizonsDays)),
+		PerKind:           make([]int, len(shadowHorizonsDays)),
+		HalfLifeDays:      a.params.Clone().HalfLifeDays,
+		ExpiredCapEnabled: a.params.ExpiredCapEnabled,
+		ExpiredCapDays:    a.params.ExpiredCapDays,
+	}
+	for _, k := range factkind.All {
+		row := *a.rows[k]
+		out.Eligible += row.Eligible
+		out.Protected += row.Protected
+		for i := range shadowHorizonsDays {
+			out.Legacy[i] += row.Legacy[i]
+			out.PerKind[i] += row.PerKind[i]
+		}
+		out.ByKind = append(out.ByKind, row)
 	}
 	return out
 }

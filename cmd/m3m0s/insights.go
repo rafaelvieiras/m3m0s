@@ -60,6 +60,40 @@ func insightsMain(ctx context.Context, c *client.Client, out, errOut io.Writer, 
 	return nil
 }
 
+// printShadow prints the shadow comparison of the retention models (D39): how
+// many eligible memories each would forget at each horizon, per kind.
+func printShadow(w io.Writer, f apitypes.ForgettingStats) {
+	sh := f.Shadow
+	if len(sh.HorizonsDays) == 0 {
+		return
+	}
+	p := func(format string, a ...any) { _, _ = fmt.Fprintf(w, format, a...) }
+	p("retention:     job uses the %q model; shadow compares both on %d eligible memories (forgotten if unread)\n", f.Model, sh.Eligible)
+	row := func(label string, legacy, perKind []int) {
+		p("  %-11s", label)
+		for i, h := range sh.HorizonsDays {
+			when := "now"
+			if h > 0 {
+				when = fmt.Sprintf("+%dd", h)
+			}
+			if i < len(legacy) && i < len(perKind) {
+				p("  %s %d -> %d", when, legacy[i], perKind[i])
+			}
+		}
+		p("\n")
+	}
+	p("  (legacy -> per-kind)\n")
+	row("all", sh.Legacy, sh.PerKind)
+	for _, k := range sh.ByKind {
+		if k.Eligible > 0 {
+			row(k.Kind, k.Legacy, k.PerKind)
+		}
+	}
+	if sh.Protected > 0 {
+		p("  %d memories are protected only under per-kind (manual durable tag)\n", sh.Protected)
+	}
+}
+
 func printInsights(w io.Writer, ov apitypes.InsightsOverviewResponse, hy apitypes.HygieneResponse) {
 	t, f := ov.Totals, ov.Forgetting
 	p := func(format string, a ...any) { _, _ = fmt.Fprintf(w, format, a...) }
@@ -80,6 +114,7 @@ func printInsights(w io.Writer, ov apitypes.InsightsOverviewResponse, hy apitype
 	p("text length:   avg %.0f, median %d, p90 %d chars\n", ov.Text.AvgChars, ov.Text.MedianChars, ov.Text.P90Chars)
 	p("forgetting:    %d cold now (of %d eligible); %d soft-deleted waiting, %d past the %d-day grace\n",
 		f.ColdNow, f.Eligible, f.SoftDeleted, f.HardDeleteDue, f.GraceDays)
+	printShadow(w, f)
 	if len(ov.TopDomains) > 0 {
 		p("top domains:  ")
 		for i, d := range ov.TopDomains[:min(5, len(ov.TopDomains))] {
