@@ -79,18 +79,23 @@ type FilterOverview struct {
 
 // InsightsOverviewResponse is the body of GET /insights/overview.
 type InsightsOverviewResponse struct {
-	GeneratedAt      time.Time       `json:"generated_at"`
-	Totals           InsightsTotals  `json:"totals"`
-	Text             InsightsText    `json:"text"`
-	SoftDeletedByDay []CountItem     `json:"soft_deleted_by_day"`
-	ByCategory       []CountItem     `json:"by_category"`
-	BySource         []CountItem     `json:"by_source"`
-	ByAge            []CountItem     `json:"by_age"`
-	DomainCount      int             `json:"domain_count"`
-	TopDomains       []DomainStat    `json:"top_domains"`
-	VectorsIndexed   int             `json:"vectors_indexed"`
-	Forgetting       ForgettingStats `json:"forgetting"`
-	Filter           FilterOverview  `json:"filter"`
+	GeneratedAt      time.Time      `json:"generated_at"`
+	Totals           InsightsTotals `json:"totals"`
+	Text             InsightsText   `json:"text"`
+	SoftDeletedByDay []CountItem    `json:"soft_deleted_by_day"`
+	ByCategory       []CountItem    `json:"by_category"`
+	BySource         []CountItem    `json:"by_source"`
+	ByAge            []CountItem    `json:"by_age"`
+	// ByKind is the distribution of active memories by nature (D38), in enum
+	// order, untagged ones counted as "other"; ByKindSource says who tagged them
+	// ("none" = never classified).
+	ByKind         []CountItem     `json:"by_kind"`
+	ByKindSource   []CountItem     `json:"by_kind_source"`
+	DomainCount    int             `json:"domain_count"`
+	TopDomains     []DomainStat    `json:"top_domains"`
+	VectorsIndexed int             `json:"vectors_indexed"`
+	Forgetting     ForgettingStats `json:"forgetting"`
+	Filter         FilterOverview  `json:"filter"`
 }
 
 // ExampleEntry is a truncated, secret-free view of one memory.

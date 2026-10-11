@@ -67,6 +67,16 @@ func printInsights(w io.Writer, ov apitypes.InsightsOverviewResponse, hy apitype
 	p("never read:    %d (%.1f%% of active)\n", t.NeverAccessed, t.NeverAccessedPct)
 	p("valid_until:   %d set, %d already past; %d pinned\n", t.WithValidUntil, t.Expired, t.Pinned)
 	p("kind:          %d extracted facts, %d raw\n", t.Extracted, t.Raw)
+	if len(ov.ByKind) > 0 {
+		p("nature:        ")
+		for i, k := range ov.ByKind {
+			if i > 0 {
+				p(", ")
+			}
+			p("%s %d", k.Key, k.Count)
+		}
+		p("\n")
+	}
 	p("text length:   avg %.0f, median %d, p90 %d chars\n", ov.Text.AvgChars, ov.Text.MedianChars, ov.Text.P90Chars)
 	p("forgetting:    %d cold now (of %d eligible); %d soft-deleted waiting, %d past the %d-day grace\n",
 		f.ColdNow, f.Eligible, f.SoftDeleted, f.HardDeleteDue, f.GraceDays)

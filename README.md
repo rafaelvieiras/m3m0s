@@ -154,6 +154,12 @@ changes a memory. See `docs/decisions/D37-insights-dashboard.md`.
 m3m0s insights show          # totals, forgetting outlook, last analysis (add --json for the raw data)
 ```
 
+Each fact also carries a nature (`kind`: decision, rule, preference, gotcha, procedure, state, noise,
+other), tagged by the extractor or a heuristic and shown as a distribution on that page. Search and
+list filter on it (`m3m0s search "..." --kind rule`), `m3m0s update <id> --kind gotcha` corrects it,
+and `m3m0s kind backfill estimate` sizes the optional tagging of older facts. See
+`docs/decisions/D38-fact-kind.md`.
+
 The same page lists the ingestion filter (tooling boilerplate stopped at automatic capture) with
 per-rule counters. To see what the rules would catch in an existing database without changing it
 (the file is opened read-only; run it on a copy if the server is writing to it):

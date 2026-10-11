@@ -29,6 +29,10 @@ export const entrySchema = z.object({
   // Provenance (F2): null/absent = unknown model, global entry.
   model: z.string().nullable().optional(),
   project: z.string().nullable().optional(),
+  // Nature of the fact (D38): always present on current servers; "other" for
+  // memories that were never classified. kindSource: llm | heuristic | manual.
+  kind: z.string().optional(),
+  kindSource: z.string().optional(),
   tags: z.array(z.string()),
   metadata: metadataSchema,
   score: z.number().optional(),
@@ -384,6 +388,9 @@ export const insightsOverviewSchema = z.object({
   by_category: list(countItemSchema),
   by_source: list(countItemSchema),
   by_age: list(countItemSchema),
+  // Nature distribution (D38); absent on servers that predate it.
+  by_kind: list(countItemSchema).optional(),
+  by_kind_source: list(countItemSchema).optional(),
   domain_count: z.number(),
   top_domains: list(domainStatSchema),
   vectors_indexed: z.number(),

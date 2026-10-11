@@ -16,6 +16,8 @@ import (
 	"strings"
 	"sync/atomic"
 	"time"
+
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 )
 
 // DefaultBaseURL and DefaultModel are the defaults documented in
@@ -152,13 +154,28 @@ type chatResponse struct {
 	Usage   chatUsage    `json:"usage"`
 }
 
+// systemPrompt is pinned by testdata/system_prompt.golden.txt (see
+// TestSystemPromptGolden): a prompt change must show up as a diff there.
 const systemPrompt = `You extract atomic facts from a text for a semantic memory system.
 Rules:
 - Each fact must be self-contained (makes sense on its own, without the original text) and reusable in future searches.
 - Do not invent information that is not in the text.
 - If the text is already a single atomic fact, return it as is — do not invent artificial subdivisions.
 - Write every fact in the same language as the input text. Do not translate.
-- Reply ONLY with a JSON object in the format {"facts": ["fact 1", "fact 2"]}, nothing else: no markdown, no explanation, no text before or after.`
+- Give each fact a "kind", exactly one of: decision, rule, preference, gotcha, procedure, state, noise, other.
+  decision: a choice that was made and, ideally, why.
+  rule: a convention, constraint or standing instruction ("always ...", "never ...").
+  preference: a stated preference of the user.
+  gotcha: a root cause, pitfall or non-obvious behaviour.
+  procedure: how to do something (steps, commands, configuration).
+  state: a transient status (task progress, current branch, a number that will change).
+  noise: meta-description, boilerplate or diff trivia.
+  other: when none of the above clearly applies.
+- Reply ONLY with a JSON object in the format {"facts": [{"text": "fact 1", "kind": "decision"}, {"text": "fact 2", "kind": "state"}]}, nothing else: no markdown, no explanation, no text before or after.`
+
+// SystemPrompt returns the fact-extraction system prompt (used by the golden
+// test and by tooling that compares prompt versions).
+func SystemPrompt() string { return systemPrompt }
 
 // Extract sends content (already redacted by the caller — D12, item 4) to
 // the configured model and returns the list of extracted atomic facts.
@@ -171,6 +188,23 @@ Rules:
 // content (D12, item 5), so there is no need to distinguish error types
 // here.
 func (e *Extractor) Extract(ctx context.Context, content, domain string) ([]string, error) {
+	facts, err := e.ExtractFacts(ctx, content, domain)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, len(facts))
+	for i, f := range facts {
+		out[i] = f.Text
+	}
+	return out, nil
+}
+
+// ExtractFacts is Extract plus the nature (kind, D38) the model gave each
+// fact, from the same call and the same response — no extra LLM call. A kind
+// outside the closed enum is normalized to "other"; a fact the model gave as
+// a bare string (a provider that ignores the schema) has an empty Kind, and
+// the caller decides what to do (the store falls back to the heuristic).
+func (e *Extractor) ExtractFacts(ctx context.Context, content, domain string) ([]factkind.Fact, error) {
 	userPrompt := fmt.Sprintf("Domain: %s\n\nText:\n%s", domain, content)
 
 	reqBody, err := json.Marshal(chatRequest{
@@ -217,6 +251,94 @@ func (e *Extractor) Extract(ctx context.Context, content, domain string) ([]stri
 	e.recordUsage(chatResp.Usage)
 
 	return parseFacts(chatResp.Choices[0].Message.Content)
+}
+
+const kindsSystemPrompt = `You classify facts from a semantic memory system by their nature.
+Each fact gets exactly one kind: decision, rule, preference, gotcha, procedure, state, noise, other.
+- decision: a choice that was made and, ideally, why.
+- rule: a convention, constraint or standing instruction ("always ...", "never ...").
+- preference: a stated preference of the user.
+- gotcha: a root cause, pitfall or non-obvious behaviour.
+- procedure: how to do something (steps, commands, configuration).
+- state: a transient status (task progress, current branch, a number that will change).
+- noise: meta-description, boilerplate or diff trivia.
+- other: when none of the above clearly applies.
+The facts may be written in any language. Reply ONLY with a JSON object {"kinds": ["kind for fact 1", "kind for fact 2", ...]} with exactly one entry per fact, in the same order.`
+
+// ClassifyKinds asks the model for the kind of each fact in one call (the
+// backfill of facts stored before D38 uses it: a classification is far
+// cheaper than re-extracting). The answer must have one entry per fact;
+// unknown values are normalized to "other".
+func (e *Extractor) ClassifyKinds(ctx context.Context, facts []string) ([]string, error) {
+	var b strings.Builder
+	for i, f := range facts {
+		fmt.Fprintf(&b, "%d. %q\n", i+1, f)
+	}
+	raw, err := e.complete(ctx, kindsSystemPrompt, b.String(), true)
+	if err != nil {
+		return nil, err
+	}
+	start, end := strings.Index(raw, "{"), strings.LastIndex(raw, "}")
+	if start < 0 || end < start {
+		return nil, fmt.Errorf("kinds response has no JSON object: %q", raw)
+	}
+	var obj struct {
+		Kinds []string `json:"kinds"`
+	}
+	if err := json.Unmarshal([]byte(raw[start:end+1]), &obj); err != nil {
+		return nil, fmt.Errorf("parse kinds object: %w", err)
+	}
+	if len(obj.Kinds) != len(facts) {
+		return nil, fmt.Errorf("kinds response has %d entries for %d facts", len(obj.Kinds), len(facts))
+	}
+	out := make([]string, len(obj.Kinds))
+	for i, k := range obj.Kinds {
+		out[i] = factkind.Normalize(k)
+	}
+	return out, nil
+}
+
+// complete runs one chat completion and returns the assistant text.
+func (e *Extractor) complete(ctx context.Context, system, user string, jsonMode bool) (string, error) {
+	req := chatRequest{
+		Model:     e.model,
+		Messages:  []chatMessage{{Role: "system", Content: system}, {Role: "user", Content: user}},
+		Reasoning: &reasoningConfig{Enabled: false},
+	}
+	if jsonMode {
+		req.ResponseFormat = &responseFormat{Type: "json_object"}
+	}
+	reqBody, err := json.Marshal(req)
+	if err != nil {
+		return "", fmt.Errorf("marshal chat request: %w", err)
+	}
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, e.baseURL+"/chat/completions", bytes.NewReader(reqBody))
+	if err != nil {
+		return "", fmt.Errorf("build request: %w", err)
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.Header.Set("Authorization", "Bearer "+e.apiKey)
+	resp, err := e.http.Do(httpReq)
+	if err != nil {
+		return "", fmt.Errorf("chat request: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read response: %w", err)
+	}
+	if resp.StatusCode >= 400 {
+		return "", fmt.Errorf("chat responded %d: %s", resp.StatusCode, string(body))
+	}
+	var chatResp chatResponse
+	if err := json.Unmarshal(body, &chatResp); err != nil {
+		return "", fmt.Errorf("unmarshal chat response: %w", err)
+	}
+	if len(chatResp.Choices) == 0 {
+		return "", errors.New("chat response has no choices")
+	}
+	e.recordUsage(chatResp.Usage)
+	return chatResp.Choices[0].Message.Content, nil
 }
 
 const classifySystemPrompt = `You compare two facts from a semantic memory system and classify the relation between them.
@@ -289,6 +411,31 @@ func (e *Extractor) Classify(ctx context.Context, newFact, existingFact string) 
 	return strings.ToLower(strings.TrimSpace(chatResp.Choices[0].Message.Content)), nil
 }
 
+// rawFact is one element of the "facts" array: the current format is an
+// object {"text", "kind"}, but a bare string (the pre-D38 format, or a
+// provider that ignores the schema) is still accepted and carries no kind.
+type rawFact struct {
+	Text string
+	Kind string
+}
+
+func (f *rawFact) UnmarshalJSON(b []byte) error {
+	var s string
+	if err := json.Unmarshal(b, &s); err == nil {
+		f.Text, f.Kind = s, ""
+		return nil
+	}
+	var obj struct {
+		Text string `json:"text"`
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(b, &obj); err != nil {
+		return err
+	}
+	f.Text, f.Kind = obj.Text, obj.Kind
+	return nil
+}
+
 // parseFacts first tries the format requested via response_format (D19):
 // the JSON object {"facts": [...]}. If that yields no fact (missing field,
 // a provider that ignores response_format, or the response is not an
@@ -296,7 +443,7 @@ func (e *Extractor) Classify(ctx context.Context, newFact, existingFact string) 
 // markdown fences or surrounding text the model sometimes inserts despite
 // the instruction — so as not to break against a provider that does not
 // honor response_format.
-func parseFacts(raw string) ([]string, error) {
+func parseFacts(raw string) ([]factkind.Fact, error) {
 	if facts, err := parseFactsObject(raw); err == nil {
 		if out, ferr := finalizeFacts(facts); ferr == nil {
 			return out, nil
@@ -310,7 +457,7 @@ func parseFacts(raw string) ([]string, error) {
 	return finalizeFacts(facts)
 }
 
-func parseFactsObject(raw string) ([]string, error) {
+func parseFactsObject(raw string) ([]rawFact, error) {
 	start := strings.Index(raw, "{")
 	end := strings.LastIndex(raw, "}")
 	if start < 0 || end < 0 || end < start {
@@ -318,7 +465,7 @@ func parseFactsObject(raw string) ([]string, error) {
 	}
 
 	var obj struct {
-		Facts []string `json:"facts"`
+		Facts []rawFact `json:"facts"`
 	}
 	if err := json.Unmarshal([]byte(raw[start:end+1]), &obj); err != nil {
 		return nil, fmt.Errorf("parse facts object: %w", err)
@@ -326,29 +473,35 @@ func parseFactsObject(raw string) ([]string, error) {
 	return obj.Facts, nil
 }
 
-func parseFactsArray(raw string) ([]string, error) {
+func parseFactsArray(raw string) ([]rawFact, error) {
 	start := strings.Index(raw, "[")
 	end := strings.LastIndex(raw, "]")
 	if start < 0 || end < 0 || end < start {
 		return nil, fmt.Errorf("response has neither a JSON array nor object: %q", raw)
 	}
 
-	var facts []string
+	var facts []rawFact
 	if err := json.Unmarshal([]byte(raw[start:end+1]), &facts); err != nil {
 		return nil, fmt.Errorf("parse facts array: %w", err)
 	}
 	return facts, nil
 }
 
-// finalizeFacts trims whitespace and discards empty strings — an error if
-// no usable fact remains.
-func finalizeFacts(facts []string) ([]string, error) {
-	out := make([]string, 0, len(facts))
+// finalizeFacts trims whitespace, discards empty facts and normalizes the
+// kind (unknown values become "other"; an absent kind stays empty) — an
+// error if no usable fact remains.
+func finalizeFacts(facts []rawFact) ([]factkind.Fact, error) {
+	out := make([]factkind.Fact, 0, len(facts))
 	for _, f := range facts {
-		f = strings.TrimSpace(f)
-		if f != "" {
-			out = append(out, f)
+		text := strings.TrimSpace(f.Text)
+		if text == "" {
+			continue
 		}
+		kind := ""
+		if strings.TrimSpace(f.Kind) != "" {
+			kind = factkind.Normalize(f.Kind)
+		}
+		out = append(out, factkind.Fact{Text: text, Kind: kind})
 	}
 	if len(out) == 0 {
 		return nil, errors.New("no non-empty fact extracted")

@@ -118,6 +118,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/insights/hygiene", s.withAuth(s.handleInsightsHygiene))
 	mux.HandleFunc("POST /api/v1/insights/hygiene/run", s.withAuth(s.handleInsightsHygieneRun))
 	mux.HandleFunc("POST /api/v1/insights/hygiene/cancel", s.withAuth(s.handleInsightsHygieneCancel))
+	mux.HandleFunc("GET /api/v1/kinds/sample", s.withAuth(s.handleKindSample))
+	mux.HandleFunc("POST /api/v1/kinds/backfill/estimate", s.withAuth(s.handleKindBackfillEstimate))
+	mux.HandleFunc("GET /api/v1/kinds/backfill", s.withAuth(s.handleKindBackfillStatus))
+	mux.HandleFunc("POST /api/v1/kinds/backfill", s.withAuth(s.handleKindBackfillStart))
+	mux.HandleFunc("DELETE /api/v1/kinds/backfill", s.withAuth(s.handleKindBackfillCancel))
 	mux.HandleFunc("POST /api/v1/chat", s.withAuth(s.handleChat))
 	mux.HandleFunc("GET /api/v1/jobs", s.withAuth(s.handleJobsList))
 	mux.HandleFunc("POST /api/v1/jobs/{name}/run", s.withAuth(s.handleJobRun))
@@ -398,6 +403,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Project:        req.Project,
 		Scope:          req.Scope,
 		Tags:           req.Tags,
+		Kind:           req.Kind,
 		Mode:           req.Mode,
 	}
 	if err := filter.Validate(); err != nil {
@@ -443,6 +449,7 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 		Model:          q.Get("model"),
 		Project:        q.Get("project"),
 		Scope:          q.Get("scope"),
+		Kind:           q.Get("kind"),
 	}
 	if err := filter.Validate(); err != nil {
 		writeStoreError(w, err)
@@ -684,6 +691,14 @@ func decodeUpdatePatch(req apitypes.UpdateRequest) (store.UpdatePatch, error) {
 			return store.UpdatePatch{}, errors.New("invalid metadata: " + err.Error())
 		}
 		patch.Metadata = &v
+	}
+
+	if len(req.Kind) > 0 {
+		var v string
+		if err := json.Unmarshal(req.Kind, &v); err != nil {
+			return store.UpdatePatch{}, errors.New("invalid kind: " + err.Error())
+		}
+		patch.Kind = &v
 	}
 
 	return patch, nil

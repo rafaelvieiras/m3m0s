@@ -6,6 +6,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 )
 
 // extractionChunkSize is the target size (in runes) of each piece sent in
@@ -47,9 +49,21 @@ const extractionMaxAttempts = 2
 // content). facts is always []string{the raw piece} when extracted is
 // false. sourceContent is only populated when extracted is true.
 type extractedPiece struct {
-	facts         []string
+	facts []string
+	// kinds is parallel to facts: the kind the extractor gave each fact (D38),
+	// or "" when it gave none (raw pieces, or a provider that ignored the
+	// schema). Nil for raw pieces.
+	kinds         []string
 	extracted     bool
 	sourceContent string
+}
+
+// kindAt returns the extractor's kind for fact i ("" when it gave none).
+func (p extractedPiece) kindAt(i int) string {
+	if i < len(p.kinds) {
+		return p.kinds[i]
+	}
+	return ""
 }
 
 // anyExtracted says whether at least 1 piece of pieces actually went
@@ -94,8 +108,13 @@ func (s *MemoryStore) extractPieces(ctx context.Context, content, domain string)
 				pieces[i] = extractedPiece{facts: []string{chunk}}
 				return
 			}
-			s.recordCompactionSavings(ctx, chunk, facts)
-			pieces[i] = extractedPiece{facts: facts, extracted: true, sourceContent: chunk}
+			texts := make([]string, len(facts))
+			kinds := make([]string, len(facts))
+			for j, f := range facts {
+				texts[j], kinds[j] = f.Text, f.Kind
+			}
+			s.recordCompactionSavings(ctx, chunk, texts)
+			pieces[i] = extractedPiece{facts: texts, kinds: kinds, extracted: true, sourceContent: chunk}
 		}(i, chunk)
 	}
 	wg.Wait()
@@ -112,13 +131,13 @@ func (s *MemoryStore) extractPieces(ctx context.Context, content, domain string)
 // consumes the entire budget (a genuine timeout), the 2nd does not really
 // run — ctx.Err() already non-nil breaks the loop, so the worst case stays
 // ~1 extractionChunkBudget, not double.
-func (s *MemoryStore) extractChunk(ctx context.Context, chunk, domain string) ([]string, error) {
+func (s *MemoryStore) extractChunk(ctx context.Context, chunk, domain string) ([]factkind.Fact, error) {
 	ctx, cancel := context.WithTimeout(ctx, extractionChunkBudget)
 	defer cancel()
 
 	var lastErr error
 	for attempt := 1; attempt <= extractionMaxAttempts; attempt++ {
-		facts, err := s.extractor.Extract(ctx, chunk, domain)
+		facts, err := s.extractFacts(ctx, chunk, domain)
 		if err == nil {
 			return facts, nil
 		}
@@ -128,6 +147,25 @@ func (s *MemoryStore) extractChunk(ctx context.Context, chunk, domain string) ([
 		}
 	}
 	return nil, lastErr
+}
+
+// extractFacts calls the extractor, taking the kinds too (D38) when it can:
+// an Extractor that also implements KindExtractor is asked once for facts
+// and kinds together; any other (test fakes, older providers) yields facts
+// without kinds, and the caller falls back to the heuristic.
+func (s *MemoryStore) extractFacts(ctx context.Context, chunk, domain string) ([]factkind.Fact, error) {
+	if ke, ok := s.extractor.(KindExtractor); ok {
+		return ke.ExtractFacts(ctx, chunk, domain)
+	}
+	texts, err := s.extractor.Extract(ctx, chunk, domain)
+	if err != nil {
+		return nil, err
+	}
+	facts := make([]factkind.Fact, len(texts))
+	for i, t := range texts {
+		facts[i] = factkind.Fact{Text: t}
+	}
+	return facts, nil
 }
 
 // splitForExtraction splits content into pieces of up to targetSize runes

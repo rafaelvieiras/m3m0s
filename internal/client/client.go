@@ -259,6 +259,9 @@ func (c *Client) Recent(ctx context.Context, p apitypes.RecentParams) (apitypes.
 	if p.Scope != "" {
 		q.Set("scope", p.Scope)
 	}
+	if p.Kind != "" {
+		q.Set("kind", p.Kind)
+	}
 
 	var out apitypes.RecentResponse
 	err := c.do(ctx, http.MethodGet, apiPrefix+"/recent", q, nil, &out)
@@ -423,5 +426,47 @@ func (c *Client) GetInsightsOverview(ctx context.Context) (apitypes.InsightsOver
 func (c *Client) GetHygiene(ctx context.Context) (apitypes.HygieneResponse, error) {
 	var out apitypes.HygieneResponse
 	err := c.do(ctx, http.MethodGet, apiPrefix+"/insights/hygiene", nil, nil, &out)
+	return out, err
+}
+
+// GetKindSample calls GET /api/v1/kinds/sample (D38): a stratified sample of
+// facts to label by hand.
+func (c *Client) GetKindSample(ctx context.Context, n int, seed int64) (apitypes.KindSampleResponse, error) {
+	q := url.Values{}
+	if n > 0 {
+		q.Set("n", strconv.Itoa(n))
+	}
+	q.Set("seed", strconv.FormatInt(seed, 10))
+	var out apitypes.KindSampleResponse
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/kinds/sample", q, nil, &out)
+	return out, err
+}
+
+// EstimateKindBackfill calls POST /api/v1/kinds/backfill/estimate (D38).
+func (c *Client) EstimateKindBackfill(ctx context.Context) (apitypes.KindBackfillEstimateResponse, error) {
+	var out apitypes.KindBackfillEstimateResponse
+	err := c.do(ctx, http.MethodPost, apiPrefix+"/kinds/backfill/estimate", nil, nil, &out)
+	return out, err
+}
+
+// KindBackfillStatus calls GET /api/v1/kinds/backfill.
+func (c *Client) KindBackfillStatus(ctx context.Context) (apitypes.KindBackfillProgress, error) {
+	var out apitypes.KindBackfillProgress
+	err := c.do(ctx, http.MethodGet, apiPrefix+"/kinds/backfill", nil, nil, &out)
+	return out, err
+}
+
+// StartKindBackfill calls POST /api/v1/kinds/backfill with the explicit
+// confirmation the server requires.
+func (c *Client) StartKindBackfill(ctx context.Context) (apitypes.KindBackfillStartResponse, error) {
+	var out apitypes.KindBackfillStartResponse
+	err := c.do(ctx, http.MethodPost, apiPrefix+"/kinds/backfill", nil, apitypes.KindBackfillStartRequest{Confirm: true}, &out)
+	return out, err
+}
+
+// CancelKindBackfill calls DELETE /api/v1/kinds/backfill.
+func (c *Client) CancelKindBackfill(ctx context.Context) (apitypes.KindBackfillCancelResponse, error) {
+	var out apitypes.KindBackfillCancelResponse
+	err := c.do(ctx, http.MethodDelete, apiPrefix+"/kinds/backfill", nil, nil, &out)
 	return out, err
 }

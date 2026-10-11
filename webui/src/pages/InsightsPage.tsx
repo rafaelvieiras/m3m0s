@@ -147,6 +147,15 @@ function OverviewSection({ ov }: { ov: InsightsOverview }) {
         <Section title="By source (tool)" description="Which tool wrote the active memories.">
           <BarList items={ov.by_source} />
         </Section>
+        <Section
+          title="By nature (kind)"
+          description="What each active memory is: decision, rule, gotcha... Untagged ones count as other."
+        >
+          <BarList items={ov.by_kind ?? []} />
+        </Section>
+        <Section title="Who tagged the nature" description="none = never classified (stored before the tag existed).">
+          <BarList items={ov.by_kind_source ?? []} />
+        </Section>
         <Section title="By domain category">
           <BarList items={ov.by_category} />
         </Section>

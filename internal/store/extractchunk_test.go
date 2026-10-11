@@ -209,7 +209,7 @@ func TestExtractChunkRetriesOnceAfterFailure(t *testing.T) {
 	if err != nil {
 		t.Fatalf("extractChunk: %v", err)
 	}
-	if len(facts) != 1 || facts[0] != "fact on the second attempt" {
+	if len(facts) != 1 || facts[0].Text != "fact on the second attempt" {
 		t.Fatalf("expected the fact from the 2nd attempt, got %#v", facts)
 	}
 	if calls.Load() != 2 {

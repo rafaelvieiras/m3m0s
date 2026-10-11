@@ -70,6 +70,17 @@ describe("entrySchema", () => {
     expect(result.success).toBe(true);
   });
 
+  it("keeps the nature tag, and accepts entries from servers that predate it", () => {
+    const base = {
+      id: "mem_1", content: "x", domain: "code:m3m0s", domainCategory: "code", source: "manual", agent: null,
+      tags: [], metadata: {}, createdAt: "2026-07-15T19:00:00Z", updatedAt: "2026-07-15T19:00:00Z",
+    };
+    const tagged = entrySchema.parse({ ...base, kind: "gotcha", kindSource: "llm" });
+    expect(tagged.kind).toBe("gotcha");
+    expect(tagged.kindSource).toBe("llm");
+    expect(entrySchema.parse(base).kind).toBeUndefined();
+  });
+
   it("rejects metadata with a non-string value (chromem-go only accepts map[string]string)", () => {
     const result = entrySchema.safeParse({
       id: "mem_1",

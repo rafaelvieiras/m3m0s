@@ -51,6 +51,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D35 | Accounts: onboarding, sessions and CLI-issued password reset | Accepted | [D35-accounts-onboarding-sessions-reset.md](D35-accounts-onboarding-sessions-reset.md) |
 | D36 | Runtime embedding configuration and vector spaces | Accepted | [D36-runtime-embedding-config.md](D36-runtime-embedding-config.md) |
 | D37 | Memory health dashboard: live overview and a read-only hygiene job | Accepted | [D37-insights-dashboard.md](D37-insights-dashboard.md) |
+| D38 | Fact nature (`kind`): closed enum from the extractor, a heuristic fallback, stored in metadata | Accepted | [D38-fact-kind.md](D38-fact-kind.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |
 | A8 | Phase 7 (light KG + temporal fact) | Closed (16 Jul 2026), see [D15](D15-light-kg-temporal-fact.md) | [A8-light-kg-temporal-fact.md](A8-light-kg-temporal-fact.md) |

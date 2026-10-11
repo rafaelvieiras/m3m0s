@@ -33,6 +33,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 	"github.com/rafaelvieiras/m3m0s/internal/ingestfilter"
 	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
@@ -119,6 +120,15 @@ type Extractor interface {
 	Extract(ctx context.Context, content, domain string) ([]string, error)
 }
 
+// KindExtractor is satisfied by extractors that return, in the same call, the
+// nature (kind, D38) of each fact — *extract.Extractor in production. An
+// optional type assertion over the configured Extractor (like Classifier), so
+// fakes that only cover Extract keep working; their facts get a heuristic
+// kind instead.
+type KindExtractor interface {
+	ExtractFacts(ctx context.Context, content, domain string) ([]factkind.Fact, error)
+}
+
 // Classifier is satisfied by extractors that also judge the semantic
 // relation between a new fact and an existing, already stored candidate
 // (Phase 7, D15) — today only *extract.Extractor, via a Classify method.
@@ -138,6 +148,7 @@ type MemoryStore struct {
 	emb       embedState           // runtime embedding configuration (#39, D36)
 	re        reembedState         // re-embedding job (#39 phase 2)
 	ins       insightsState        // hygiene analysis job (D37)
+	kb        kindBackfillState    // fact-kind backfill job (D38)
 	extractor Extractor            // nil = extraction disabled (D12, item 1)
 	filter    *ingestfilter.Engine // boilerplate filter for automatic capture (#53)
 
@@ -563,9 +574,10 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 
 	entries := make([]AddedEntry, 0, len(pieces))
 	for _, piece := range pieces {
-		for _, fact := range piece.facts {
+		for fi, fact := range piece.facts {
 			factContent := redact.Redact(fact).Text
 			factIn := in
+			factIn.Metadata = withKind(factIn.Metadata, factContent, piece.kindAt(fi))
 			if filtering {
 				d := s.filter.CheckFact(factContent)
 				if d.Matched() {
@@ -785,8 +797,14 @@ func (s *MemoryStore) addOne(ctx context.Context, content string, in AddInput, n
 	deduped := band == "dedup"
 	if deduped {
 		// Filter markers describe the incoming fact, not the entry it merges into.
+		// The kind tag is the exception that needs care: the existing entry keeps
+		// its own (never overwriting a manual one), and only adopts the incoming
+		// one when that is a better source (see adoptKind).
+		incoming := in.Metadata
 		in.Metadata = withoutKey(withoutKey(in.Metadata, ingestfilter.MetadataKey), metadataKeyCapture)
+		in.Metadata = withoutKey(withoutKey(in.Metadata, factkind.MetadataKey), factkind.MetadataSourceKey)
 		entry = mergeForDedup(*candidate, content, in, now)
+		entry.Metadata = adoptKind(entry.Metadata, incoming)
 	} else {
 		entry, err = schema.NewEntry(content, in.Domain, in.Source, in.Agent, in.Tags, in.Metadata, now, in.IDPrefix)
 		if err != nil {
@@ -1261,6 +1279,9 @@ type Filter struct {
 	// Scope is "", ScopeGlobal or ScopeProjectOnly.
 	Scope string
 	Tags  []string
+	// Kind, when set, keeps only entries of that nature (D38); "other" also
+	// matches entries that were never classified.
+	Kind string
 	// Mode selects the ranking for Search: "" or "hybrid" (default: vector +
 	// keyword fused with RRF), "vector" or "keyword". Ignored by Recent.
 	Mode string
@@ -1280,6 +1301,9 @@ func (f Filter) matchesIndexEntry(e schema.Entry) bool {
 		return false
 	}
 	if f.Model != "" && e.ModelValue() != f.Model {
+		return false
+	}
+	if f.Kind != "" && e.KindValue() != f.Kind {
 		return false
 	}
 	if !f.matchesProject(e) {
@@ -1342,6 +1366,9 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 			return false
 		}
 		if filter.Model != "" && e.ModelValue() != filter.Model {
+			return false
+		}
+		if filter.Kind != "" && e.KindValue() != filter.Kind {
 			return false
 		}
 		if !filter.matchesProject(e) {
@@ -1550,6 +1577,9 @@ type UpdatePatch struct {
 	Project  *string // present and "" makes the entry global
 	Tags     *[]string
 	Metadata *map[string]string
+	// Kind corrects the nature of the fact (D38): it must be one of
+	// factkind.All and marks kind_source=manual, which no backfill overwrites.
+	Kind *string
 }
 
 // Update partially overwrites 1 existing entry by id (D13,
@@ -1624,15 +1654,27 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 		entry.Tags = schema.NormalizeTags(*patch.Tags)
 	}
 
+	if patch.Kind != nil && !factkind.Valid(*patch.Kind) {
+		return schema.Entry{}, &ValidationError{Code: "invalid_kind", Message: "kind must be one of " + strings.Join(factkind.All, ", ")}
+	}
+
 	if patch.Metadata != nil {
-		entry.Metadata = *patch.Metadata
-		if entry.Metadata == nil {
-			// explicit "metadata": null in the PATCH — same normalization as
-			// schema.NewEntry, never leaves the Entry with nil Metadata (it would
-			// serialize JSON `null`, which breaks clients typed as object, e.g. the
-			// WebUI's Zod schema).
-			entry.Metadata = map[string]string{}
+		// A null/empty replacement yields an empty map, never nil (it would
+		// serialize JSON `null`, which breaks clients typed as object, e.g. the
+		// WebUI's Zod schema). The kind tag is reserved like source_content: a
+		// replacement cannot set it (use the kind field) and drops a machine tag
+		// (the backfill can redo it), but a human correction survives.
+		md := withoutKey(withoutKey(*patch.Metadata, factkind.MetadataKey), factkind.MetadataSourceKey)
+		if keep := keepKind(existing.Metadata); keep[factkind.MetadataSourceKey] == factkind.SourceManual {
+			for k, v := range keep {
+				md[k] = v
+			}
 		}
+		entry.Metadata = md
+	}
+
+	if patch.Kind != nil {
+		entry.Metadata = withMetadata(withMetadata(entry.Metadata, factkind.MetadataKey, *patch.Kind), factkind.MetadataSourceKey, factkind.SourceManual)
 	}
 
 	entry.UpdatedAt = now
