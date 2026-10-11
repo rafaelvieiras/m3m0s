@@ -59,6 +59,21 @@ describe("insights schemas", () => {
     });
     expect(parsed.top_domains).toEqual([]);
     expect(parsed.forgetting.retention_histogram).toEqual([]);
+    expect(parsed.by_kind).toBeUndefined(); // servers that predate the nature tag
+  });
+
+  it("parses the nature distribution", () => {
+    const parsed = insightsOverviewSchema.parse({
+      generated_at: "2026-10-08T12:00:00Z",
+      totals: { total: 0, active: 0, soft_deleted: 0, with_valid_until: 0, expired: 0, pinned: 0, extracted: 0, raw: 0, never_accessed: 0, never_accessed_pct: 0 },
+      text: { avg_chars: 0, median_chars: 0, p90_chars: 0, max_chars: 0 },
+      soft_deleted_by_day: [], by_category: [], by_source: [], by_age: [], domain_count: 0, top_domains: [],
+      vectors_indexed: 0, forgetting,
+      by_kind: [{ key: "decision", count: 2 }, { key: "other", count: 5 }],
+      by_kind_source: null,
+    });
+    expect(parsed.by_kind?.[0]).toEqual({ key: "decision", count: 2 });
+    expect(parsed.by_kind_source).toEqual([]);
   });
 
   it("parses the ingestion filter section and tolerates its absence", () => {

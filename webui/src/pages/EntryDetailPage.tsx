@@ -60,6 +60,11 @@ export default function EntryDetailPage() {
             <Badge variant="secondary">{entry.domain}</Badge>
             <Badge variant="outline">{entry.domainCategory}</Badge>
             <Badge variant="outline">{entry.source}</Badge>
+            {entry.kind && (
+              <Badge variant="outline" title={entry.kindSource ? `kind set by ${entry.kindSource}` : "never classified"}>
+                {entry.kind}
+              </Badge>
+            )}
             {entry.agent && <Badge variant="outline">@{entry.agent}</Badge>}
             {entry.project && <Badge variant="outline">project:{entry.project}</Badge>}
             {entry.model && <Badge variant="outline">{entry.model}</Badge>}
