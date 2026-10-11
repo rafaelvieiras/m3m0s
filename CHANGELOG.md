@@ -19,6 +19,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Fact nature (D38): every new fact gets a `kind` (`decision`, `rule`, `preference`, `gotcha`,
+  `procedure`, `state`, `noise`, `other`) from the extractor in the same call (`kind_source=llm`) or a
+  conservative heuristic (`heuristic`); existing rows are not rewritten and read as `other`. `kind`
+  is in the memory JSON, filters `search`/`recent`/MCP (`--kind`), is correctable with `memory_update`
+  (`manual`, never overwritten), and its distribution is on the Insights page. Optional backfill
+  `m3m0s kind backfill estimate|start|status|cancel` (confirmation, rate limited, resumable);
+  `m3m0s kind sample|report` and an extractor golden file for measuring agreement. Groundwork for a
+  per-kind retention policy.
 - `m3m0s maintenance redact-scan [--apply]`: scans stored entries and source blobs with the
   current redactor. Dry run by default; reports ids/hashes and rule ids only (never values).
   `--apply` re-redacts blobs in place; entries are only listed for manual review.
