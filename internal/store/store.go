@@ -492,7 +492,24 @@ type AddInput struct {
 	// writes (memory_add, the API, chat, watch) leave it false and are never
 	// filtered, nor is content carrying metadata pinned=true.
 	Capture bool
+	// RequireExtraction makes Add return ErrExtractionFailed, storing nothing,
+	// when the extractor is configured but a piece could not be extracted —
+	// instead of inserting that piece raw. The ingest queue (D40) sets it on
+	// every attempt but the last so a slow provider is retried, not recorded
+	// as noise.
+	RequireExtraction bool
 }
+
+// ErrExtractionFailed is returned by Add when AddInput.RequireExtraction is
+// set and at least one piece fell back to raw.
+var ErrExtractionFailed = errors.New("fact extraction failed")
+
+// metadataKeyExtraction / metadataExtractionRawFallback tag an entry that was
+// stored raw because extraction failed (D40); the retroactive job repairs it.
+const (
+	metadataKeyExtraction         = "extraction"
+	metadataExtractionRawFallback = "raw-fallback"
+)
 
 // validateProvenance checks the optional model/project of an add or update;
 // empty values are valid (unknown model, global entry).
@@ -582,6 +599,13 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 	var pieces []extractedPiece
 	if s.extractor != nil {
 		pieces = s.extractPieces(ctx, content, in.Domain)
+		if in.RequireExtraction {
+			for _, p := range pieces {
+				if !p.extracted {
+					return AddOutput{}, ErrExtractionFailed
+				}
+			}
+		}
 	} else {
 		pieces = []extractedPiece{{facts: []string{content}}}
 	}
@@ -609,6 +633,9 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 					// capture, so the retroactive job may filter it when re-extracting.
 					factIn.Metadata = withMetadata(factIn.Metadata, metadataKeyCapture, metadataCaptureAuto)
 				}
+			}
+			if !piece.extracted && s.extractor != nil {
+				factIn.Metadata = withMetadata(factIn.Metadata, metadataKeyExtraction, metadataExtractionRawFallback)
 			}
 			if piece.extracted {
 				// Retroactive traceability (Phase 5, D13, item 3): each extracted fact

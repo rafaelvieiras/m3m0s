@@ -316,6 +316,7 @@ func runServe(args []string) error {
 	}
 
 	srv := httpapi.New(memStore, keyStore, webUIAssets, chatClient, *addSyncTimeout, sched, memStore.DB())
+	srv.StartIngest()
 	log.Printf("  async add: timeout of %s before degrading to 202 + poll (D26; <= 0 disables)", *addSyncTimeout)
 
 	addr := ":" + *port

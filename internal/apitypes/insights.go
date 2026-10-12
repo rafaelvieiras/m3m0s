@@ -128,6 +128,8 @@ type InsightsOverviewResponse struct {
 	VectorsIndexed int             `json:"vectors_indexed"`
 	Forgetting     ForgettingStats `json:"forgetting"`
 	Filter         FilterOverview  `json:"filter"`
+	// Ingest is the durable ingest queue (D40); nil when unavailable.
+	Ingest *IngestOverview `json:"ingest,omitempty"`
 }
 
 // ExampleEntry is a truncated, secret-free view of one memory.
@@ -260,4 +262,15 @@ type HygieneStartResponse struct {
 // HygieneCancelResponse is the body of POST /insights/hygiene/cancel.
 type HygieneCancelResponse struct {
 	Cancelled bool `json:"cancelled"`
+}
+
+// IngestOverview summarizes the durable ingest queue (D40).
+type IngestOverview struct {
+	Pending       int    `json:"pending"`
+	Running       int    `json:"running"`
+	Retrying      int    `json:"retrying"` // pending rows that already failed once
+	Failed        int    `json:"failed"`   // terminal, kept 7 days
+	OldestPending string `json:"oldestPending,omitempty"`
+	Workers       int    `json:"workers"`
+	QueueMax      int    `json:"queueMax"`
 }

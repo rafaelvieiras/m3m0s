@@ -55,9 +55,12 @@ type pendingAddOp struct {
 	errMsg string
 }
 
-func newPendingAddOp() *pendingAddOp {
+func newPendingAddOp(id string) *pendingAddOp {
+	if id == "" {
+		id = idgen.New("op")
+	}
 	return &pendingAddOp{
-		id:     idgen.New("op"),
+		id:     id,
 		done:   make(chan struct{}),
 		status: pendingStatusPending,
 	}
@@ -109,7 +112,13 @@ func newPendingAddTracker() *pendingAddTracker {
 
 // start registers a new pending operation and returns it for the handler to follow.
 func (t *pendingAddTracker) start() *pendingAddOp {
-	op := newPendingAddOp()
+	return t.startWithID("")
+}
+
+// startWithID registers an operation under a given id (the ingest queue row
+// id, D40); empty id generates one.
+func (t *pendingAddTracker) startWithID(id string) *pendingAddOp {
+	op := newPendingAddOp(id)
 	t.mu.Lock()
 	t.ops[op.id] = op
 	t.mu.Unlock()
