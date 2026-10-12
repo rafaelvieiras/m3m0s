@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Durable ingest queue (D40, #68): an accepted `POST /memories` is persisted in SQLite
+  (`ingest_queue`) before the server answers and processed by a bounded worker pool
+  (`M3M0S_INGEST_WORKERS`). A failed extraction is retried with backoff and only the last attempt
+  stores the piece raw, tagged `metadata.extraction=raw-fallback`. Operations survive a restart,
+  `GET /memories/pending/:id` reads the table, the queue is capped (`M3M0S_INGEST_QUEUE_MAX`, `503`
+  + `Retry-After`) and Insights shows its depth.
+
 ### Fixed
 
 - Capture hook: a payload the server accepted (202) but did not finish processing in time

@@ -1,6 +1,6 @@
 # D40 — Durable ingest queue with a bounded worker pool (extends D26)
 
-**Status:** Proposed
+**Status:** Accepted (implemented in #68: both stages ship together)
 
 **Extends:** [D26](D26-async-add-short-timeout.md) (async add with a short timeout), [D12](D12-llm-fact-extraction.md)/[D18](D18-chunked-fact-extraction.md)/[D19](D19-forced-json-retry.md) (extraction). Issue #65.
 
@@ -17,7 +17,8 @@
 
 **Invariants:**
 
-- Redaction (D21/#59) and the ingest filter (#60) run before enqueue; the queue never holds an unredacted secret.
+- Redaction (D21/#59) runs before enqueue, so the queue never holds an unredacted secret; the ingest filter (#60) still runs in the worker, inside `Add`.
+- A worker retries a failed extraction with backoff (30 s, 2 min, 10 min); the in-piece retry of D19 still applies inside each attempt. The last attempt stores the piece raw, tagged `metadata.extraction=raw-fallback`.
 - One worker at a time per domain, so dedup and the contradiction classifier (D15) see entries in arrival order.
 - The queue is bounded (`M3M0S_INGEST_QUEUE_MAX`, default 5,000 rows); above it `POST` answers `503` with `Retry-After`, and the hook keeps its own spool.
 - Rows older than 7 days in `failed` are dead-lettered, not retried forever.
