@@ -191,6 +191,9 @@ func TestInitializeAndNotification(t *testing.T) {
 	if result["protocolVersion"] != protocolVersion {
 		t.Errorf("protocolVersion = %v, want %v", result["protocolVersion"], protocolVersion)
 	}
+	if ins, _ := result["instructions"].(string); ins == "" || !strings.Contains(ins, "memory_search") {
+		t.Errorf("initialize must carry usage instructions mentioning memory_search, got %q", ins)
+	}
 }
 
 func TestToolsList(t *testing.T) {
