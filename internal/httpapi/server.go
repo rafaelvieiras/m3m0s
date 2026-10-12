@@ -9,7 +9,6 @@ package httpapi
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"errors"
 	"io"
@@ -25,7 +24,9 @@ import (
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/auth"
 	"github.com/rafaelvieiras/m3m0s/internal/chat"
+	"github.com/rafaelvieiras/m3m0s/internal/idgen"
 	"github.com/rafaelvieiras/m3m0s/internal/jobs"
+	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 	"github.com/rafaelvieiras/m3m0s/internal/sqlstore"
 	"github.com/rafaelvieiras/m3m0s/internal/store"
@@ -51,6 +52,7 @@ type Server struct {
 	// (pendingadd.go).
 	addSyncTimeout time.Duration
 	pendingAdds    *pendingAddTracker
+	ingest         *ingestQueue // durable queue + worker pool (D40)
 
 	// jobsSched/db back GET/POST/PATCH /api/v1/jobs* (D27,
 	// docs/decisions/). A nil jobsSched disables the 3 routes (same pattern
@@ -74,7 +76,9 @@ type Server struct {
 // <= 0 preserves the usual 100% synchronous behavior. jobsSched/db are
 // optional (D27); see the comment on the Server struct above.
 func New(memStore *store.MemoryStore, keyStore *auth.Store, webUIAssets fs.FS, chatClient *chat.Client, addSyncTimeout time.Duration, jobsSched *jobs.Scheduler, db *sqlstore.DB) *Server {
+	pending := newPendingAddTracker()
 	return &Server{
+		ingest:         newIngestQueue(memStore.DB(), memStore, pending),
 		store:          memStore,
 		keys:           keyStore,
 		accounts:       auth.NewAccounts(memStore.DB()),
@@ -82,7 +86,7 @@ func New(memStore *store.MemoryStore, keyStore *auth.Store, webUIAssets fs.FS, c
 		chat:           chatClient,
 		startTime:      time.Now(),
 		addSyncTimeout: addSyncTimeout,
-		pendingAdds:    newPendingAddTracker(),
+		pendingAdds:    pending,
 		jobsSched:      jobsSched,
 		db:             db,
 	}
@@ -297,32 +301,22 @@ func (s *Server) handleAdd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	op := s.pendingAdds.start()
-	go func() {
-		// context.Background(), not r.Context(): if we used the request
-		// context, extraction would be cancelled the instant this handler
-		// answers (200 or 202) and the caller's HTTP connection closes,
-		// which is exactly the case the asynchronous path exists to support.
-		// An in-flight Add must survive the request that fired it.
-		out, err := s.store.Add(context.Background(), store.AddInput{
-			Content:  req.Content,
-			Domain:   req.Domain,
-			Source:   req.Source,
-			Agent:    req.Agent,
-			Model:    req.Model,
-			Project:  req.Project,
-			Tags:     req.Tags,
-			Metadata: req.Metadata,
-			IDPrefix: req.IDPrefix,
-			Capture:  req.Capture,
-		}, time.Now())
-		if err != nil {
-			op.fail(err)
-		} else {
-			op.complete(buildAddResponse(out, "completed"))
-		}
-		s.pendingAdds.finish(op.id)
-	}()
+	// D40: persist the (already redacted) request before answering, then let
+	// the bounded worker pool run it. The in-memory op only lets this handler
+	// wait up to addSyncTimeout without polling the database.
+	if s.ingest.full(r.Context()) {
+		w.Header().Set("Retry-After", "30")
+		writeError(w, http.StatusServiceUnavailable, "queue_full", "ingest queue is full, retry later")
+		return
+	}
+	req.Content = redact.Redact(req.Content).Text
+	id := idgen.New("op")
+	op := s.pendingAdds.startWithID(id)
+	if err := s.ingest.enqueue(r.Context(), id, req); err != nil {
+		s.pendingAdds.finish(id)
+		writeError(w, http.StatusInternalServerError, "enqueue_failed", err.Error())
+		return
+	}
 
 	if s.addSyncTimeout > 0 {
 		select {
@@ -366,6 +360,10 @@ func (s *Server) handlePendingAdd(w http.ResponseWriter, r *http.Request) {
 
 	op, ok := s.pendingAdds.get(id)
 	if !ok {
+		if resp, found := s.ingest.pollFromDB(r.Context(), id); found {
+			writeJSON(w, http.StatusOK, resp)
+			return
+		}
 		writeError(w, http.StatusNotFound, "not_found", "operation not found or expired: "+id)
 		return
 	}

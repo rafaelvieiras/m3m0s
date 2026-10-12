@@ -15,7 +15,9 @@ import (
 )
 
 func (s *Server) handleInsightsOverview(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, s.store.InsightsOverview(time.Now()))
+	ov := s.store.InsightsOverview(time.Now())
+	ov.Ingest = s.ingest.overview(r.Context())
+	writeJSON(w, http.StatusOK, ov)
 }
 
 func (s *Server) handleInsightsHygiene(w http.ResponseWriter, r *http.Request) {
