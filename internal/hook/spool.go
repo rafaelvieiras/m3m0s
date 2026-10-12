@@ -168,6 +168,9 @@ type ReplayResult struct {
 // isTransport reports whether err means the server did not answer (outage),
 // as opposed to the server answering with an error.
 func isTransport(err error) bool {
+	if client.IsAccepted(err) { // accepted but still running: the server is reachable
+		return false
+	}
 	var ue *url.Error
 	return errors.As(err, &ue) || errors.Is(err, context.DeadlineExceeded)
 }
@@ -197,7 +200,7 @@ func Replay(ctx context.Context, homeDir string, c *client.Client, limit int, no
 			res.Expired++
 			continue
 		}
-		if _, err := c.Add(ctx, item.Request); err != nil {
+		if err := addBounded(ctx, c, item.Request); err != nil {
 			if isTransport(err) {
 				res.Unreachable = true
 				return res
@@ -217,6 +220,25 @@ func Replay(ctx context.Context, homeDir string, c *client.Client, limit int, no
 		res.Sent++
 	}
 	return res
+}
+
+// addWaitBound caps how long a hook waits for ONE asynchronous add to finish
+// after the server accepted it (202). Past it the payload counts as delivered:
+// the server keeps processing it, and blocking the hook (or spooling a copy)
+// would only turn a slow extraction into a fake "server unavailable".
+var addWaitBound = 8 * time.Second
+
+// addBounded sends req and waits at most addWaitBound for the result.
+// Accepted-but-unfinished (client.AcceptedError) is success; any other error
+// is returned unchanged.
+func addBounded(ctx context.Context, c *client.Client, req apitypes.AddRequest) error {
+	wctx, cancel := context.WithTimeout(ctx, addWaitBound)
+	defer cancel()
+	_, err := c.Add(wctx, req)
+	if client.IsAccepted(err) {
+		return nil
+	}
+	return err
 }
 
 func quarantine(homeDir, name string) {

@@ -42,6 +42,7 @@ type Extractor struct {
 	// process-level count, not persisted: it resets along with m3m0s serve,
 	// like Uptime. int64 + atomic because Extract/Classify may run
 	// concurrently (independent calls from different HTTP handlers).
+	fallbackModel    string
 	promptTokens     int64
 	completionTokens int64
 }
@@ -59,12 +60,45 @@ func New(apiKey, baseURL, model string) *Extractor {
 		apiKey:  apiKey,
 		baseURL: strings.TrimRight(baseURL, "/"),
 		model:   model,
-		// Timeout short enough not to block the Add handler for too long —
-		// this is a synchronous call inside the internal/store.Add pipeline
-		// (D12, item 5: if it times out, the caller falls back to raw
-		// content).
-		http: &http.Client{Timeout: 20 * time.Second},
+		// Bounded so a stuck provider cannot hold an Add forever; when it
+		// times out the caller falls back to raw content (D12, item 5) and
+		// the retroactive job repairs it later. Configurable (#65): the
+		// provider's tail latency routinely exceeds the old 20 s.
+		http: &http.Client{Timeout: DefaultTimeout},
 	}
+}
+
+// DefaultTimeout is the per-request HTTP timeout of an extraction call.
+const DefaultTimeout = 45 * time.Second
+
+// SetTimeout overrides the per-request HTTP timeout (M3M0S_EXTRACT_TIMEOUT).
+// Non-positive values are ignored.
+func (e *Extractor) SetTimeout(d time.Duration) {
+	if d > 0 {
+		e.http.Timeout = d
+	}
+}
+
+// Timeout returns the per-request HTTP timeout.
+func (e *Extractor) Timeout() time.Duration { return e.http.Timeout }
+
+// SetFallbackModel sets the model used by ExtractFactsFallback — the retry
+// attempt when the primary model timed out or failed (M3M0S_EXTRACT_FALLBACK_MODEL).
+// Empty disables it.
+func (e *Extractor) SetFallbackModel(m string) { e.fallbackModel = strings.TrimSpace(m) }
+
+// HasFallback reports whether a fallback model is configured.
+func (e *Extractor) HasFallback() bool {
+	return e.fallbackModel != "" && e.fallbackModel != e.model
+}
+
+// ExtractFactsFallback is ExtractFacts against the fallback model. Without
+// one configured it behaves exactly like ExtractFacts.
+func (e *Extractor) ExtractFactsFallback(ctx context.Context, content, domain string) ([]factkind.Fact, error) {
+	if !e.HasFallback() {
+		return e.ExtractFacts(ctx, content, domain)
+	}
+	return e.extractFactsWith(ctx, e.fallbackModel, content, domain)
 }
 
 // Model returns the configured model — used by
@@ -205,10 +239,14 @@ func (e *Extractor) Extract(ctx context.Context, content, domain string) ([]stri
 // a bare string (a provider that ignores the schema) has an empty Kind, and
 // the caller decides what to do (the store falls back to the heuristic).
 func (e *Extractor) ExtractFacts(ctx context.Context, content, domain string) ([]factkind.Fact, error) {
+	return e.extractFactsWith(ctx, e.model, content, domain)
+}
+
+func (e *Extractor) extractFactsWith(ctx context.Context, model, content, domain string) ([]factkind.Fact, error) {
 	userPrompt := fmt.Sprintf("Domain: %s\n\nText:\n%s", domain, content)
 
 	reqBody, err := json.Marshal(chatRequest{
-		Model: e.model,
+		Model: model,
 		Messages: []chatMessage{
 			{Role: "system", Content: systemPrompt},
 			{Role: "user", Content: userPrompt},

@@ -214,7 +214,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		var sendErr error
 		if down {
 			sendErr = errors.New("server unavailable")
-		} else if _, sendErr = c.Add(ctx, req); sendErr != nil && isTransport(sendErr) {
+		} else if sendErr = addBounded(ctx, c, req); sendErr != nil && isTransport(sendErr) {
 			down = true
 		}
 		if sendErr == nil {
