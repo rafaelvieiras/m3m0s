@@ -120,6 +120,14 @@ type Extractor interface {
 	Extract(ctx context.Context, content, domain string) ([]string, error)
 }
 
+// FallbackExtractor is satisfied by extractors with a secondary model
+// (*extract.Extractor with M3M0S_EXTRACT_FALLBACK_MODEL set): the retry
+// attempt of a piece uses it when the primary timed out or failed (#65).
+type FallbackExtractor interface {
+	HasFallback() bool
+	ExtractFactsFallback(ctx context.Context, content, domain string) ([]factkind.Fact, error)
+}
+
 // KindExtractor is satisfied by extractors that return, in the same call, the
 // nature (kind, D38) of each fact — *extract.Extractor in production. An
 // optional type assertion over the configured Extractor (like Classifier), so

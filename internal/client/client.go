@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -189,7 +190,45 @@ func (c *Client) Add(ctx context.Context, req apitypes.AddRequest) (apitypes.Add
 	if err := json.Unmarshal(body, &pending); err != nil {
 		return apitypes.AddResponse{}, fmt.Errorf("decode pending response: %w", err)
 	}
-	return c.pollAdd(ctx, pending.OperationID)
+	out, err := c.pollAdd(ctx, pending.OperationID)
+	if err != nil && isWaitTimeout(err) {
+		return apitypes.AddResponse{}, &AcceptedError{OperationID: pending.OperationID, Err: err}
+	}
+	return out, err
+}
+
+// AcceptedError reports that the server accepted the Add (202 with an
+// operation id) but the caller stopped waiting before it finished — its
+// context expired or an HTTP call timed out while polling. The memory is
+// being processed server-side, so the caller must NOT treat the payload as
+// unsent (resending is wasted work and, in the hook, wrongly marks the
+// server as down). Anything else the poll can return (failed operation, HTTP
+// error, connection refused) is not wrapped.
+type AcceptedError struct {
+	OperationID string
+	Err         error
+}
+
+func (e *AcceptedError) Error() string {
+	return fmt.Sprintf("add accepted (operation %s) but not finished while waiting: %v", e.OperationID, e.Err)
+}
+
+func (e *AcceptedError) Unwrap() error { return e.Err }
+
+// IsAccepted reports whether err is an AcceptedError.
+func IsAccepted(err error) bool {
+	var ae *AcceptedError
+	return errors.As(err, &ae)
+}
+
+// isWaitTimeout is true for a context expiry or a network timeout — the only
+// errors that leave the outcome "accepted, still running".
+func isWaitTimeout(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	var ne net.Error
+	return errors.As(err, &ne) && ne.Timeout()
 }
 
 // pollAdd queries GET /memories/pending/:id in a loop until the server

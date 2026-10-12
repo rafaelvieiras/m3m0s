@@ -25,14 +25,24 @@ const extractionChunkSize = 8000
 // share of calls kept failing for reasons that were not volume: empty
 // response, loose prose response instead of JSON, and still timeouts
 // (internal/extract's 20s client). As the pieces of the same content run
-// concurrently (extractPieces), this ceiling is per piece, not summed — it
-// stays below the 30s timeout of the HTTP client used by CLI/MCP/watch to
-// talk to this server (internal/client.Client), leaving margin for the
-// work that runs after the WaitGroup (addOne per fact: embedding+dedup).
+// concurrently (extractPieces), this ceiling is per piece, not summed. It
+// used to stay below the 30s of the CLI/MCP/watch client; since D26 an Add
+// that outlives 300ms degrades to 202 + poll, so the budget no longer has to
+// fit that timeout (#65: the provider's tail latency exceeded 25s). Set at
+// startup from M3M0S_EXTRACT_TIMEOUT (SetExtractionBudget).
 // var, not const: extractchunk_test.go shrinks it temporarily to exercise
 // the retry cutoff on an expired budget without waiting a real 25s in a
 // test.
-var extractionChunkBudget = 25 * time.Second
+var extractionChunkBudget = 45 * time.Second
+
+// SetExtractionBudget overrides the total time one piece may take across its
+// attempts (M3M0S_EXTRACT_TIMEOUT). Non-positive values are ignored. Call it
+// once at startup, before serving.
+func SetExtractionBudget(d time.Duration) {
+	if d > 0 {
+		extractionChunkBudget = d
+	}
+}
 
 // extractionMaxAttempts limits how many times extractChunk tries 1 piece
 // before giving up and falling back to raw — 2 (1 original attempt + 1
@@ -135,9 +145,26 @@ func (s *MemoryStore) extractChunk(ctx context.Context, chunk, domain string) ([
 	ctx, cancel := context.WithTimeout(ctx, extractionChunkBudget)
 	defer cancel()
 
+	fb, hasFallback := s.extractor.(FallbackExtractor)
+	hasFallback = hasFallback && fb.HasFallback()
+
 	var lastErr error
 	for attempt := 1; attempt <= extractionMaxAttempts; attempt++ {
-		facts, err := s.extractFacts(ctx, chunk, domain)
+		var facts []factkind.Fact
+		var err error
+		switch {
+		case hasFallback && attempt == 1:
+			// Leave room for the fallback: the primary may use at most
+			// ~60% of the budget, so a hung provider still gets a second
+			// opinion from the other model inside the same total.
+			actx, acancel := context.WithTimeout(ctx, extractionChunkBudget*6/10)
+			facts, err = s.extractFacts(actx, chunk, domain)
+			acancel()
+		case hasFallback:
+			facts, err = fb.ExtractFactsFallback(ctx, chunk, domain)
+		default:
+			facts, err = s.extractFacts(ctx, chunk, domain)
+		}
 		if err == nil {
 			return facts, nil
 		}

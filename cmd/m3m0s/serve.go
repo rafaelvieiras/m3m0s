@@ -225,8 +225,21 @@ func runServe(args []string) error {
 	// M3M0S_EXTRACT_API_KEY/-extract-key is present (same toggle pattern that
 	// -openai-base already uses for embeddings).
 	if *extractKey != "" {
-		memStore.SetExtractor(extract.New(*extractKey, *extractBase, *extractModel))
-		log.Printf("  fact extraction: enabled (model=%s)", *extractModel)
+		ex := extract.New(*extractKey, *extractBase, *extractModel)
+		if v := os.Getenv("M3M0S_EXTRACT_TIMEOUT"); v != "" {
+			d, err := time.ParseDuration(v)
+			if err != nil || d <= 0 {
+				return fmt.Errorf("M3M0S_EXTRACT_TIMEOUT: %q is not a positive duration (e.g. 45s)", v)
+			}
+			ex.SetTimeout(d)
+		}
+		// One piece may spend its whole budget across attempts; the HTTP
+		// timeout of a single call is the same value, so a primary that
+		// hangs can still be followed by the fallback (see extractChunk).
+		store.SetExtractionBudget(ex.Timeout())
+		ex.SetFallbackModel(os.Getenv("M3M0S_EXTRACT_FALLBACK_MODEL"))
+		memStore.SetExtractor(ex)
+		log.Printf("  fact extraction: enabled (model=%s, timeout=%s, fallback=%q)", *extractModel, ex.Timeout(), os.Getenv("M3M0S_EXTRACT_FALLBACK_MODEL"))
 
 		// Retroactive fact extraction (internal/store/retroextract.go) scans
 		// memories that never went through extraction (extraction disabled at

@@ -9,6 +9,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Capture hook: a payload the server accepted (202) but did not finish processing in time
+  (slow extraction) is no longer spooled again nor reported as "server unavailable", and one slow
+  operation no longer stops the spool replay (#65). `client.Add` returns an `AcceptedError` in
+  that case.
+- Fact extraction: the per-piece budget and HTTP timeout are configurable
+  (`M3M0S_EXTRACT_TIMEOUT`, default raised from 20/25 s to 45 s) and an optional
+  `M3M0S_EXTRACT_FALLBACK_MODEL` serves the retry attempt (#65).
+
 - Secret redactor: key names with a prefix or suffix (`TEST_USER_PASSWORD=`, `access_token=`,
   `CLIENT_SECRET=`) were missed because `\b` does not match after `_`. It now also knows
   `senha`/`pwd`/`passwd`, narrative forms ("the password is ..."), short low-entropy values,
