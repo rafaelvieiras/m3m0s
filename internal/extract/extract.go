@@ -140,7 +140,17 @@ type chatRequest struct {
 	Messages       []chatMessage    `json:"messages"`
 	ResponseFormat *responseFormat  `json:"response_format,omitempty"`
 	Reasoning      *reasoningConfig `json:"reasoning,omitempty"`
+	// MaxTokens caps the generation (D41). Only the extraction call sets it;
+	// Classify answers a single word and leaves it zero (omitted).
+	MaxTokens int `json:"max_tokens,omitempty"`
 }
+
+// extractMaxTokens caps the completion of one extraction call (D41). The
+// prompt asks for at most maxFacts short facts (~250 tokens); this ceiling
+// only stops a runaway generation from holding a worker for the whole
+// budget. A reply cut by it is invalid JSON and takes the usual raw-fallback
+// path, so it must stay comfortably above the expected size.
+const extractMaxTokens = 1024
 
 // responseFormat={"type":"json_object"} is the OpenAI-compatible field
 // (also supported by OpenRouter) that asks the provider to restrict the
@@ -196,14 +206,16 @@ Rules:
 - Do not invent information that is not in the text.
 - If the text is already a single atomic fact, return it as is — do not invent artificial subdivisions.
 - Write every fact in the same language as the input text. Do not translate.
-- Give each fact a "kind", exactly one of: decision, rule, preference, gotcha, procedure, state, noise, other.
+- Return at most 6 facts: only the most durable and reusable ones, most important first. Never pad the list.
+- Keep each fact to one short sentence (about 25 words at most): the conclusion and, when it matters, the why. Do not quote or paraphrase the text at length.
+- Skip noise entirely: no boilerplate, diff trivia or descriptions of the text itself ("the text explains ...").
+- Give each fact a "kind", exactly one of: decision, rule, preference, gotcha, procedure, state, other.
   decision: a choice that was made and, ideally, why.
   rule: a convention, constraint or standing instruction ("always ...", "never ...").
   preference: a stated preference of the user.
   gotcha: a root cause, pitfall or non-obvious behaviour.
   procedure: how to do something (steps, commands, configuration).
   state: a transient status (task progress, current branch, a number that will change).
-  noise: meta-description, boilerplate or diff trivia.
   other: when none of the above clearly applies.
 - Reply ONLY with a JSON object in the format {"facts": [{"text": "fact 1", "kind": "decision"}, {"text": "fact 2", "kind": "state"}]}, nothing else: no markdown, no explanation, no text before or after.`
 
@@ -253,6 +265,7 @@ func (e *Extractor) extractFactsWith(ctx context.Context, model, content, domain
 		},
 		ResponseFormat: &responseFormat{Type: "json_object"},
 		Reasoning:      &reasoningConfig{Enabled: false},
+		MaxTokens:      extractMaxTokens,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("marshal chat request: %w", err)
