@@ -508,6 +508,11 @@ func parseFacts(raw string) ([]factkind.Fact, error) {
 	return finalizeFacts(facts)
 }
 
+// ErrNoFacts means the model answered well-formed but found no durable fact in
+// the text (D42). It is a valid outcome, not a provider failure: callers must
+// not retry it.
+var ErrNoFacts = errors.New("no non-empty fact extracted")
+
 func parseFactsObject(raw string) ([]rawFact, error) {
 	start := strings.Index(raw, "{")
 	end := strings.LastIndex(raw, "}")
@@ -555,7 +560,7 @@ func finalizeFacts(facts []rawFact) ([]factkind.Fact, error) {
 		out = append(out, factkind.Fact{Text: text, Kind: kind})
 	}
 	if len(out) == 0 {
-		return nil, errors.New("no non-empty fact extracted")
+		return nil, ErrNoFacts
 	}
 	return out, nil
 }

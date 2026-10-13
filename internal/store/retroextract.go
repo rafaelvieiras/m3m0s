@@ -74,6 +74,9 @@ func (s *MemoryStore) pendingExtractionCandidates(limit int) []schema.Entry {
 		if _, has := e.Metadata[metadataKeySourceContentRef]; has {
 			continue
 		}
+		if e.Metadata[metadataKeyExtraction] == metadataExtractionNoFacts {
+			continue // settled: the model found nothing durable (D42)
+		}
 		pending = append(pending, e)
 	}
 	s.mu.RUnlock()
@@ -126,6 +129,15 @@ func (s *MemoryStore) retroExtractOne(ctx context.Context, snapshot schema.Entry
 		text = kept
 	}
 	pieces := s.extractPieces(ctx, text, snapshot.Domain)
+	if allNoFacts(pieces) {
+		// Nothing durable anywhere: keep the entry as is, but mark it so the next
+		// run does not pay for the same empty answer again (D42).
+		md := withMetadata(snapshot.Metadata, metadataKeyExtraction, metadataExtractionNoFacts)
+		if _, err := s.Update(ctx, snapshot.ID, UpdatePatch{Metadata: &md}, time.Now()); err != nil {
+			return false, fmt.Errorf("mark no-durable-facts: %w", err)
+		}
+		return false, nil
+	}
 	if !anyExtracted(pieces) {
 		// No piece yielded real extraction, not even partial — deleting and
 		// reinserting the same sliced raw content changes nothing (same bytes,

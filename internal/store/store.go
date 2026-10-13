@@ -509,6 +509,9 @@ var ErrExtractionFailed = errors.New("fact extraction failed")
 const (
 	metadataKeyExtraction         = "extraction"
 	metadataExtractionRawFallback = "raw-fallback"
+	// metadataExtractionNoFacts tags an entry kept raw because the model found
+	// nothing durable in it (D42); the retroactive job skips it.
+	metadataExtractionNoFacts = "no-durable-facts"
 )
 
 // validateProvenance checks the optional model/project of an add or update;
@@ -601,7 +604,7 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 		pieces = s.extractPieces(ctx, content, in.Domain)
 		if in.RequireExtraction {
 			for _, p := range pieces {
-				if !p.extracted {
+				if !p.extracted && !p.noFacts {
 					return AddOutput{}, ErrExtractionFailed
 				}
 			}
@@ -634,7 +637,9 @@ func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddO
 					factIn.Metadata = withMetadata(factIn.Metadata, metadataKeyCapture, metadataCaptureAuto)
 				}
 			}
-			if !piece.extracted && s.extractor != nil {
+			if piece.noFacts {
+				factIn.Metadata = withMetadata(factIn.Metadata, metadataKeyExtraction, metadataExtractionNoFacts)
+			} else if !piece.extracted && s.extractor != nil {
 				factIn.Metadata = withMetadata(factIn.Metadata, metadataKeyExtraction, metadataExtractionRawFallback)
 			}
 			if piece.extracted {

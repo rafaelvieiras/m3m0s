@@ -2,11 +2,13 @@ package store
 
 import (
 	"context"
+	"errors"
 	"log"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/rafaelvieiras/m3m0s/internal/extract"
 	"github.com/rafaelvieiras/m3m0s/internal/factkind"
 )
 
@@ -66,6 +68,9 @@ type extractedPiece struct {
 	kinds         []string
 	extracted     bool
 	sourceContent string
+	// noFacts is set when the model found nothing durable in the piece (D42):
+	// the piece is kept raw, but it is a settled outcome, not a failure.
+	noFacts bool
 }
 
 // kindAt returns the extractor's kind for fact i ("" when it gave none).
@@ -74,6 +79,16 @@ func (p extractedPiece) kindAt(i int) string {
 		return p.kinds[i]
 	}
 	return ""
+}
+
+// allNoFacts says whether every piece was settled as "nothing durable" (D42).
+func allNoFacts(pieces []extractedPiece) bool {
+	for _, p := range pieces {
+		if !p.noFacts {
+			return false
+		}
+	}
+	return len(pieces) > 0
 }
 
 // anyExtracted says whether at least 1 piece of pieces actually went
@@ -112,6 +127,10 @@ func (s *MemoryStore) extractPieces(ctx context.Context, content, domain string)
 		go func(i int, chunk string) {
 			defer wg.Done()
 			facts, err := s.extractChunk(ctx, chunk, domain)
+			if errors.Is(err, extract.ErrNoFacts) {
+				pieces[i] = extractedPiece{facts: []string{chunk}, noFacts: true}
+				return
+			}
 			if err != nil {
 				log.Printf("m3m0s: fact extraction failed on a piece (%d/%d, domain=%s), inserting that piece raw as a fallback: %v",
 					i+1, len(chunks), domain, err)
@@ -169,7 +188,7 @@ func (s *MemoryStore) extractChunk(ctx context.Context, chunk, domain string) ([
 			return facts, nil
 		}
 		lastErr = err
-		if ctx.Err() != nil {
+		if errors.Is(err, extract.ErrNoFacts) || ctx.Err() != nil {
 			break
 		}
 	}

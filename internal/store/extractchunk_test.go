@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"errors"
+	"github.com/rafaelvieiras/m3m0s/internal/extract"
 	"strings"
 	"sync/atomic"
 	"testing"
@@ -345,5 +346,50 @@ func TestAddSplitsLargeContentAndTracksSourceContentPerChunk(t *testing.T) {
 	}
 	if len(sourceContents) != 2 {
 		t.Errorf("expected 2 distinct source_content values (1 per piece), got %d: %v", len(sourceContents), sourceContents)
+	}
+}
+
+func TestExtractChunkDoesNotRetryNoFacts(t *testing.T) {
+	s := newTestStore(t)
+
+	var calls atomic.Int32
+	s.SetExtractor(funcExtractor{fn: func(_ context.Context, _, _ string) ([]string, error) {
+		calls.Add(1)
+		return nil, extract.ErrNoFacts
+	}})
+
+	pieces := s.extractPieces(context.Background(), "nothing durable here", "code:m3m0s")
+	if len(pieces) != 1 || pieces[0].extracted || !pieces[0].noFacts {
+		t.Fatalf("expected 1 raw piece settled as noFacts, got %#v", pieces)
+	}
+	if calls.Load() != 1 {
+		t.Fatalf("an empty answer is settled: expected 1 attempt, got %d", calls.Load())
+	}
+}
+
+func TestAddNoFactsTagsEntryAndSatisfiesRequireExtraction(t *testing.T) {
+	s := newTestStore(t)
+	s.SetExtractor(funcExtractor{fn: func(_ context.Context, _, _ string) ([]string, error) {
+		return nil, extract.ErrNoFacts
+	}})
+
+	out, err := s.Add(context.Background(), AddInput{
+		Content: "boilerplate-ish capture", Domain: "code:m3m0s", Source: "test", RequireExtraction: true,
+	}, time.Now())
+	if err != nil {
+		t.Fatalf("Add must not fail on no-facts with RequireExtraction: %v", err)
+	}
+	if len(out.Entries) != 1 {
+		t.Fatalf("expected the raw entry to be kept, got %d", len(out.Entries))
+	}
+	got, err := s.Get(out.Entries[0].Entry.ID, time.Now())
+	if err != nil {
+		t.Fatalf("Get: %v", err)
+	}
+	if got.Metadata[metadataKeyExtraction] != metadataExtractionNoFacts {
+		t.Fatalf("extraction tag = %q, want %q", got.Metadata[metadataKeyExtraction], metadataExtractionNoFacts)
+	}
+	if cands := s.pendingExtractionCandidates(10); len(cands) != 0 {
+		t.Fatalf("retroactive job must skip no-facts entries, got %d candidates", len(cands))
 	}
 }
