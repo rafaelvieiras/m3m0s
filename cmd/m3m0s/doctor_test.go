@@ -29,3 +29,18 @@ func TestRecentHookFailuresIgnoresInfoLines(t *testing.T) {
 		t.Fatalf("got %d failures, last %q; want 1 ending in boom", n, last)
 	}
 }
+
+func TestHookDomainOverride(t *testing.T) {
+	t.Setenv("M3M0S_HOOK_DOMAIN", "personal:alfred")
+	if got := hookDomainFromCwd("/some/where"); got != "personal:alfred" {
+		t.Errorf("override = %q", got)
+	}
+	t.Setenv("M3M0S_HOOK_DOMAIN", "Not Valid")
+	if got := hookDomainFromCwd("/some/where"); got != "code:where" {
+		t.Errorf("invalid override must fall back, got %q", got)
+	}
+	t.Setenv("M3M0S_HOOK_DOMAIN", "")
+	if got := hookDomainFromCwd("/some/where"); got != "code:where" {
+		t.Errorf("default = %q", got)
+	}
+}

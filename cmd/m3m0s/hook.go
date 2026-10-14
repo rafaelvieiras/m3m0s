@@ -7,9 +7,11 @@ import (
 	"os"
 	"path/filepath"
 	"slices"
+	"strings"
 
 	"github.com/rafaelvieiras/m3m0s/internal/client"
 	"github.com/rafaelvieiras/m3m0s/internal/hook"
+	"github.com/rafaelvieiras/m3m0s/internal/schema"
 )
 
 // runHook dispatches `m3m0s hook <tool>` — today only "claude-code" (Phase
@@ -65,5 +67,10 @@ func runHookClaudeCode(ctx context.Context, promptInject bool) error {
 // here without duplication (D14, item 4: same domain inference across the
 // project's two automatic capture mechanisms).
 func hookDomainFromCwd(cwd string) string {
+	// Clients with no meaningful working directory (e.g. Hermes agents, D50)
+	// pin the domain with M3M0S_HOOK_DOMAIN.
+	if d := schema.CanonicalDomain(strings.TrimSpace(os.Getenv("M3M0S_HOOK_DOMAIN"))); d != "" && schema.ValidateDomain(d) == nil {
+		return d
+	}
 	return "code:" + sanitizeDomainInstance(filepath.Base(cwd))
 }
