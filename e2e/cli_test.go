@@ -38,7 +38,7 @@ func TestEndToEndCLI(t *testing.T) {
 	srv := startServe(t, embed.URL)
 	env := append(os.Environ(), "M3M0S_URL="+srv.URL, "M3M0S_API_KEY="+srv.APIKey)
 
-	const domain = "codigo:test-e2e-cli"
+	const domain = "code:test-e2e-cli"
 	const content = "Content created via CLI e2e about automated end-to-end tests"
 
 	t.Run("add without --json", func(t *testing.T) {

@@ -60,10 +60,10 @@ func runHookClaudeCode(ctx context.Context, promptInject bool) error {
 	return nil
 }
 
-// hookDomainFromCwd derives codigo:<basename(cwd)> — the same
+// hookDomainFromCwd derives code:<basename(cwd)> — the same
 // sanitizeDomainInstance rule already used by `m3m0s watch` (D11), reused
 // here without duplication (D14, item 4: same domain inference across the
 // project's two automatic capture mechanisms).
 func hookDomainFromCwd(cwd string) string {
-	return "codigo:" + sanitizeDomainInstance(filepath.Base(cwd))
+	return "code:" + sanitizeDomainInstance(filepath.Base(cwd))
 }

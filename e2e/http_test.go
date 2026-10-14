@@ -26,7 +26,7 @@ func TestEndToEndHTTP(t *testing.T) {
 			method, path string
 			body         any
 		}{
-			{http.MethodPost, "/api/v1/memories", apitypes.AddRequest{Content: "x", Domain: "codigo:x"}},
+			{http.MethodPost, "/api/v1/memories", apitypes.AddRequest{Content: "x", Domain: "code:x"}},
 			{http.MethodPost, "/api/v1/search", apitypes.SearchRequest{Query: "x"}},
 			{http.MethodGet, "/api/v1/recent", nil},
 			{http.MethodGet, "/api/v1/stats", nil},
@@ -72,7 +72,7 @@ func TestEndToEndHTTP(t *testing.T) {
 	t.Run("empty content returns 400", func(t *testing.T) {
 		resp, _ := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 			Content: "",
-			Domain:  "codigo:x",
+			Domain:  "code:x",
 		})
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("expected 400, got %d", resp.StatusCode)
@@ -82,7 +82,7 @@ func TestEndToEndHTTP(t *testing.T) {
 	t.Run("full flow add -> search -> recent -> stats", func(t *testing.T) {
 		addResp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 			Content:  "M3m0s uses chromem-go for local vector search in Go",
-			Domain:   "codigo:test-e2e-flow",
+			Domain:   "code:test-e2e-flow",
 			Source:   "e2e",
 			Tags:     []string{"full-flow"},
 			Metadata: map[string]string{"k": "v"},
@@ -101,7 +101,7 @@ func TestEndToEndHTTP(t *testing.T) {
 
 		searchResp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/search", srv.APIKey, apitypes.SearchRequest{
 			Query:  "vector search chromem-go in Go",
-			Domain: "codigo:test-e2e-flow",
+			Domain: "code:test-e2e-flow",
 		})
 		if searchResp.StatusCode != http.StatusOK {
 			t.Fatalf("search: status %d, body %s", searchResp.StatusCode, data)
@@ -123,11 +123,11 @@ func TestEndToEndHTTP(t *testing.T) {
 		if !found {
 			t.Error("search: added memory did not appear in the results")
 		}
-		if !strings.Contains(searched.ContextBlock, "codigo:test-e2e-flow") {
+		if !strings.Contains(searched.ContextBlock, "code:test-e2e-flow") {
 			t.Errorf("search: contextBlock without the domain: %q", searched.ContextBlock)
 		}
 
-		recentResp, data := doJSON(t, http.MethodGet, srv.URL+"/api/v1/recent?domain=codigo:test-e2e-flow", srv.APIKey, nil)
+		recentResp, data := doJSON(t, http.MethodGet, srv.URL+"/api/v1/recent?domain=code:test-e2e-flow", srv.APIKey, nil)
 		if recentResp.StatusCode != http.StatusOK {
 			t.Fatalf("recent: status %d, body %s", recentResp.StatusCode, data)
 		}
@@ -152,13 +152,13 @@ func TestEndToEndHTTP(t *testing.T) {
 		if stats.Count < 1 {
 			t.Errorf("stats: expected count >= 1, got %d", stats.Count)
 		}
-		if stats.CountByDomainCategory["codigo"] < 1 {
-			t.Errorf("stats: expected countByDomainCategory[codigo] >= 1, got %d", stats.CountByDomainCategory["codigo"])
+		if stats.CountByDomainCategory["code"] < 1 {
+			t.Errorf("stats: expected countByDomainCategory[code] >= 1, got %d", stats.CountByDomainCategory["code"])
 		}
 	})
 
 	t.Run("similarity dedup within the domain", func(t *testing.T) {
-		domain := "codigo:test-e2e-dedup"
+		domain := "code:test-e2e-dedup"
 		content := "Text exclusive to the dedup test, unique ID ZZYYXX998877"
 
 		r1, d1 := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{Content: content, Domain: domain})
@@ -210,9 +210,9 @@ func TestEndToEndHTTP(t *testing.T) {
 			return out
 		}
 
-		e1 := add("Wombat nocturnal burrowing marsupial tunnel", "codigo:filter-alpha", "e2e-src-alpha", "")
-		e2 := add("Wombat nocturnal burrowing marsupial excavation", "codigo:filter-beta", "e2e-src-beta", "filter-agent")
-		e3 := add("Wombat nocturnal burrowing marsupial hole", "escrita:filter-gamma", "e2e-src-alpha", "")
+		e1 := add("Wombat nocturnal burrowing marsupial tunnel", "code:filter-alpha", "e2e-src-alpha", "")
+		e2 := add("Wombat nocturnal burrowing marsupial excavation", "code:filter-beta", "e2e-src-beta", "filter-agent")
+		e3 := add("Wombat nocturnal burrowing marsupial hole", "writing:filter-gamma", "e2e-src-alpha", "")
 
 		search := func(filter apitypes.SearchRequest) []string {
 			filter.Query = "wombat nocturnal burrowing marsupial"
@@ -238,12 +238,12 @@ func TestEndToEndHTTP(t *testing.T) {
 			return false
 		}
 
-		byDomain := search(apitypes.SearchRequest{Domain: "codigo:filter-alpha"})
+		byDomain := search(apitypes.SearchRequest{Domain: "code:filter-alpha"})
 		if !contains(byDomain, e1.Entries[0].Entry.ID) || contains(byDomain, e2.Entries[0].Entry.ID) || contains(byDomain, e3.Entries[0].Entry.ID) {
 			t.Errorf("domain filter leaked: %v (expected only %s)", byDomain, e1.Entries[0].Entry.ID)
 		}
 
-		byCategory := search(apitypes.SearchRequest{DomainCategory: "codigo"})
+		byCategory := search(apitypes.SearchRequest{DomainCategory: "code"})
 		if !contains(byCategory, e1.Entries[0].Entry.ID) || !contains(byCategory, e2.Entries[0].Entry.ID) || contains(byCategory, e3.Entries[0].Entry.ID) {
 			t.Errorf("wrong domainCategory filter: %v (expected %s and %s, not %s)", byCategory, e1.Entries[0].Entry.ID, e2.Entries[0].Entry.ID, e3.Entries[0].Entry.ID)
 		}
@@ -260,7 +260,7 @@ func TestEndToEndHTTP(t *testing.T) {
 	})
 
 	t.Run("tag post-filter excludes entries without the tag", func(t *testing.T) {
-		domain := "codigo:filter-tags"
+		domain := "code:filter-tags"
 		add := func(content string, tags []string) apitypes.AddResponse {
 			resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 				Content: content, Domain: domain, Tags: tags,
@@ -306,7 +306,7 @@ func TestEndToEndHTTP(t *testing.T) {
 
 	t.Run("secret redaction before indexing", func(t *testing.T) {
 		secret := "sk-" + "a1B2c3D4a1B2c3D4a1B2c3D4"
-		domain := "codigo:test-e2e-redact"
+		domain := "code:test-e2e-redact"
 		content := "my openai key is " + secret + " please do not leak this anywhere"
 
 		resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{

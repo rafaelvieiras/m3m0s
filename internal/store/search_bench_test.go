@@ -77,8 +77,8 @@ func seedBenchDir(tb testing.TB, dir string, n int) {
 		err := s.db.UpsertEntry(context.Background(), sqlstore.EntryRow{
 			ID:             fmt.Sprintf("mem_%06d", i),
 			Content:        fmt.Sprintf("synthetic memory number %d about topic %d", i, i%97),
-			Domain:         "codigo:bench",
-			DomainCategory: "codigo",
+			Domain:         "code:bench",
+			DomainCategory: "code",
 			Source:         "bench",
 			CreatedAt:      now.Add(time.Duration(i) * time.Second),
 			UpdatedAt:      now,
@@ -106,7 +106,7 @@ func BenchmarkSearchLargeDomain(b *testing.B) {
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		if _, err := s.Search(context.Background(), "query", 5, Filter{Domain: "codigo:bench"}, time.Now()); err != nil {
+		if _, err := s.Search(context.Background(), "query", 5, Filter{Domain: "code:bench"}, time.Now()); err != nil {
 			b.Fatal(err)
 		}
 		var m runtime.MemStats

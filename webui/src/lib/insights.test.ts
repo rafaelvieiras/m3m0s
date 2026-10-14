@@ -38,7 +38,7 @@ describe("insights helpers", () => {
   it("labels tiers and domains", () => {
     expect(tierLabel("conservative")).toBe("Conservative");
     expect(tierLabel("review")).toBe("For review");
-    expect(domainInstance("codigo:m3m0s")).toBe("m3m0s");
+    expect(domainInstance("code:m3m0s")).toBe("m3m0s");
     expect(domainInstance("plain")).toBe("plain");
   });
 });

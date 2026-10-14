@@ -578,6 +578,7 @@ type AddOutput struct {
 // (defense in depth — D12, item 4, the content may now have left the
 // process for the extraction provider) → dedup check → insert or update.
 func (s *MemoryStore) Add(ctx context.Context, in AddInput, now time.Time) (AddOutput, error) {
+	in.Domain = schema.CanonicalDomain(in.Domain)
 	if err := schema.ValidateDomain(in.Domain); err != nil {
 		return AddOutput{}, err
 	}
@@ -1373,6 +1374,8 @@ func matchesTags(e schema.Entry, tags []string) bool {
 // filter chromem-go received via `where`); DomainCategory/Source/Agent/Tags
 // remain a post-filter in Go, as before.
 func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filter Filter, now time.Time) ([]schema.Entry, error) {
+	filter.Domain = schema.CanonicalDomain(filter.Domain)
+	filter.DomainCategory = schema.CanonicalCategory(filter.DomainCategory)
 	if limit <= 0 {
 		limit = 5
 	}
@@ -1465,6 +1468,8 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 // not queried directly here, the in-memory index (reloaded from it at boot
 // and kept in sync on every write) is already enough.
 func (s *MemoryStore) Recent(limit int, filter Filter, now time.Time) []schema.Entry {
+	filter.Domain = schema.CanonicalDomain(filter.Domain)
+	filter.DomainCategory = schema.CanonicalCategory(filter.DomainCategory)
 	if limit <= 0 {
 		limit = 10
 	}
@@ -1653,6 +1658,8 @@ func (s *MemoryStore) Update(ctx context.Context, id string, patch UpdatePatch, 
 	}
 
 	if patch.Domain != nil {
+		canon := schema.CanonicalDomain(*patch.Domain)
+		patch.Domain = &canon
 		if err := schema.ValidateDomain(*patch.Domain); err != nil {
 			return schema.Entry{}, &ValidationError{Code: "invalid_domain", Message: err.Error()}
 		}

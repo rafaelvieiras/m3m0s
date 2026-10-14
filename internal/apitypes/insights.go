@@ -212,7 +212,7 @@ type NoiseCriterion struct {
 	Examples      []ExampleEntry `json:"examples"`
 }
 
-// NoiseReport lists low-value candidates among the "codigo" memories. It only
+// NoiseReport lists low-value candidates among the "code" memories. It only
 // reports: nothing is flagged, deleted or changed.
 type NoiseReport struct {
 	Category             string           `json:"category"`

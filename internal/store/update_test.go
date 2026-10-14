@@ -327,3 +327,23 @@ func TestUpdateDoesNotDedupAgainstSimilarEntry(t *testing.T) {
 		t.Errorf("expected 2 entries (no dedup in Update), got %d", count)
 	}
 }
+
+// Clients that still send the pre-D48 Portuguese category names keep working:
+// writes and filters are rewritten to the English names.
+func TestLegacyDomainCategoryIsAcceptedOnInput(t *testing.T) {
+	s := newTestStore(t)
+	out, err := s.Add(context.Background(), AddInput{Content: "legacy client fact about deploys", Domain: "codigo:legacy", Source: "manual"}, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(out.Entries) == 0 {
+		t.Fatal("no entry added")
+	}
+	got := s.Recent(10, Filter{Domain: "codigo:legacy"}, time.Now())
+	if len(got) != 1 || got[0].Domain != "code:legacy" || got[0].DomainCategory != "code" {
+		t.Fatalf("recent by legacy domain = %+v", got)
+	}
+	if got := s.Recent(10, Filter{DomainCategory: "codigo"}, time.Now()); len(got) != 1 {
+		t.Fatalf("recent by legacy category = %d entries", len(got))
+	}
+}

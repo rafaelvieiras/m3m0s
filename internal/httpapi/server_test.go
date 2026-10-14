@@ -147,7 +147,7 @@ func TestHandleSearchModesAndTokenBudget(t *testing.T) {
 		return resp, out
 	}
 	for i, c := range []string{"alpha notes: servers reboot nightly", "!!! 12345 alpha notes ### 67890", "zzzz qqqq alpha notes xxxx jjjj"} {
-		req, _ := http.NewRequest("POST", httpSrv.URL+"/api/v1/memories", strings.NewReader(fmt.Sprintf(`{"content":%q,"domain":"codigo:t%d","source":"t"}`, c+strings.Repeat(" pad", i*6), i)))
+		req, _ := http.NewRequest("POST", httpSrv.URL+"/api/v1/memories", strings.NewReader(fmt.Sprintf(`{"content":%q,"domain":"code:t%d","source":"t"}`, c+strings.Repeat(" pad", i*6), i)))
 		req.Header.Set("Authorization", "Bearer "+rawKey)
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil || resp.StatusCode >= 300 {

@@ -82,7 +82,7 @@ func TestEndToEndWatch(t *testing.T) {
 	srv := startServe(t, embed.URL)
 
 	root := t.TempDir()
-	const domain = "codigo:test-e2e-watch"
+	const domain = "code:test-e2e-watch"
 
 	agentsContent := "# Test AGENTS.md\n\n" +
 		"## First section watched by watch\n" +
@@ -107,7 +107,7 @@ func TestEndToEndWatch(t *testing.T) {
 		}
 
 		stats := statsFor(t, srv)
-		if stats.CountByDomainCategory["codigo"] < 2 {
+		if stats.CountByDomainCategory["code"] < 2 {
 			t.Errorf("AGENTS.md has 2 ## headers — expected at least 2 indexed chunks, stats: %#v", stats)
 		}
 

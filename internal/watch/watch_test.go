@@ -155,7 +155,7 @@ func TestReconcileFileHashDiffSkipsUnchanged(t *testing.T) {
 	defer srv.Close()
 	c := testClient(t, srv)
 	state := newState(t)
-	cfg := Config{Root: root, Domain: "codigo:test"}
+	cfg := Config{Root: root, Domain: "code:test"}
 
 	if err := ReconcileFile(context.Background(), c, cfg, state, "AGENTS.md"); err != nil {
 		t.Fatalf("ReconcileFile: %v", err)
@@ -182,7 +182,7 @@ func TestReconcileFileReindexOnChangeDeletesOldFirst(t *testing.T) {
 	defer srv.Close()
 	c := testClient(t, srv)
 	state := newState(t)
-	cfg := Config{Root: root, Domain: "codigo:test"}
+	cfg := Config{Root: root, Domain: "code:test"}
 
 	if err := ReconcileFile(context.Background(), c, cfg, state, "AGENTS.md"); err != nil {
 		t.Fatalf("ReconcileFile: %v", err)
@@ -209,7 +209,7 @@ func TestSyncPurgesFilesRemovedFromDisk(t *testing.T) {
 	defer srv.Close()
 	c := testClient(t, srv)
 	state := newState(t)
-	cfg := Config{Root: root, Domain: "codigo:test", Allow: []string{"AGENTS.md"}}
+	cfg := Config{Root: root, Domain: "code:test", Allow: []string{"AGENTS.md"}}
 
 	if err := Sync(context.Background(), c, cfg, state); err != nil {
 		t.Fatalf("initial Sync: %v", err)
@@ -246,7 +246,7 @@ func TestReconcileFileTracksAllIDsWhenChunkYieldsMultipleEntries(t *testing.T) {
 	defer srv.Close()
 	c := testClient(t, srv)
 	state := newState(t)
-	cfg := Config{Root: root, Domain: "codigo:test"}
+	cfg := Config{Root: root, Domain: "code:test"}
 
 	if err := ReconcileFile(context.Background(), c, cfg, state, "AGENTS.md"); err != nil {
 		t.Fatalf("ReconcileFile: %v", err)
@@ -289,7 +289,7 @@ func TestSyncOnlyIndexesAllowedFiles(t *testing.T) {
 	state := newState(t)
 	cfg := Config{
 		Root:   root,
-		Domain: "codigo:test",
+		Domain: "code:test",
 		Allow:  []string{"AGENTS.md", "CLAUDE.md", "MEMORY.md", "docs/**/*.md"},
 		Deny:   []string{"node_modules/**"},
 	}

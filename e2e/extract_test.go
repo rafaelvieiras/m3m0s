@@ -90,7 +90,7 @@ func TestEndToEndExtractionEnabledGeneratesMultipleEntries(t *testing.T) {
 
 	resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 		Content: "Any raw text, the fake extractor ignores it and always returns the same 2 facts.",
-		Domain:  "codigo:test-e2e-extract-on",
+		Domain:  "code:test-e2e-extract-on",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("add: status %d, body %s", resp.StatusCode, data)
@@ -111,7 +111,7 @@ func TestEndToEndExtractionEnabledGeneratesMultipleEntries(t *testing.T) {
 		t.Errorf("unexpected fact 2: %q", added.Entries[1].Entry.Content)
 	}
 	for _, e := range added.Entries {
-		if e.Entry.Domain != "codigo:test-e2e-extract-on" {
+		if e.Entry.Domain != "code:test-e2e-extract-on" {
 			t.Errorf("domain not propagated to the extracted fact: %q", e.Entry.Domain)
 		}
 	}
@@ -132,7 +132,7 @@ func TestEndToEndExtractionSourceContentAppearsOnlyWhenExtracted(t *testing.T) {
 	original := "Original raw text that the fake extractor ignores and always turns into the same 2 facts."
 	resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 		Content: original,
-		Domain:  "codigo:test-e2e-source-content-on",
+		Domain:  "code:test-e2e-source-content-on",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("add: status %d, body %s", resp.StatusCode, data)
@@ -156,7 +156,7 @@ func TestEndToEndExtractionDisabledSourceContentAbsent(t *testing.T) {
 
 	resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 		Content: "raw content without extraction enabled",
-		Domain:  "codigo:test-e2e-source-content-off",
+		Domain:  "code:test-e2e-source-content-off",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("add: status %d, body %s", resp.StatusCode, data)
@@ -179,7 +179,7 @@ func TestEndToEndExtractionDisabledBehavesLikeBeforePhase4(t *testing.T) {
 
 	resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 		Content: "raw content without extraction enabled on the server",
-		Domain:  "codigo:test-e2e-extract-off",
+		Domain:  "code:test-e2e-extract-off",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("add: status %d, body %s", resp.StatusCode, data)
@@ -204,7 +204,7 @@ func TestEndToEndExtractionFailureFallsBackToRawEntry(t *testing.T) {
 
 	resp, data := doJSON(t, http.MethodPost, srv.URL+"/api/v1/memories", srv.APIKey, apitypes.AddRequest{
 		Content: "original content that must survive the extractor failure",
-		Domain:  "codigo:test-e2e-extract-fallback",
+		Domain:  "code:test-e2e-extract-fallback",
 	})
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("add should not fail when only extraction fails: status %d, body %s", resp.StatusCode, data)
@@ -228,7 +228,7 @@ func TestEndToEndWatchWithExtractionTracksAllFactsForCascadePurge(t *testing.T) 
 	srv := startServeWithExtraction(t, embed.URL, extract.URL)
 
 	root := t.TempDir()
-	const domain = "codigo:test-e2e-watch-extract"
+	const domain = "code:test-e2e-watch-extract"
 	mustWriteFile(t, filepath.Join(root, "AGENTS.md"), "# Single header\n\nany paragraph that becomes 2 facts.\n")
 
 	startWatch(t, srv, root, domain)

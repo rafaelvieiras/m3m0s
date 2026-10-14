@@ -70,8 +70,8 @@ See `docs/decisions/` for the detail and reasoning of each one. Summary:
    Ollama, and the OpenAI default is simpler for anyone to configure later).
    See A6 in `docs/decisions/`.
 8. **`scope`/`domain` schema: 4 orthogonal axes** —
-   `domain` (what the memory is about: `codigo:<repo>`, `escrita:<project>`,
-   `pessoal:<area>`, `cliente:<name>`; the category names are stored-data
+   `domain` (what the memory is about: `code:<repo>`, `writing:<project>`,
+   `personal:<area>`, `client:<name>`; the category names are stored-data
    contract strings kept as-is) + `source` (the technical tool that generated
    it: `claude-code`, `opencode`, `openwebui`, `github-scrape`, etc.) + optional
    `agent` (a named, persistent identity when distinct from the tool) +
@@ -93,7 +93,7 @@ See `docs/decisions/` for the detail and reasoning of each one. Summary:
     MCP configuration is enough, the same mechanism used by the other servers.
     See D10 in `docs/decisions/`.
 11. **`m3m0s watch` mechanism (Phase 2):** automatic domain
-    `codigo:<root-basename>` (overridable via `--domain`), chunking by Markdown
+    `code:<root-basename>` (overridable via `--domain`), chunking by Markdown
     header (`metadata.file_path`/`metadata.heading` as provenance),
     `memory_delete` with minimal scope (by ID and by domain+file_path, only for
     cascade purge) reopens what Phase 1 had left out of scope, 1 `watch`
@@ -295,7 +295,7 @@ See `docs/decisions/` for the detail and reasoning of each one. Summary:
     documentation (`AGENTS.md`/`docs/**/*.md`) had never been indexed into its
     own memory (`m3m0s watch`, Phase 2/D11, existed but was never pointed at
     this repo's real root). Run as a user-level service (restarting on failure)
-    against this repo, domain `codigo:m3m0s`. On first run, it found a real bug:
+    against this repo, domain `code:m3m0s`. On first run, it found a real bug:
     a large chunk of `AGENTS.md` blew the 30s HTTP client timeout (D17) while
     the server was still extracting facts (D12/D18/D19) from the chunk — since
     `ReconcileFile` only saved the file's state (`state.Set`) after ALL chunks
@@ -321,7 +321,7 @@ See `docs/decisions/` for the detail and reasoning of each one. Summary:
     `internal/selfindex` orchestrates: reuses `internal/chunker.Split` and calls
     `store.MemoryStore.Add`/`DeleteByFilePath` DIRECTLY (no HTTP — unlike
     `internal/watch`, which by D3 is always an external client; here it is the
-    process's own bootstrap). Domain `codigo:m3m0s`/source `"selfdocs"` (the
+    process's own bootstrap). Domain `code:m3m0s`/source `"selfdocs"` (the
     same domain as D24, on purpose — does not duplicate under different domains
     if both mechanisms run together). Idempotence across restarts via a sha256
     hash per file in `<M3M0S_DATA_DIR>/selfdocs-state.json`; an equal hash skips
@@ -522,9 +522,10 @@ or LLM, and to every artifact in the repo:
   messages, test names, docs, commit messages, issues and PRs are all written
   in English. The only exception is test data that deliberately exercises
   non-English input (e.g. accent handling or multilingual behavior), and it
-  must be explained by an English comment. Stored-data and API-contract strings
-  that predate this policy (e.g. the domain category names `codigo`/`escrita`/
-  `pessoal`) are kept for compatibility.
+  must be explained by an English comment. Domain category names are English
+  (`code`, `writing`, `personal`, `client`); the old Portuguese names
+  (`codigo`, `escrita`, `pessoal`, `cliente`) are still accepted on input and
+  rewritten (D48).
 - **Commits are human-owned.** Every commit is authored by, and is the
   responsibility of, one or more humans. Never add AI/LLM/tool co-authorship
   or attribution to a commit or PR — no `Co-Authored-By:` trailer naming a

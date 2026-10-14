@@ -411,7 +411,7 @@ var toolDefs = []map[string]any{
 			"type": "object",
 			"properties": map[string]any{
 				"content":  map[string]any{"type": "string", "description": "Memory text."},
-				"domain":   map[string]any{"type": "string", "description": "Format <category>:<instance>, e.g. codigo:m3m0s."},
+				"domain":   map[string]any{"type": "string", "description": "Format <category>:<instance>, e.g. code:m3m0s."},
 				"source":   map[string]any{"type": "string", "description": "Originating tool, e.g. claude-code, opencode, manual."},
 				"agent":    map[string]any{"type": "string", "description": "Optional named agent identity, e.g. my-agent."},
 				"model":    map[string]any{"type": "string", "description": "Optional LLM that produced the content, e.g. claude-sonnet-5-5."},

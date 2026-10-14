@@ -108,3 +108,26 @@ func TestEntryKindAccessorsAndJSON(t *testing.T) {
 		t.Errorf("round trip: %v %+v", err, back)
 	}
 }
+
+func TestCanonicalDomainTranslatesLegacyCategories(t *testing.T) {
+	cases := map[string]string{
+		"codigo:m3m0s":    "code:m3m0s",
+		"pessoal:diary":   "personal:diary",
+		"escrita:book":    "writing:book",
+		"cliente:acme":    "client:acme",
+		"code:m3m0s":      "code:m3m0s",
+		"infra:homelab":   "infra:homelab",
+		"nocolon":         "nocolon",
+		"codigo-x:y":      "codigo-x:y",
+		"codigo":          "codigo",
+		"x:codigo:nested": "x:codigo:nested",
+	}
+	for in, want := range cases {
+		if got := CanonicalDomain(in); got != want {
+			t.Errorf("CanonicalDomain(%q) = %q, want %q", in, got, want)
+		}
+	}
+	if CanonicalCategory("codigo") != "code" || CanonicalCategory("code") != "code" {
+		t.Error("CanonicalCategory")
+	}
+}

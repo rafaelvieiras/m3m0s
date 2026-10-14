@@ -33,10 +33,9 @@ import (
 // file_path/domain consistently instead of duplicating content under
 // different domains.
 //
-// Contract string kept in Portuguese ("codigo" = "code"): it is the
-// category of the domain already stored in existing databases and used by
-// `m3m0s watch`; changing it would orphan previously indexed chunks.
-const Domain = "codigo:m3m0s"
+// The category was "codigo" before D48; migration 00008 renames stored
+// entries so previously indexed chunks stay attached to this domain.
+const Domain = "code:m3m0s"
 
 // source distinguishes provenance: this came from the documentation
 // embedded in the binary, not from user content (unlike "watch",

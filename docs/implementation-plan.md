@@ -82,8 +82,8 @@ when they change. Full mechanism designed and closed with the maintainer in
 D11 before coding — see also the "Watch" section of `docs/api-contract.md`.
 
 - [x] `m3m0s watch <dir>` mode — fsnotify over the watched root, 1 process
-  per root (D11, item 4). `domain` inferred as `codigo:<basename(dir)>`
-  (`codigo` is the stored domain-category name for code projects),
+  per root (D11, item 4). `domain` inferred as `code:<basename(dir)>`
+  (`code` is the stored domain-category name for code projects),
   overridable via `--domain`; `source` always `"watch"`.
   (`internal/watch`, `cmd/m3m0s/watch.go`).
 - [x] Default allowlist confirmed in A4 (`AGENTS.md`, `CLAUDE.md`,
@@ -354,7 +354,7 @@ end of each session/compaction. Full design closed with the maintainer on
   from the local checkpoint (`~/.m3m0s/hooks/claude-code/<session_id>.json` —
   last line already processed), concatenates into a digest with a defensive
   size limit (to avoid 1 giant compaction producing 1 giant extraction call).
-- [x] Domain: `codigo:<basename(cwd)>`, same rule as `m3m0s watch` (D11), no
+- [x] Domain: `code:<basename(cwd)>`, same rule as `m3m0s watch` (D11), no
   special case. `source=claude-code`, no `agent`.
 - [x] The digest goes to `POST /api/v1/memories` via `internal/client` (same
   client as the CLI/MCP) — fact extraction from Phase 4/D12 handles the rest,
@@ -408,7 +408,7 @@ project (not just m3m0s) generates a new memory in m3m0s with no manual action
    `Document.Embedding`) — the stored/returned `Content` stays intact, without
    truncating what the user sees. Validated end to end against the real Docker
    instance after the fix: the capture created a real entry
-   (`domain=codigo:m3m0s`, `source=claude-code`), removed right after via
+   (`domain=code:m3m0s`, `source=claude-code`), removed right after via
    `DELETE /api/v1/memories/{id}`.
 3. **Found on 16 Jul 2026, in the first real capture in production — 2
    problems, fixed the same day:**

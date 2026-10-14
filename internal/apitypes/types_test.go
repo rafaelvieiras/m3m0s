@@ -14,7 +14,7 @@ func TestBuildContextBlockShowsProvenanceForWatchChunks(t *testing.T) {
 	now := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
 	entries := []schema.Entry{
 		{
-			Domain: "codigo:m3m0s", Source: "watch", Content: "chunk excerpt",
+			Domain: "code:m3m0s", Source: "watch", Content: "chunk excerpt",
 			CreatedAt: now, Score: &score,
 			Metadata: map[string]string{"file_path": "AGENTS.md", "heading": "Decisions already made"},
 		},
@@ -28,7 +28,7 @@ func TestBuildContextBlockShowsProvenanceForWatchChunks(t *testing.T) {
 
 func TestBuildContextBlockOmitsProvenanceWhenAbsent(t *testing.T) {
 	entries := []schema.Entry{
-		{Domain: "codigo:m3m0s", Source: "manual", Content: "plain memory", CreatedAt: time.Now(), Metadata: map[string]string{}},
+		{Domain: "code:m3m0s", Source: "manual", Content: "plain memory", CreatedAt: time.Now(), Metadata: map[string]string{}},
 	}
 
 	block := BuildContextBlock(entries)
@@ -47,9 +47,9 @@ func TestBuildContextBlockMarksExpandedEntriesInsteadOfNumbering(t *testing.T) {
 	via := "mem_primary"
 	now := time.Date(2026, 7, 16, 0, 0, 0, 0, time.UTC)
 	entries := []schema.Entry{
-		{ID: "mem_primary", Domain: "codigo:m3m0s", Source: "manual", Content: "primary result", CreatedAt: now, Score: &score1, Metadata: map[string]string{}},
-		{ID: "mem_related", Domain: "codigo:m3m0s", Source: "manual", Content: "expanded result", CreatedAt: now, RelatedVia: &via, Metadata: map[string]string{}},
-		{ID: "mem_second", Domain: "codigo:m3m0s", Source: "manual", Content: "second query result", CreatedAt: now, Score: &score2, Metadata: map[string]string{}},
+		{ID: "mem_primary", Domain: "code:m3m0s", Source: "manual", Content: "primary result", CreatedAt: now, Score: &score1, Metadata: map[string]string{}},
+		{ID: "mem_related", Domain: "code:m3m0s", Source: "manual", Content: "expanded result", CreatedAt: now, RelatedVia: &via, Metadata: map[string]string{}},
+		{ID: "mem_second", Domain: "code:m3m0s", Source: "manual", Content: "second query result", CreatedAt: now, Score: &score2, Metadata: map[string]string{}},
 	}
 
 	block := BuildContextBlock(entries)
@@ -117,7 +117,7 @@ func TestAddResponseSerializesAsPluralShape(t *testing.T) {
 func TestStatsResponseExtractionEnabledSerializesModel(t *testing.T) {
 	model := "deepseek/deepseek-v4-flash"
 	resp := StatsResponse{
-		Count: 1, CountByDomainCategory: map[string]int{"codigo": 1}, Backend: "b", Model: "m",
+		Count: 1, CountByDomainCategory: map[string]int{"code": 1}, Backend: "b", Model: "m",
 		Extraction: ExtractionInfo{Enabled: true, Model: &model},
 	}
 
@@ -179,7 +179,7 @@ func TestStatsResponseExtractionDisabledModelIsNullNeverEmptyString(t *testing.T
 
 func TestStatsResponseTelemetryRoundTrips(t *testing.T) {
 	resp := StatsResponse{
-		Count: 3, CountByDomainCategory: map[string]int{"codigo": 3}, Backend: "b", Model: "m",
+		Count: 3, CountByDomainCategory: map[string]int{"code": 3}, Backend: "b", Model: "m",
 		Extraction: ExtractionInfo{Enabled: false, Model: nil},
 		Telemetry: TelemetryInfo{
 			APIKeyCount:             2,
@@ -294,7 +294,7 @@ func TestUpdateRequestMarshalOmitsAbsentFields(t *testing.T) {
 // direct alias of schema.Entry (not enveloped in "entries"/"entry") — the
 // contract is explicit that memory_update always acts on exactly 1 entry.
 func TestUpdateResponseIsPlainEntryNotEnveloped(t *testing.T) {
-	resp := UpdateResponse(schema.Entry{ID: "mem_1", Content: "updated", Domain: "codigo:m3m0s"})
+	resp := UpdateResponse(schema.Entry{ID: "mem_1", Content: "updated", Domain: "code:m3m0s"})
 
 	b, err := json.Marshal(resp)
 	if err != nil {

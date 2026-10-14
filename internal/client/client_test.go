@@ -32,7 +32,7 @@ func TestClientAddSyncPassesThrough(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New(srv.URL, "fake-key")
-	out, err := c.Add(context.Background(), apitypes.AddRequest{Content: "content", Domain: "codigo:m3m0s"})
+	out, err := c.Add(context.Background(), apitypes.AddRequest{Content: "content", Domain: "code:m3m0s"})
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
@@ -88,7 +88,7 @@ func TestClientAddPollsUntilCompleted(t *testing.T) {
 
 	c := New(srv.URL, "fake-key")
 	start := time.Now()
-	out, err := c.Add(context.Background(), apitypes.AddRequest{Content: "slow content", Domain: "codigo:m3m0s"})
+	out, err := c.Add(context.Background(), apitypes.AddRequest{Content: "slow content", Domain: "code:m3m0s"})
 	if err != nil {
 		t.Fatalf("Add: %v", err)
 	}
@@ -127,7 +127,7 @@ func TestClientAddPollingReportsFailure(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	c := New(srv.URL, "fake-key")
-	_, err := c.Add(context.Background(), apitypes.AddRequest{Content: "content", Domain: "codigo:m3m0s"})
+	_, err := c.Add(context.Background(), apitypes.AddRequest{Content: "content", Domain: "code:m3m0s"})
 	if err == nil {
 		t.Fatal("Add should have failed")
 	}
@@ -161,7 +161,7 @@ func TestClientAddPollingRespectsContextCancel(t *testing.T) {
 	defer cancel()
 
 	start := time.Now()
-	_, err := c.Add(ctx, apitypes.AddRequest{Content: "content", Domain: "codigo:m3m0s"})
+	_, err := c.Add(ctx, apitypes.AddRequest{Content: "content", Domain: "code:m3m0s"})
 	elapsed := time.Since(start)
 
 	if err == nil {
