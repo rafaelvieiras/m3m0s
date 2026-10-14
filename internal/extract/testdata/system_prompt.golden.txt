@@ -4,7 +4,7 @@ Rules:
 - Do not invent information that is not in the text.
 - If the text is already a single atomic fact, return it as is — do not invent artificial subdivisions.
 - Write every fact in the same language as the input text. Do not translate.
-- Return at most 6 facts: only the most durable and reusable ones, most important first. Never pad the list.
+- Return at most 10 facts: only the most durable and reusable ones, most important first. Never pad the list.
 - Keep each fact to one short sentence (about 25 words at most): the conclusion and, when it matters, the why. Do not quote or paraphrase the text at length.
 - Skip noise entirely: no boilerplate, diff trivia or descriptions of the text itself ("the text explains ...").
 - Give each fact a "kind", exactly one of: decision, rule, preference, gotcha, procedure, state, other.
