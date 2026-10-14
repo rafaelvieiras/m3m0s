@@ -105,6 +105,9 @@ type toolCallResult struct {
 // protocol/tool errors become normal JSON-RPC responses.
 func Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	c := client.NewFromEnv()
+	if os.Getenv("M3M0S_MCP_READ_ONLY") == "1" {
+		readOnly = true
+	}
 	// The MCP server runs in the session's working directory, so it can
 	// resolve the session project once (D34).
 	home, _ := os.UserHomeDir()
@@ -124,6 +127,35 @@ func Run(ctx context.Context, in io.Reader, out io.Writer) error {
 		}
 	}
 	return scanner.Err()
+}
+
+// readOnly hides and rejects the tools that change memory (--read-only /
+// M3M0S_MCP_READ_ONLY=1, D45).
+var readOnly bool
+
+// SetReadOnly makes this server expose only the read tools.
+func SetReadOnly(v bool) { readOnly = v }
+
+// writeTools are the tools that change or delete memories.
+var writeTools = map[string]bool{
+	"memory_add":          true,
+	"memory_update":       true,
+	"memory_forget_sweep": true,
+	"memory_restore":      true,
+}
+
+// visibleTools is toolDefs minus the write tools in read-only mode.
+func visibleTools() []map[string]any {
+	if !readOnly {
+		return toolDefs
+	}
+	out := make([]map[string]any, 0, len(toolDefs))
+	for _, t := range toolDefs {
+		if name, _ := t["name"].(string); !writeTools[name] {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // sessionProject is the project of the session this MCP server runs in ("" =
@@ -165,7 +197,7 @@ func handleLine(ctx context.Context, c *client.Client, line []byte, out io.Write
 		// Notification: never responds.
 		return nil
 	case "tools/list":
-		return respondResult(out, req, map[string]any{"tools": toolDefs})
+		return respondResult(out, req, map[string]any{"tools": visibleTools()})
 	case "tools/call":
 		return handleToolCall(ctx, c, req, out)
 	default:
@@ -190,6 +222,9 @@ func handleToolCall(ctx context.Context, c *client.Client, req rpcRequest, out i
 }
 
 func dispatchTool(ctx context.Context, c *client.Client, name string, args json.RawMessage) toolCallResult {
+	if readOnly && writeTools[name] {
+		return errorResult(fmt.Errorf("%s is disabled: this MCP server runs in read-only mode", name))
+	}
 	switch name {
 	case "memory_add":
 		var in apitypes.AddRequest

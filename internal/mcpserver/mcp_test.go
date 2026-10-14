@@ -473,3 +473,34 @@ func TestKindInToolSchemas(t *testing.T) {
 		}
 	}
 }
+
+func TestReadOnlyHidesAndRejectsWriteTools(t *testing.T) {
+	srv := fakeServe(t)
+	defer srv.Close()
+	SetReadOnly(true)
+	defer SetReadOnly(false)
+
+	resp := runLines(t, []string{
+		`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"memory_add","arguments":{"content":"x","domain":"codigo:t","source":"manual"}}}`,
+	})
+	if len(resp) != 2 {
+		t.Fatalf("got %d responses", len(resp))
+	}
+	tools := resp[0]["result"].(map[string]any)["tools"].([]any)
+	var names []string
+	for _, x := range tools {
+		names = append(names, x.(map[string]any)["name"].(string))
+	}
+	for _, n := range names {
+		if writeTools[n] {
+			t.Fatalf("write tool %s listed in read-only mode: %v", n, names)
+		}
+	}
+	if !strings.Contains(strings.Join(names, ","), "memory_search") {
+		t.Fatalf("memory_search missing: %v", names)
+	}
+	if res := resp[1]["result"].(map[string]any); res["isError"] != true {
+		t.Fatalf("memory_add must be rejected, got %v", res)
+	}
+}
