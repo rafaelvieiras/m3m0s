@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 
 	"github.com/rafaelvieiras/m3m0s/internal/client"
 	"github.com/rafaelvieiras/m3m0s/internal/hook"
@@ -20,7 +21,7 @@ func runHook(ctx context.Context, args []string) error {
 	}
 	switch args[0] {
 	case "claude-code":
-		return runHookClaudeCode(ctx)
+		return runHookClaudeCode(ctx, slices.Contains(args[1:], "--inject"))
 	default:
 		return fmt.Errorf("unknown hook tool: %s", args[0])
 	}
@@ -32,11 +33,13 @@ func runHook(ctx context.Context, args []string) error {
 // forwards new content to `m3m0s serve` (D14); on SessionStart, it fetches
 // recent memories of the current domain and writes to stdout the JSON that
 // Claude Code injects as additional context into the session (D17).
+// With --inject, a UserPromptSubmit event searches memory by the prompt and
+// injects the relevant hits (D44); register that as a synchronous hook.
 // Deliberately always returns nil — hook.Run already handles every failure
 // internally as a stderr log + silent return (the hook must never hang or
 // appear to fail the user's Claude Code session, even if m3m0s is down or
 // credentials are missing).
-func runHookClaudeCode(ctx context.Context) error {
+func runHookClaudeCode(ctx context.Context, promptInject bool) error {
 	home, err := expandHome("~")
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "m3m0s hook claude-code: resolve home dir: %v\n", err)
@@ -50,6 +53,8 @@ func runHookClaudeCode(ctx context.Context) error {
 		Getenv:    os.Getenv,
 		Domain:    hookDomainFromCwd,
 		NewClient: client.New,
+
+		PromptInject: promptInject,
 	}
 	hook.Run(ctx, os.Stdin, deps)
 	return nil
