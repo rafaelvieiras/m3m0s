@@ -65,6 +65,17 @@ func RunPromptSearch(ctx context.Context, payload Payload, deps Deps) {
 		prompt = string(r[:promptQueryMaxChars])
 	}
 
+	// D47: a prompt with no topic-bearing term ("pode fazer merge e deploy")
+	// matches generic memories of any project; inject nothing for it, and for
+	// the rest keep only hits that mention one of the terms.
+	var terms []string
+	if deps.Getenv("M3M0S_PROMPT_LEXICAL") != "off" {
+		terms = specificTerms(prompt)
+		if len(terms) == 0 {
+			return
+		}
+	}
+
 	baseURL, apiKey, ok := ResolveCredentials(deps.Getenv, deps.HomeDir)
 	if !ok {
 		return
@@ -103,6 +114,9 @@ func RunPromptSearch(ctx context.Context, payload Payload, deps Deps) {
 	var hits []schema.Entry
 	for _, e := range InjectableEntries(resp.Results) {
 		if e.Score == nil || *e.Score < floor || seen[e.ID] {
+			continue
+		}
+		if terms != nil && !sharesTerm(e.Content, terms) {
 			continue
 		}
 		hits = append(hits, e)

@@ -82,13 +82,61 @@ func TestRunPromptSearchSkipsShortAndSlashPrompts(t *testing.T) {
 func TestRunDispatchesUserPromptSubmitByFlag(t *testing.T) {
 	var calls int
 	var mode string
-	srv := promptServer(t, []schema.Entry{scored(extractedEntry("m", "fact about deploys"), 0.7)}, &calls, &mode)
+	srv := promptServer(t, []schema.Entry{scored(extractedEntry("m", "fact about the production service"), 0.7)}, &calls, &mode)
 	var out, errb bytes.Buffer
 	deps := sessionStartDeps(t.TempDir(), srv, &out, &errb)
 	deps.PromptInject = true
 	b, _ := json.Marshal(Payload{SessionID: "s", HookEventName: "UserPromptSubmit", Cwd: "/x/r", Prompt: "how do we deploy the service to production?"})
 	Run(context.Background(), bytes.NewReader(b), deps)
-	if calls != 1 || !strings.Contains(out.String(), "fact about deploys") {
+	if calls != 1 || !strings.Contains(out.String(), "fact about the production service") {
 		t.Fatalf("calls=%d out=%q", calls, out.String())
+	}
+}
+
+func TestSpecificTerms(t *testing.T) {
+	cases := []struct {
+		prompt string
+		want   int // number of specific terms
+	}{
+		{"pode fazer merge e deploy", 0},
+		{"sim, pode mergear e começar a d47", 1}, // d47
+		{"vamos ver o F3 na sequencia", 1},       // f3
+		{"pode seguir", 0},
+		{"corrige o bug do timeout no hook", 3}, // corrige, bug, timeout, hook -> bug is 3 chars
+		{"onde fica o compose do m3m0s na sala", 3},
+	}
+	for _, c := range cases {
+		got := specificTerms(c.prompt)
+		if c.want == 3 {
+			if len(got) < 2 {
+				t.Errorf("%q: terms=%v, want several", c.prompt, got)
+			}
+			continue
+		}
+		if len(got) != c.want {
+			t.Errorf("%q: terms=%v, want %d", c.prompt, got, c.want)
+		}
+	}
+}
+
+func TestRunPromptSearchRequiresSharedTerm(t *testing.T) {
+	results := []schema.Entry{
+		scored(extractedEntry("mem_a", "O deploy do merge chegou em produção."), 0.77),
+		scored(extractedEntry("mem_b", "O compose do m3m0s fica na sala."), 0.70),
+	}
+	var calls int
+	var mode string
+	srv := promptServer(t, results, &calls, &mode)
+
+	var out, errb bytes.Buffer
+	RunPromptSearch(context.Background(), Payload{SessionID: "g", Cwd: "/x/r", Prompt: "pode fazer merge e deploy agora"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	if out.Len() != 0 || calls != 0 {
+		t.Fatalf("generic prompt must not search: calls=%d out=%q", calls, out.String())
+	}
+
+	RunPromptSearch(context.Background(), Payload{SessionID: "h", Cwd: "/x/r", Prompt: "onde fica o compose do m3m0s?"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	got := out.String()
+	if !strings.Contains(got, "compose do m3m0s") || strings.Contains(got, "chegou em produção") {
+		t.Fatalf("only the hit sharing a term must be injected: %q", got)
 	}
 }

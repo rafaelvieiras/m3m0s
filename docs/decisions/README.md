@@ -60,6 +60,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D44 | Per-prompt memory search on `UserPromptSubmit` | Accepted | [D44-per-prompt-memory-search.md](D44-per-prompt-memory-search.md) |
 | D45 | Read-only MCP mode | Accepted | [D45-mcp-read-only-mode.md](D45-mcp-read-only-mode.md) |
 | D46 | pi capture reuses the Claude Code capture pipeline | Accepted | [D46-pi-capture.md](D46-pi-capture.md) |
+| D47 | Topic gate for per-prompt search | Accepted | [D47-prompt-search-topic-gate.md](D47-prompt-search-topic-gate.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |
 | A8 | Phase 7 (light KG + temporal fact) | Closed (16 Jul 2026), see [D15](D15-light-kg-temporal-fact.md) | [A8-light-kg-temporal-fact.md](A8-light-kg-temporal-fact.md) |
