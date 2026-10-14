@@ -32,7 +32,7 @@ func promptServer(t *testing.T, results []schema.Entry, calls *int, mode *string
 
 func TestRunPromptSearchInjectsOnlyRelevantAndNotRepeated(t *testing.T) {
 	results := []schema.Entry{
-		scored(extractedEntry("mem_hi", "The compose lives in sala-notebook/stacks/m3m0s."), 0.68),
+		scored(extractedEntry("mem_hi", "The compose file lives in living-room/stacks/m3m0s."), 0.68),
 		scored(extractedEntry("mem_lo", "Unrelated note."), 0.45),
 		scored(rawEntry("mem_raw", "raw fallback dump"), 0.9),
 	}
@@ -40,7 +40,7 @@ func TestRunPromptSearchInjectsOnlyRelevantAndNotRepeated(t *testing.T) {
 	var mode string
 	srv := promptServer(t, results, &calls, &mode)
 	home := t.TempDir()
-	payload := Payload{SessionID: "s1", HookEventName: "UserPromptSubmit", Cwd: "/x/some-repo", Prompt: "onde está o compose do m3m0s na sala?"}
+	payload := Payload{SessionID: "s1", HookEventName: "UserPromptSubmit", Cwd: "/x/some-repo", Prompt: "where is the m3m0s compose file in the living room?"}
 
 	var out, errb bytes.Buffer
 	RunPromptSearch(context.Background(), payload, sessionStartDeps(home, srv, &out, &errb))
@@ -48,7 +48,7 @@ func TestRunPromptSearchInjectsOnlyRelevantAndNotRepeated(t *testing.T) {
 		t.Fatalf("mode = %q, want vector", mode)
 	}
 	got := out.String()
-	if !strings.Contains(got, "UserPromptSubmit") || !strings.Contains(got, "mem_hi") && !strings.Contains(got, "compose lives") {
+	if !strings.Contains(got, "UserPromptSubmit") || !strings.Contains(got, "mem_hi") && !strings.Contains(got, "compose file lives") {
 		t.Fatalf("expected injection, got %q", got)
 	}
 	if strings.Contains(got, "Unrelated") || strings.Contains(got, "raw fallback") {
@@ -67,7 +67,7 @@ func TestRunPromptSearchSkipsShortAndSlashPrompts(t *testing.T) {
 	var calls int
 	var mode string
 	srv := promptServer(t, nil, &calls, &mode)
-	for _, p := range []string{"ok", "pode seguir", "/compact now please do it", ""} {
+	for _, p := range []string{"ok", "go ahead", "/compact now please do it", ""} {
 		var out, errb bytes.Buffer
 		RunPromptSearch(context.Background(), Payload{SessionID: "s", Prompt: p}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
 		if out.Len() != 0 {
@@ -98,12 +98,12 @@ func TestSpecificTerms(t *testing.T) {
 		prompt string
 		want   int // number of specific terms
 	}{
-		{"pode fazer merge e deploy", 0},
-		{"sim, pode mergear e começar a d47", 1}, // d47
-		{"vamos ver o F3 na sequencia", 1},       // f3
-		{"pode seguir", 0},
-		{"corrige o bug do timeout no hook", 3}, // corrige, bug, timeout, hook -> bug is 3 chars
-		{"onde fica o compose do m3m0s na sala", 3},
+		{"please merge and deploy", 0},
+		{"yes, go ahead and start on d47", 1}, // d47
+		{"let us look at F3 next", 1},         // f3
+		{"go ahead", 0},
+		{"fix the timeout bug in the hook", 3}, // timeout, bug, hook
+		{"where is the m3m0s compose file", 3},
 	}
 	for _, c := range cases {
 		got := specificTerms(c.prompt)
@@ -121,22 +121,22 @@ func TestSpecificTerms(t *testing.T) {
 
 func TestRunPromptSearchRequiresSharedTerm(t *testing.T) {
 	results := []schema.Entry{
-		scored(extractedEntry("mem_a", "O deploy do merge chegou em produção."), 0.77),
-		scored(extractedEntry("mem_b", "O compose do m3m0s fica na sala."), 0.70),
+		scored(extractedEntry("mem_a", "The deploy of the merge reached production."), 0.77),
+		scored(extractedEntry("mem_b", "The m3m0s compose file is in the living room."), 0.70),
 	}
 	var calls int
 	var mode string
 	srv := promptServer(t, results, &calls, &mode)
 
 	var out, errb bytes.Buffer
-	RunPromptSearch(context.Background(), Payload{SessionID: "g", Cwd: "/x/r", Prompt: "pode fazer merge e deploy agora"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	RunPromptSearch(context.Background(), Payload{SessionID: "g", Cwd: "/x/r", Prompt: "please merge and deploy now"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
 	if out.Len() != 0 || calls != 0 {
 		t.Fatalf("generic prompt must not search: calls=%d out=%q", calls, out.String())
 	}
 
-	RunPromptSearch(context.Background(), Payload{SessionID: "h", Cwd: "/x/r", Prompt: "onde fica o compose do m3m0s?"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	RunPromptSearch(context.Background(), Payload{SessionID: "h", Cwd: "/x/r", Prompt: "where is the m3m0s compose file?"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
 	got := out.String()
-	if !strings.Contains(got, "compose do m3m0s") || strings.Contains(got, "chegou em produção") {
+	if !strings.Contains(got, "m3m0s compose file") || strings.Contains(got, "reached production") {
 		t.Fatalf("only the hit sharing a term must be injected: %q", got)
 	}
 }

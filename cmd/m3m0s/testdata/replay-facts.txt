@@ -1,7 +1,7 @@
 Each atomic fact must be self-contained and reusable in future searches.
-A resposta deve ser apenas um objeto JSON no formato {"facts": ["fato 1", "fato 2"]}.
+The response must be only a JSON object in the format {"facts": ["fact 1", "fact 2"]}.
 The session is a continuation of a previous conversation that ran out of context.
-O resumo abaixo cobre a parte anterior da conversa.
+The summary below covers the earlier portion of the conversation.
 Generate a commit message in English from a staged git diff.
 The commit changed 9 files with 103 insertions and 4 deletions.
 The extractor parses the model reply as {"facts": [...]} and falls back to a bare array.

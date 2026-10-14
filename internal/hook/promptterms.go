@@ -29,7 +29,7 @@ pronto feito fim ultimo ultima primeiro primeira segundo segunda outro outra tod
 coisa coisas parte partes forma jeito tipo caso vez vezes
 the a an and or but if then this that these those it its is are was were be been being to of in on at by for with from as
 do does did done can could should would will shall may might must have has had
-please yes no ok okay go ahead next continue proceed start run make let lets
+please yes no ok okay go ahead next continue proceed start run make let lets us now look see check just also about then first last
 merge deploy commit push pull request branch build test tests fix
 `) {
 		m[w] = true

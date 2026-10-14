@@ -171,8 +171,8 @@ func TestHygieneExactDuplicatesAndNoise(t *testing.T) {
 	day := 24 * time.Hour
 
 	// Identical after normalization: case, accents, punctuation, spacing.
-	seedEntry(t, s, seed{id: "x1", content: "O domínio é codigo:bhay-e-mota, definido na configuração do projeto.", md: ref, domain: "codigo:one"})
-	seedEntry(t, s, seed{id: "x2", content: "o dominio e codigo bhay e mota definido na configuracao do projeto", md: ref, domain: "codigo:two", source: "pi"})
+	seedEntry(t, s, seed{id: "x1", content: "The résumé of the café is defined in the project configuration.", md: ref, domain: "codigo:one"})
+	seedEntry(t, s, seed{id: "x2", content: "the resume of the cafe is defined in the project configuration", md: ref, domain: "codigo:two", source: "pi"})
 	seedEntry(t, s, seed{id: "x3", content: "A  lone fact that is long enough to avoid the short rule.", md: ref})
 	seedEntry(t, s, seed{id: "y1", content: "Same domain duplicate of a sufficiently long fact text!", md: ref, domain: "codigo:one"})
 	seedEntry(t, s, seed{id: "y2", content: "same domain duplicate of a sufficiently long fact text", md: ref, domain: "codigo:one"})
@@ -180,18 +180,18 @@ func TestHygieneExactDuplicatesAndNoise(t *testing.T) {
 	seedEntry(t, s, seed{id: "z1", content: "same domain duplicate of a sufficiently long fact text", md: extractedMD(metadataKeyDeletedAt, time.Now().UTC().Format(time.RFC3339))})
 
 	// Noise: one per rule, plus negatives.
-	seedEntry(t, s, seed{id: "nA", content: `A resposta deve ser APENAS um objeto JSON no formato {"facts": ["fato 1"]}.`, md: ref, age: 20 * day})
-	seedEntry(t, s, seed{id: "nA2", content: `Se o texto já for um fato atômico, devolva-o como está.`, md: ref, source: "selfdocs"}) // docs excluded
+	seedEntry(t, s, seed{id: "nA", content: `The response must be ONLY a JSON object in the format {"facts": ["fact 1"]}.`, md: ref, age: 20 * day})
+	seedEntry(t, s, seed{id: "nA2", content: `If the text is already a single atomic fact, return it as is.`, md: ref, source: "selfdocs"}) // docs excluded
 	seedEntry(t, s, seed{id: "nB", content: "The session is a continuation of a previous conversation that ran out of context.", md: ref})
-	seedEntry(t, s, seed{id: "nC", content: "Gere uma mensagem de commit em português do Brasil a partir de um git diff staged.", md: ref})
-	seedEntry(t, s, seed{id: "nD", content: "O arquivo dashboard.png foi adicionado com 170806 bytes.", md: ref})
-	seedEntry(t, s, seed{id: "nE", content: "O texto descreve quatro famílias de funções.", md: ref})
-	seedEntry(t, s, seed{id: "nF", content: "A task e o brief foram criados.", md: ref})
+	seedEntry(t, s, seed{id: "nC", content: "Generate a commit message in English from a staged git diff.", md: ref})
+	seedEntry(t, s, seed{id: "nD", content: "The file dashboard.png was added with 170806 bytes.", md: ref})
+	seedEntry(t, s, seed{id: "nE", content: "The text describes four families of functions.", md: ref})
+	seedEntry(t, s, seed{id: "nF", content: "The task and the brief were created.", md: ref})
 	seedEntry(t, s, seed{id: "okF", content: "STUMP_PORT defaults to 10801", md: ref})                                                    // has identifier
 	seedEntry(t, s, seed{id: "okA", content: "The release pipeline signs the checksums file with cosign after the tests pass.", md: ref}) // legit
-	seedEntry(t, s, seed{id: "nB2", content: "O resumo abaixo cobre a parte anterior da conversa.", md: extractedMD(metadataKeyAccessCount, "4")})
+	seedEntry(t, s, seed{id: "nB2", content: "The summary below covers the earlier portion of the conversation.", md: extractedMD(metadataKeyAccessCount, "4")})
 	// Other category: scanned for duplicates but not for noise.
-	seedEntry(t, s, seed{id: "other", content: "O resumo abaixo cobre a parte anterior da conversa.", domain: "pessoal:diary", md: ref})
+	seedEntry(t, s, seed{id: "other", content: "The summary below covers the earlier portion of the conversation.", domain: "pessoal:diary", md: ref})
 	// A secret-bearing noise match counts but is never shown; phone numbers are masked.
 	seedEntry(t, s, seed{id: "sec", content: "O resumo cobre a parte anterior; token: sk-abcdefghijklmnopqrstuvwxyz0123456789", md: ref})
 	seedEntry(t, s, seed{id: "tel", content: "O texto descreve o contato +55 41 99999-8888 e o e-mail fulano@example.com do cliente.", md: ref})
@@ -467,7 +467,7 @@ func TestHygieneKeywordOnlyHasNoNearSection(t *testing.T) {
 }
 
 func TestNormalizedHashMatchesNormalizeText(t *testing.T) {
-	for _, in := range []string{"  Não é  PERMITIDO, inventar!  ", "o dominio e codigo bhay e mota", "", "!!!", "Ação 42 — ok", "日本語 テスト"} {
+	for _, in := range []string{"  It is  FORBIDDEN, to invent!  ", "the resume of the cafe", "", "!!!", "Action 42 — café", "日本語 テスト"} {
 		var h uint64 = 14695981039346656037
 		for _, b := range []byte(normalizeText(in)) {
 			h = (h ^ uint64(b)) * 1099511628211
@@ -479,7 +479,7 @@ func TestNormalizedHashMatchesNormalizeText(t *testing.T) {
 }
 
 func TestNormalizeText(t *testing.T) {
-	a, b := normalizeText("  Não é  PERMITIDO, inventar!  "), normalizeText("nao e permitido inventar")
+	a, b := normalizeText("  It is  FORBIDDEN, to invent! Café  "), normalizeText("it is forbidden to invent cafe")
 	if a != b || a == "" {
 		t.Errorf("%q != %q", a, b)
 	}
