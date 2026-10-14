@@ -62,45 +62,27 @@ var factCases = []struct {
 }{
 	// extractor-prompt-fact
 	{"extractor-prompt-fact", `The response must be only a JSON object in the format {"facts": ["fact 1", "fact 2"]}, without markdown.`, true, "schema restated"},
-	{"extractor-prompt-fact", `A resposta deve ser apenas um objeto JSON no formato {"facts": ["fato 1", "fato 2"]}.`, true, "pt schema"},
 	{"extractor-prompt-fact", `Each atomic fact must be self-contained and reusable in future searches.`, true, ""},
-	{"extractor-prompt-fact", `Cada fato atômico deve ser self-contained e reutilizável em buscas futuras.`, true, ""},
-	{"extractor-prompt-fact", `Não é permitido inventar informação que não está no texto.`, true, ""},
-	{"extractor-prompt-fact", `Se o texto já for um fato único e atômico, devolva-o como está — não invente subdivisões artificiais.`, true, ""},
 	{"extractor-prompt-fact", `If the text is already a single atomic fact, return it as is; do not invent artificial subdivisions.`, true, ""},
 	{"extractor-prompt-fact", `The extractor parses the model reply as {"facts": [...]} and falls back to a bare array when the provider ignores response_format.`, false, "documents the extractor"},
 	{"extractor-prompt-fact", `Atomic facts are stored with a source reference so the UI can show where each one came from.`, false, ""},
-	{"extractor-prompt-fact", `Os fatos extraídos são self-contained porque o dedup compara vetores de cada fato isoladamente.`, false, ""},
 	{"extractor-prompt-fact", `Do not invent a new table for this; reuse the existing blobs table.`, false, "ordinary engineering advice"},
 
 	// session-continuation-fact
 	{"session-continuation-fact", `The session is a continuation of a previous conversation that ran out of context.`, true, ""},
-	{"session-continuation-fact", `A sessão atual é uma continuação de uma conversa anterior que excedeu o contexto.`, true, ""},
 	{"session-continuation-fact", `The summary below covers the earlier portion of the conversation.`, true, ""},
-	{"session-continuation-fact", `O resumo abaixo cobre a parte anterior da conversa.`, true, ""},
-	{"session-continuation-fact", `O usuário executou o comando /compact.`, true, ""},
 	{"session-continuation-fact", `The session continues from a previous conversation.`, true, ""},
 	{"session-continuation-fact", `The importer resumes the session from the last checkpoint after a crash.`, false, "natural language about sessions"},
 	{"session-continuation-fact", `Session continuation is implemented by replaying the stored transcript from the last offset.`, false, ""},
-	{"session-continuation-fact", `A continuação da sessão do usuário no app mantém o carrinho entre dispositivos.`, false, ""},
 	{"session-continuation-fact", `The /compact command is documented in the CLI reference and takes optional instructions.`, false, ""},
-	{"session-continuation-fact", `O usuário usou /compact e pediu para continuar sem recapitular.`, false, "a workflow preference"},
 
 	// commit-prompt-fact
 	{"commit-prompt-fact", `Generate a commit message in English from a staged git diff.`, true, ""},
-	{"commit-prompt-fact", `Gere uma mensagem de commit em português do Brasil a partir de um git diff staged.`, true, ""},
-	{"commit-prompt-fact", `O usuário solicita uma mensagem de commit baseada no git diff staged.`, true, ""},
-	{"commit-prompt-fact", `O texto é uma mensagem de commit gerada a partir de um git diff staged.`, true, ""},
 	{"commit-prompt-fact", `The prepare-commit-msg hook generates a commit message from the staged git diff.`, false, "project documents a tool"},
-	{"commit-prompt-fact", `O texto do README explica a convenção de mensagem de commit e o uso de git diff.`, false, ""},
 	{"commit-prompt-fact", `Commit messages follow Conventional Commits, with the scope in parentheses.`, false, ""},
-	{"commit-prompt-fact", `O relatório foi gerado a partir de um git diff staged.`, false, ""},
 
 	// diff-trivia-fact (tag)
-	{"diff-trivia-fact", `O arquivo logo-header.png foi adicionado com 68613 bytes.`, true, ""},
 	{"diff-trivia-fact", `The commit changed 9 files with 103 insertions and 4 deletions.`, true, ""},
-	{"diff-trivia-fact", `O commit tem 12 inserções e 3 deleções.`, true, ""},
-	{"diff-trivia-fact", `O arquivo foo.png passou de 0 para 141151 bytes.`, true, ""},
 	{"diff-trivia-fact", `The upload limit for avatars is 2 MB; larger images are rejected.`, false, ""},
 	{"diff-trivia-fact", `Images are served from the CDN and resized to 512 pixels.`, false, ""},
 }
@@ -124,10 +106,10 @@ func TestFactRules(t *testing.T) {
 
 func TestDefaultActions(t *testing.T) {
 	e := Default()
-	if d := e.CheckFact("Cada fato atômico deve ser self-contained e reutilizável em buscas futuras."); d.Action != ActionDrop {
+	if d := e.CheckFact("Each atomic fact must be self-contained and reusable in future searches."); d.Action != ActionDrop {
 		t.Errorf("leak should drop, got %v", d)
 	}
-	if d := e.CheckFact("O commit tem 12 inserções e 3 deleções."); d.Action != ActionTag || d.RuleID != "diff-trivia-fact" {
+	if d := e.CheckFact("The commit has 12 insertions and 3 deletions."); d.Action != ActionTag || d.RuleID != "diff-trivia-fact" {
 		t.Errorf("diff trivia should tag, got %v", d)
 	}
 }

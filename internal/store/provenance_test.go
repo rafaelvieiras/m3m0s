@@ -28,7 +28,7 @@ func addProv(t *testing.T, s *MemoryStore, content, source, model, project strin
 
 func TestProvenanceIsStoredAndFilterable(t *testing.T) {
 	s := newKeywordStore(t)
-	a := addProv(t, s, "deploy notes for the sala server", "claude-code", "claude-sonnet-5-5", "m3m0s")
+	a := addProv(t, s, "deploy notes for the living room server", "claude-code", "claude-sonnet-5-5", "m3m0s")
 	b := addProv(t, s, "deploy notes for the desktop", "opencode", "", "")
 	if a.Entry.ModelValue() != "claude-sonnet-5-5" || a.Entry.ProjectValue() != "m3m0s" {
 		t.Fatalf("provenance not stored: %+v", a.Entry)

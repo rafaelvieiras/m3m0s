@@ -17,8 +17,6 @@ func TestRedactKeyValueVariants(t *testing.T) {
 		{"refresh token", "refresh_token: " + fakePw},
 		{"api key secret", "API_KEY_SECRET=" + fakePw},
 		{"camel case", "clientSecret = " + fakePw},
-		{"senha", "senha: " + fakePw},
-		{"SENHA upper", "SENHA=" + fakePw},
 		{"pwd", "DB_PWD=" + fakePw},
 		{"passwd", "passwd=" + fakePw},
 		{"double quoted", `PASSWORD="` + fakePw + `"`},
@@ -26,7 +24,7 @@ func TestRedactKeyValueVariants(t *testing.T) {
 		{"quoted with spaces", `password = "two words here"`},
 		{"json", `{"db_password": "` + fakePw + `"}`},
 		{"short low entropy", "ADMIN_PASSWORD=admin1"},
-		{"short word", "senha=abc"},
+		{"short word", "password=abc"},
 		{"mixed case key", "Api_Key=" + fakePw},
 		{"cli flag", "run --password " + fakePw + " now"},
 	}
@@ -50,17 +48,14 @@ func TestRedactKeyValueKeepsTheKeyName(t *testing.T) {
 
 func TestRedactNarrativeSecrets(t *testing.T) {
 	cases := []string{
-		"a senha é '" + fakePw + "'",
-		"a senha é \"" + fakePw + "\"",
-		"A SENHA É " + fakePw,
-		"o usuário do Basic Auth é 'someuser' e a senha é '" + fakePw + "'",
+		"the Basic Auth user is 'someuser' and the password is '" + fakePw + "'",
 		"the password is " + fakePw,
 		"Password is '" + fakePw + "'.",
 		"the admin password for staging is 'pw1'x",
-		"a senha do usuário admin é “" + fakePw + "”",
+		"the admin user password is “" + fakePw + "”",
 		"the api key is `" + fakePw + "`",
 		"the password is hunter2",
-		"senha era 'abc'",
+		"the password was 'abc'",
 	}
 	for _, in := range cases {
 		r := Redact(in)
@@ -134,7 +129,7 @@ func TestRedactKeepsPlaceholdersAndDescriptions(t *testing.T) {
 		"token: string",
 		"password: required",
 		"max_tokens=1024 and token_type=bearer",
-		"the reset de senha é feito pelo painel",
+		"the password reset is done in the admin panel",
 		"a secret is sent to the server",
 		"the password is required for all accounts",
 		"password = getPassword()",

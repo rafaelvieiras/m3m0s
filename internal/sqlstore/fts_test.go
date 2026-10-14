@@ -8,8 +8,8 @@ import (
 )
 
 func TestFTSQueryBuildsSafeOrExpression(t *testing.T) {
-	got := FTSQuery(`Decisão: "memória" AND hosting -- a x NEAR(foo) foo`)
-	want := `"decisão" OR "memória" OR "and" OR "hosting" OR "near" OR "foo"`
+	got := FTSQuery(`Décision: "résumé" AND hosting -- a x NEAR(foo) foo`)
+	want := `"décision" OR "résumé" OR "and" OR "hosting" OR "near" OR "foo"`
 	if got != want {
 		t.Errorf("FTSQuery = %s, want %s", got, want)
 	}
@@ -32,30 +32,30 @@ func TestSearchFTSRanksFiltersByDomainAndFollowsWrites(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	put("a", "codigo:x", "O servidor roda no notebook da sala com Docker")
-	put("b", "codigo:x", "Receita de bolo de cenoura")
-	put("c", "codigo:y", "servidor de memória na sala")
+	put("a", "codigo:x", "The server runs on the living room notebook with Docker")
+	put("b", "codigo:x", "Carrot cake recipe")
+	put("c", "codigo:y", "résumé server in the living room")
 
-	ids, err := db.SearchFTS(ctx, "codigo:x", "servidor sala", 10)
+	ids, err := db.SearchFTS(ctx, "codigo:x", "server room", 10)
 	if err != nil || !reflect.DeepEqual(ids, []string{"a"}) {
 		t.Fatalf("domain-filtered hits = %v (%v)", ids, err)
 	}
-	if ids, _ := db.SearchFTS(ctx, "", "MEMORIA", 10); !reflect.DeepEqual(ids, []string{"c"}) {
+	if ids, _ := db.SearchFTS(ctx, "", "RESUME", 10); !reflect.DeepEqual(ids, []string{"c"}) {
 		t.Errorf("accent/case-insensitive across domains = %v", ids)
 	}
 
 	// Content update is reflected; metadata-only update and delete too.
-	put("b", "codigo:x", "Agora fala de servidor também")
-	if ids, _ := db.SearchFTS(ctx, "codigo:x", "bolo", 10); len(ids) != 0 {
+	put("b", "codigo:x", "Now it talks about the server too")
+	if ids, _ := db.SearchFTS(ctx, "codigo:x", "cake", 10); len(ids) != 0 {
 		t.Errorf("old content still indexed: %v", ids)
 	}
-	if ids, _ := db.SearchFTS(ctx, "codigo:x", "servidor", 10); len(ids) != 2 {
+	if ids, _ := db.SearchFTS(ctx, "codigo:x", "server", 10); len(ids) != 2 {
 		t.Errorf("updated content not indexed: %v", ids)
 	}
 	if err := db.DeleteEntry(ctx, "a"); err != nil {
 		t.Fatal(err)
 	}
-	if ids, _ := db.SearchFTS(ctx, "codigo:x", "servidor", 10); !reflect.DeepEqual(ids, []string{"b"}) {
+	if ids, _ := db.SearchFTS(ctx, "codigo:x", "server", 10); !reflect.DeepEqual(ids, []string{"b"}) {
 		t.Errorf("after delete = %v", ids)
 	}
 }

@@ -14,7 +14,7 @@ const (
 	fakePw     = "Zx9-fake-password-1"
 	dirtyBlob  = "staging env: ADMIN_PASSWORD=" + fakePw + " and the rest"
 	cleanBlob  = "nothing sensitive here, just notes about buildSessionSummaryFromTranscript"
-	dirtyEntry = "the senha é '" + fakePw + "'"
+	dirtyEntry = "the password is '" + fakePw + "'"
 )
 
 func seed(t *testing.T) *sqlstore.DB {
