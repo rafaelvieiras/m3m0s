@@ -32,7 +32,7 @@ func TestEndToEndUpdate(t *testing.T) {
 	}
 
 	t.Run("401 without key", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "content for auth test", Domain: "codigo:test-e2e-update-auth"})
+		added := addOne(apitypes.AddRequest{Content: "content for auth test", Domain: "code:test-e2e-update-auth"})
 		resp, _ := patch(added.Entries[0].Entry.ID, "", map[string]any{"content": "new"})
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401, got %d", resp.StatusCode)
@@ -52,7 +52,7 @@ func TestEndToEndUpdate(t *testing.T) {
 	})
 
 	t.Run("400 no_fields_to_update for empty body", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "codigo:test-e2e-update-empty"})
+		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "code:test-e2e-update-empty"})
 		resp, data := patch(added.Entries[0].Entry.ID, srv.APIKey, map[string]any{})
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("expected 400, got %d: %s", resp.StatusCode, data)
@@ -65,7 +65,7 @@ func TestEndToEndUpdate(t *testing.T) {
 	})
 
 	t.Run("400 invalid_domain", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "codigo:test-e2e-update-domain"})
+		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "code:test-e2e-update-domain"})
 		resp, data := patch(added.Entries[0].Entry.ID, srv.APIKey, map[string]any{"domain": "DomainSemFormato"})
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("expected 400, got %d: %s", resp.StatusCode, data)
@@ -78,7 +78,7 @@ func TestEndToEndUpdate(t *testing.T) {
 	})
 
 	t.Run("400 content_required for empty content", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "codigo:test-e2e-update-content-req"})
+		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "code:test-e2e-update-content-req"})
 		resp, data := patch(added.Entries[0].Entry.ID, srv.APIKey, map[string]any{"content": "   "})
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("expected 400, got %d: %s", resp.StatusCode, data)
@@ -91,7 +91,7 @@ func TestEndToEndUpdate(t *testing.T) {
 	})
 
 	t.Run("400 source_required for empty source", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "codigo:test-e2e-update-source-req", Source: "manual"})
+		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "code:test-e2e-update-source-req", Source: "manual"})
 		resp, data := patch(added.Entries[0].Entry.ID, srv.APIKey, map[string]any{"source": ""})
 		if resp.StatusCode != http.StatusBadRequest {
 			t.Fatalf("expected 400, got %d: %s", resp.StatusCode, data)
@@ -105,22 +105,22 @@ func TestEndToEndUpdate(t *testing.T) {
 
 	t.Run("partial edit: only domain changes, rest preserved", func(t *testing.T) {
 		added := addOne(apitypes.AddRequest{
-			Content: "content that must not change", Domain: "codigo:test-e2e-update-partial",
+			Content: "content that must not change", Domain: "code:test-e2e-update-partial",
 			Source: "manual", Agent: "my-agent", Tags: []string{"foo"}, Metadata: map[string]string{"k": "v"},
 		})
 		id := added.Entries[0].Entry.ID
 
-		resp, data := patch(id, srv.APIKey, map[string]any{"domain": "escrita:test-e2e-update-partial-new"})
+		resp, data := patch(id, srv.APIKey, map[string]any{"domain": "writing:test-e2e-update-partial-new"})
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("update: status %d, body %s", resp.StatusCode, data)
 		}
 		var updated apitypes.UpdateResponse
 		mustUnmarshal(t, data, &updated)
 
-		if updated.Domain != "escrita:test-e2e-update-partial-new" {
+		if updated.Domain != "writing:test-e2e-update-partial-new" {
 			t.Errorf("domain did not change: %q", updated.Domain)
 		}
-		if updated.DomainCategory != "escrita" {
+		if updated.DomainCategory != "writing" {
 			t.Errorf("domainCategory not recomputed: %q", updated.DomainCategory)
 		}
 		if updated.Content != "content that must not change" {
@@ -142,7 +142,7 @@ func TestEndToEndUpdate(t *testing.T) {
 
 	t.Run("clear tags/metadata/agent", func(t *testing.T) {
 		added := addOne(apitypes.AddRequest{
-			Content: "content to clear fields", Domain: "codigo:test-e2e-update-clear",
+			Content: "content to clear fields", Domain: "code:test-e2e-update-clear",
 			Agent: "my-agent", Tags: []string{"foo", "bar"}, Metadata: map[string]string{"k": "v"},
 		})
 		id := added.Entries[0].Entry.ID
@@ -170,7 +170,7 @@ func TestEndToEndUpdate(t *testing.T) {
 	})
 
 	t.Run("reembed: searching by the new content finds the entry", func(t *testing.T) {
-		domain := "codigo:test-e2e-update-reembed"
+		domain := "code:test-e2e-update-reembed"
 		added := addOne(apitypes.AddRequest{Content: "original content before the edit", Domain: domain})
 		id := added.Entries[0].Entry.ID
 
@@ -208,7 +208,7 @@ func TestEndToEndUpdate(t *testing.T) {
 		srvExtract := startServeWithExtraction(t, embed.URL, extract.URL)
 
 		addResp, data := doJSON(t, http.MethodPost, srvExtract.URL+"/api/v1/memories", srvExtract.APIKey, apitypes.AddRequest{
-			Content: "original content", Domain: "codigo:test-e2e-update-no-extract",
+			Content: "original content", Domain: "code:test-e2e-update-no-extract",
 		})
 		if addResp.StatusCode != http.StatusOK {
 			t.Fatalf("add: status %d, body %s", addResp.StatusCode, data)
@@ -233,9 +233,9 @@ func TestEndToEndUpdate(t *testing.T) {
 		}
 
 		// Count only this test's domain: the background self-indexing of the
-		// embedded docs (D25) also writes to the "codigo" category, so the
+		// embedded docs (D25) also writes to the "code" category, so the
 		// global category count is racy.
-		recentResp, data := doJSON(t, http.MethodGet, srvExtract.URL+"/api/v1/recent?domain=codigo:test-e2e-update-no-extract", srvExtract.APIKey, nil)
+		recentResp, data := doJSON(t, http.MethodGet, srvExtract.URL+"/api/v1/recent?domain=code:test-e2e-update-no-extract", srvExtract.APIKey, nil)
 		if recentResp.StatusCode != http.StatusOK {
 			t.Fatalf("recent: status %d, body %s", recentResp.StatusCode, data)
 		}

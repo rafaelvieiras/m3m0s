@@ -25,7 +25,7 @@ const (
 	exactGroupMembers = 4
 	scanChunk         = 512
 
-	noiseCategory = "codigo"
+	noiseCategory = "code"
 )
 
 // pacer keeps a background analysis polite: it checks for cancellation and, when

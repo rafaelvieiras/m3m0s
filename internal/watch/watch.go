@@ -27,7 +27,7 @@ import (
 // cmd/m3m0s, not of this package.
 type Config struct {
 	Root      string   // absolute watched directory
-	Domain    string   // already resolved: codigo:<basename> or explicit --domain
+	Domain    string   // already resolved: code:<basename> or explicit --domain
 	Allow     []string // globs relative to Root
 	Deny      []string // globs relative to Root — always wins over Allow
 	StatePath string   // path of the local state file

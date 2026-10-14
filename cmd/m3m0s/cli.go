@@ -29,7 +29,7 @@ func (s *stringSlice) Set(v string) error {
 // finds the first argument that does not start with "-" (documented
 // flag.Parse behavior) — and the CLI syntax described in
 // docs/api-contract.md puts the positional (content/query) BEFORE the
-// flags, e.g. `m3m0s add "<content>" --domain codigo:m3m0s`. Without this,
+// flags, e.g. `m3m0s add "<content>" --domain code:m3m0s`. Without this,
 // `fs.Parse` would never see "--domain" in that example. boolFlags lists
 // the flag names (without "-") that do not consume a separate value.
 func reorderFlagsFirst(args []string, boolFlags ...string) []string {

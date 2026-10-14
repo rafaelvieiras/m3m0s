@@ -40,7 +40,7 @@ func seedEntry(t *testing.T, s *MemoryStore, sd seed) schema.Entry {
 		sd.source = "claude-code"
 	}
 	if sd.domain == "" {
-		sd.domain = "codigo:proj"
+		sd.domain = "code:proj"
 	}
 	created := time.Now().Add(-sd.age)
 	md := map[string]string{}
@@ -109,7 +109,7 @@ func TestInsightsOverviewCountsAndForgettingMatchesSweep(t *testing.T) {
 	ref := extractedMD()
 
 	seedEntry(t, s, seed{id: "a1", content: "fresh extracted fact", md: ref, age: day})
-	seedEntry(t, s, seed{id: "a2", content: "old extracted fact never read", md: ref, age: 200 * day, domain: "codigo:other"})
+	seedEntry(t, s, seed{id: "a2", content: "old extracted fact never read", md: ref, age: 200 * day, domain: "code:other"})
 	seedEntry(t, s, seed{id: "a3", content: "old but pinned", md: extractedMD(metadataKeyPinned, "true"), age: 200 * day})
 	seedEntry(t, s, seed{id: "a4", content: "raw content", age: 200 * day, source: "selfdocs"})
 	seedEntry(t, s, seed{id: "a5", content: "expired", md: extractedMD(metadataKeyValidUntil, now.Add(-day).UTC().Format(time.RFC3339)), age: 3 * day})
@@ -127,7 +127,7 @@ func TestInsightsOverviewCountsAndForgettingMatchesSweep(t *testing.T) {
 	if math.Abs(tot.NeverAccessedPct-5.0/6.0*100) > 1e-9 {
 		t.Errorf("never accessed pct = %v", tot.NeverAccessedPct)
 	}
-	if ov.DomainCount != 2 || ov.TopDomains[0].Domain != "codigo:proj" || ov.TopDomains[0].Count != 5 {
+	if ov.DomainCount != 2 || ov.TopDomains[0].Domain != "code:proj" || ov.TopDomains[0].Count != 5 {
 		t.Errorf("domains = %+v", ov.TopDomains)
 	}
 	if len(ov.SoftDeletedByDay) != 2 {
@@ -171,11 +171,11 @@ func TestHygieneExactDuplicatesAndNoise(t *testing.T) {
 	day := 24 * time.Hour
 
 	// Identical after normalization: case, accents, punctuation, spacing.
-	seedEntry(t, s, seed{id: "x1", content: "The résumé of the café is defined in the project configuration.", md: ref, domain: "codigo:one"})
-	seedEntry(t, s, seed{id: "x2", content: "the resume of the cafe is defined in the project configuration", md: ref, domain: "codigo:two", source: "pi"})
+	seedEntry(t, s, seed{id: "x1", content: "The résumé of the café is defined in the project configuration.", md: ref, domain: "code:one"})
+	seedEntry(t, s, seed{id: "x2", content: "the resume of the cafe is defined in the project configuration", md: ref, domain: "code:two", source: "pi"})
 	seedEntry(t, s, seed{id: "x3", content: "A  lone fact that is long enough to avoid the short rule.", md: ref})
-	seedEntry(t, s, seed{id: "y1", content: "Same domain duplicate of a sufficiently long fact text!", md: ref, domain: "codigo:one"})
-	seedEntry(t, s, seed{id: "y2", content: "same domain duplicate of a sufficiently long fact text", md: ref, domain: "codigo:one"})
+	seedEntry(t, s, seed{id: "y1", content: "Same domain duplicate of a sufficiently long fact text!", md: ref, domain: "code:one"})
+	seedEntry(t, s, seed{id: "y2", content: "same domain duplicate of a sufficiently long fact text", md: ref, domain: "code:one"})
 	// Soft-deleted copies never count.
 	seedEntry(t, s, seed{id: "z1", content: "same domain duplicate of a sufficiently long fact text", md: extractedMD(metadataKeyDeletedAt, time.Now().UTC().Format(time.RFC3339))})
 
@@ -191,10 +191,10 @@ func TestHygieneExactDuplicatesAndNoise(t *testing.T) {
 	seedEntry(t, s, seed{id: "okA", content: "The release pipeline signs the checksums file with cosign after the tests pass.", md: ref}) // legit
 	seedEntry(t, s, seed{id: "nB2", content: "The summary below covers the earlier portion of the conversation.", md: extractedMD(metadataKeyAccessCount, "4")})
 	// Other category: scanned for duplicates but not for noise.
-	seedEntry(t, s, seed{id: "other", content: "The summary below covers the earlier portion of the conversation.", domain: "pessoal:diary", md: ref})
+	seedEntry(t, s, seed{id: "other", content: "The summary below covers the earlier portion of the conversation.", domain: "personal:diary", md: ref})
 	// A secret-bearing noise match counts but is never shown; phone numbers are masked.
 	seedEntry(t, s, seed{id: "sec", content: "O resumo cobre a parte anterior; token: sk-abcdefghijklmnopqrstuvwxyz0123456789", md: ref})
-	seedEntry(t, s, seed{id: "tel", content: "O texto descreve o contato +55 41 99999-8888 e o e-mail fulano@example.com do cliente.", md: ref})
+	seedEntry(t, s, seed{id: "tel", content: "The text describes the contact +55 41 99999-8888 and the e-mail someone@example.com of the client.", md: ref})
 
 	rep, err := runAnalysis(t, s, InsightsOptions{CPUPercent: 100})
 	if err != nil {
@@ -232,12 +232,12 @@ func TestHygieneExactDuplicatesAndNoise(t *testing.T) {
 		t.Errorf("unions = %+v", rep.Noise)
 	}
 	if rep.Noise.Scanned != 17 {
-		t.Errorf("noise scanned = %d, want 17 (codigo only)", rep.Noise.Scanned)
+		t.Errorf("noise scanned = %d, want 17 (code only)", rep.Noise.Scanned)
 	}
 
 	raw, _ := json.Marshal(rep)
 	js := string(raw)
-	for _, banned := range []string{"sk-abcdefgh", "99999-8888", "fulano@example.com", `"sec"`} {
+	for _, banned := range []string{"sk-abcdefgh", "99999-8888", "someone@example.com", `"sec"`} {
 		if strings.Contains(js, banned) {
 			t.Errorf("report leaks %q", banned)
 		}
@@ -261,14 +261,14 @@ func TestHygieneNearDuplicatesExactMode(t *testing.T) {
 	ref := extractedMD()
 
 	base := randUnit(r)
-	seedEntry(t, s, seed{id: "b0", content: "base fact 17", md: ref, domain: "codigo:one", vec: base})
-	seedEntry(t, s, seed{id: "b1", content: "base fact 17 again", md: ref, domain: "codigo:two", vec: withCosine(r, base, 0.99), source: "pi"})
+	seedEntry(t, s, seed{id: "b0", content: "base fact 17", md: ref, domain: "code:one", vec: base})
+	seedEntry(t, s, seed{id: "b1", content: "base fact 17 again", md: ref, domain: "code:two", vec: withCosine(r, base, 0.99), source: "pi"})
 	other := randUnit(r)
-	seedEntry(t, s, seed{id: "c0", content: "other fact", md: ref, domain: "codigo:one", vec: other})
-	seedEntry(t, s, seed{id: "c1", content: "other fact two", md: ref, domain: "codigo:one", vec: withCosine(r, other, 0.96)})
+	seedEntry(t, s, seed{id: "c0", content: "other fact", md: ref, domain: "code:one", vec: other})
+	seedEntry(t, s, seed{id: "c1", content: "other fact two", md: ref, domain: "code:one", vec: withCosine(r, other, 0.96)})
 	third := randUnit(r)
-	seedEntry(t, s, seed{id: "d0", content: "third fact 1", md: ref, domain: "codigo:one", vec: third})
-	seedEntry(t, s, seed{id: "d1", content: "third fact 2", md: ref, domain: "codigo:one", vec: withCosine(r, third, 0.935)})
+	seedEntry(t, s, seed{id: "d0", content: "third fact 1", md: ref, domain: "code:one", vec: third})
+	seedEntry(t, s, seed{id: "d1", content: "third fact 2", md: ref, domain: "code:one", vec: withCosine(r, third, 0.935)})
 	// A soft-deleted twin and unrelated noise vectors must not matter.
 	seedEntry(t, s, seed{id: "gone", content: "base fact 17", md: extractedMD(metadataKeyDeletedAt, time.Now().UTC().Format(time.RFC3339)), vec: withCosine(r, base, 0.999)})
 	for i := 0; i < 20; i++ {

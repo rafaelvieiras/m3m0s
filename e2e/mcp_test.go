@@ -165,7 +165,7 @@ func TestEndToEndMCP(t *testing.T) {
 		}
 	}
 
-	const domain = "codigo:test-e2e-mcp"
+	const domain = "code:test-e2e-mcp"
 	mcp.send(t, map[string]any{
 		"jsonrpc": "2.0", "id": 3, "method": "tools/call",
 		"params": map[string]any{

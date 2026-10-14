@@ -49,7 +49,7 @@ var addMemoryTool = chat.ToolDef{
 				},
 				"domain": {
 					"type": "string",
-					"description": "Domain in the format category:instance (e.g. codigo:m3m0s, pessoal:financas, cliente:acme; the category names are kept in Portuguese to match existing stored data). If the user does not specify one, use the current domain suggested in this conversation's context."
+					"description": "Domain in the format category:instance (e.g. code:m3m0s, personal:finances, client:acme). If the user does not specify one, use the current domain suggested in this conversation's context."
 				},
 				"tags": {
 					"type": "array",

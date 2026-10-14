@@ -45,7 +45,7 @@ func dimsEmbedServer(t *testing.T) *httptest.Server {
 
 func addNote(t *testing.T, s *MemoryStore, content string) {
 	t.Helper()
-	if _, err := s.Add(context.Background(), AddInput{Content: content, Domain: "pessoal:test"}, time.Now()); err != nil {
+	if _, err := s.Add(context.Background(), AddInput{Content: content, Domain: "personal:test"}, time.Now()); err != nil {
 		t.Fatalf("Add(%q): %v", content, err)
 	}
 }

@@ -31,7 +31,7 @@ func TestEndToEndGet(t *testing.T) {
 	}
 
 	t.Run("401 without key", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "content for auth test", Domain: "codigo:test-e2e-get-auth"})
+		added := addOne(apitypes.AddRequest{Content: "content for auth test", Domain: "code:test-e2e-get-auth"})
 		resp, _ := get(added.Entries[0].Entry.ID, "")
 		if resp.StatusCode != http.StatusUnauthorized {
 			t.Fatalf("expected 401, got %d", resp.StatusCode)
@@ -52,7 +52,7 @@ func TestEndToEndGet(t *testing.T) {
 
 	t.Run("200 returns the complete MemoryEntry, identical to add", func(t *testing.T) {
 		added := addOne(apitypes.AddRequest{
-			Content: "content for reading via memory_get", Domain: "codigo:test-e2e-get-ok",
+			Content: "content for reading via memory_get", Domain: "code:test-e2e-get-ok",
 			Source: "manual", Agent: "my-agent", Tags: []string{"foo", "bar"}, Metadata: map[string]string{"k": "v"},
 		})
 		want := added.Entries[0].Entry
@@ -94,7 +94,7 @@ func TestEndToEndGet(t *testing.T) {
 	})
 
 	t.Run("get after update reflects the latest value", func(t *testing.T) {
-		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "codigo:test-e2e-get-after-update"})
+		added := addOne(apitypes.AddRequest{Content: "original content", Domain: "code:test-e2e-get-after-update"})
 		id := added.Entries[0].Entry.ID
 
 		resp, data := doJSON(t, http.MethodPatch, srv.URL+"/api/v1/memories/"+id, srv.APIKey, map[string]any{

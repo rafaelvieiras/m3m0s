@@ -87,6 +87,38 @@ func ValidateDomain(domain string) error {
 	return nil
 }
 
+// legacyCategories maps the domain category names used before D48 (when they
+// were Portuguese) to the current English ones. They are still accepted on
+// input so existing clients, scripts and golden sets keep working.
+var legacyCategories = map[string]string{
+	"codigo":  "code",
+	"escrita": "writing",
+	"pessoal": "personal",
+	"cliente": "client",
+}
+
+// CanonicalCategory returns the current name of a domain category,
+// translating a legacy one.
+func CanonicalCategory(category string) string {
+	if c, ok := legacyCategories[category]; ok {
+		return c
+	}
+	return category
+}
+
+// CanonicalDomain returns domain with a legacy category translated
+// ("codigo:x" -> "code:x"). Anything else is returned unchanged.
+func CanonicalDomain(domain string) string {
+	idx := strings.IndexByte(domain, ':')
+	if idx < 0 {
+		return domain
+	}
+	if c, ok := legacyCategories[domain[:idx]]; ok {
+		return c + domain[idx:]
+	}
+	return domain
+}
+
 // DomainCategory extracts the category (text before ":") from an already
 // validated domain.
 func DomainCategory(domain string) string {

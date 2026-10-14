@@ -29,7 +29,7 @@ func TestProvenanceOverHTTP(t *testing.T) {
 		return resp, raw
 	}
 
-	resp, raw := call("POST", "/api/v1/memories", `{"content":"alpha fact about deploys","domain":"codigo:t","source":"opencode","model":"gpt-5","project":"m3m0s"}`)
+	resp, raw := call("POST", "/api/v1/memories", `{"content":"alpha fact about deploys","domain":"code:t","source":"opencode","model":"gpt-5","project":"m3m0s"}`)
 	if resp.StatusCode != 200 {
 		t.Fatalf("add: %d %s", resp.StatusCode, raw)
 	}
@@ -41,8 +41,8 @@ func TestProvenanceOverHTTP(t *testing.T) {
 	}
 
 	for _, body := range []string{
-		`{"content":"x","domain":"codigo:t","project":"Not A Slug"}`,
-		`{"content":"x","domain":"codigo:t","model":"two words"}`,
+		`{"content":"x","domain":"code:t","project":"Not A Slug"}`,
+		`{"content":"x","domain":"code:t","model":"two words"}`,
 	} {
 		if resp, raw := call("POST", "/api/v1/memories", body); resp.StatusCode != 400 || !strings.Contains(string(raw), "invalid_") {
 			t.Errorf("invalid provenance %s: %d %s", body, resp.StatusCode, raw)
@@ -50,7 +50,7 @@ func TestProvenanceOverHTTP(t *testing.T) {
 	}
 
 	// Filters on search and recent.
-	call("POST", "/api/v1/memories", `{"content":"beta fact about deploys","domain":"codigo:t","source":"claude-code"}`)
+	call("POST", "/api/v1/memories", `{"content":"beta fact about deploys","domain":"code:t","source":"claude-code"}`)
 	_, raw = call("POST", "/api/v1/search", `{"query":"fact about deploys","mode":"keyword","project":"m3m0s","scope":"project-only"}`)
 	var sr apitypes.SearchResponse
 	_ = json.Unmarshal(raw, &sr)

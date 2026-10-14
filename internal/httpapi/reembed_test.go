@@ -98,7 +98,7 @@ func TestReembedEndpointsEndToEnd(t *testing.T) {
 	}
 
 	for _, text := range []string{"a", "bb"} {
-		if code, body := doReq(t, base, rawKey, "POST", "/api/v1/memories", `{"content":"`+text+`","domain":"pessoal:test"}`); code/100 != 2 {
+		if code, body := doReq(t, base, rawKey, "POST", "/api/v1/memories", `{"content":"`+text+`","domain":"personal:test"}`); code/100 != 2 {
 			t.Fatalf("add %q = %d %s", text, code, body)
 		}
 	}

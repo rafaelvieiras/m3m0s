@@ -28,7 +28,7 @@ func TestClientAddReportsAcceptedWhenWaitTimesOut(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
 	defer cancel()
-	_, err := New(srv.URL, "k").Add(ctx, apitypes.AddRequest{Content: "c", Domain: "codigo:x"})
+	_, err := New(srv.URL, "k").Add(ctx, apitypes.AddRequest{Content: "c", Domain: "code:x"})
 	if !IsAccepted(err) {
 		t.Fatalf("want AcceptedError, got %v", err)
 	}
@@ -39,7 +39,7 @@ func TestClientAddUnreachableIsNotAccepted(t *testing.T) {
 	srv := httptest.NewServer(http.NotFoundHandler())
 	url := srv.URL
 	srv.Close()
-	_, err := New(url, "k").Add(context.Background(), apitypes.AddRequest{Content: "c", Domain: "codigo:x"})
+	_, err := New(url, "k").Add(context.Background(), apitypes.AddRequest{Content: "c", Domain: "code:x"})
 	if err == nil || IsAccepted(err) {
 		t.Fatalf("want a plain transport error, got %v", err)
 	}

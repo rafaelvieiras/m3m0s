@@ -30,7 +30,7 @@ var domainSanitizeRe = regexp.MustCompile(`[^a-z0-9._-]+`)
 // of `serve`, it never touches storage directly.
 func runWatch(ctx context.Context, args []string) error {
 	fs := flag.NewFlagSet("watch", flag.ExitOnError)
-	domain := fs.String("domain", "", "domain in the format category:instance (default: codigo:<root basename>)")
+	domain := fs.String("domain", "", "domain in the format category:instance (default: code:<root basename>)")
 	statePath := fs.String("state", "", "path of the local state file (default: ~/.m3m0s/watch/<hash>.json)")
 	var allow stringSlice
 	fs.Var(&allow, "allow", fmt.Sprintf("glob to index (repeatable; default: %s)", strings.Join(defaultAllow, ", ")))
@@ -50,7 +50,7 @@ func runWatch(ctx context.Context, args []string) error {
 
 	resolvedDomain := *domain
 	if resolvedDomain == "" {
-		resolvedDomain = "codigo:" + sanitizeDomainInstance(filepath.Base(root))
+		resolvedDomain = "code:" + sanitizeDomainInstance(filepath.Base(root))
 	}
 
 	resolvedAllow := []string(allow)

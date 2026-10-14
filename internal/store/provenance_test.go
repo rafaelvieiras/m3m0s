@@ -19,7 +19,7 @@ func newKeywordStore(t *testing.T) *MemoryStore {
 
 func addProv(t *testing.T, s *MemoryStore, content, source, model, project string) AddedEntry {
 	t.Helper()
-	out, err := s.Add(context.Background(), AddInput{Content: content, Domain: "codigo:t", Source: source, Model: model, Project: project}, time.Now())
+	out, err := s.Add(context.Background(), AddInput{Content: content, Domain: "code:t", Source: source, Model: model, Project: project}, time.Now())
 	if err != nil {
 		t.Fatalf("Add(%q): %v", content, err)
 	}
@@ -38,7 +38,7 @@ func TestProvenanceIsStoredAndFilterable(t *testing.T) {
 	}
 
 	ids := func(f Filter) []string {
-		f.Domain, f.Mode = "codigo:t", ModeKeyword
+		f.Domain, f.Mode = "code:t", ModeKeyword
 		res, err := s.Search(context.Background(), "deploy notes", 10, f, time.Now())
 		if err != nil {
 			t.Fatal(err)
@@ -85,8 +85,8 @@ func TestProvenanceValidationAndUpdate(t *testing.T) {
 	s := newKeywordStore(t)
 	ctx := context.Background()
 	for _, in := range []AddInput{
-		{Content: "x", Domain: "codigo:t", Project: "Bad Project"},
-		{Content: "x", Domain: "codigo:t", Model: "has space"},
+		{Content: "x", Domain: "code:t", Project: "Bad Project"},
+		{Content: "x", Domain: "code:t", Model: "has space"},
 	} {
 		var verr *ValidationError
 		if _, err := s.Add(ctx, in, time.Now()); !errors.As(err, &verr) {

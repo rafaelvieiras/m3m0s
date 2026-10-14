@@ -13,7 +13,7 @@ A JSON file listing queries and the entry ids a good search must surface:
 ```json
 {
   "queries": [
-    { "query": "why was CI red on the last merge", "domain": "codigo:myrepo", "expect": ["mem_AbC123"] }
+    { "query": "why was CI red on the last merge", "domain": "code:myrepo", "expect": ["mem_AbC123"] }
   ]
 }
 ```

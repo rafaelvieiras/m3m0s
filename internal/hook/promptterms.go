@@ -1,41 +1,55 @@
 package hook
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"unicode"
 )
 
-// genericWords are words that carry no topic: PT/EN function words plus the
-// workflow vocabulary of "do the next thing" prompts (merge, deploy, seguir,
-// commit...). A prompt made only of these ("pode fazer merge e deploy")
+// genericWords are words that carry no topic: English function words plus the
+// workflow vocabulary of "do the next thing" prompts (merge, deploy, commit,
+// ...). A prompt made only of these ("please merge and deploy")
 // matches generic memories from any project at a high cosine (D47), so it
 // gets no injection.
 var genericWords = func() map[string]bool {
 	m := map[string]bool{}
 	for _, w := range strings.Fields(`
-a o as os um uma uns umas de do da dos das em no na nos nas por para pra com sem sob sobre entre
-e ou mas que se como quando onde qual quais quem isso isto esse essa esses essas aquilo este esta
-eu voce vc ele ela nos eles elas meu minha seu sua nosso nossa me te lhe
-ja so tambem mais menos muito pouco bem mal aqui ali la agora depois antes ainda sempre nunca
-sim nao ok certo beleza blz valeu obrigado obrigada por favor pfv
-ser estar ter ha foi era sao esta estao tem tinha fazer faca faz feito fazendo fez
-pode podem poder podemos posso vamos vai vao ir quero queria preciso precisa deve devemos
-seguir segue siga continue continuar proximo proxima proximos seguinte sequencia passo item itens
-ver veja olhar olha checar checa conferir validar valida verificar
-comecar comeca comece iniciar inicia terminar termina acabar finalizar
-mergear merge mergeie deploy deployar subir sobe suba commit commitar push pr pull request branch
-rodar rode roda executar execute executa testar teste testes tests build compilar
-pronto feito fim ultimo ultima primeiro primeira segundo segunda outro outra todo toda tudo nada algo
-coisa coisas parte partes forma jeito tipo caso vez vezes
-the a an and or but if then this that these those it its is are was were be been being to of in on at by for with from as
-do does did done can could should would will shall may might must have has had
-please yes no ok okay go ahead next continue proceed start run make let lets us now look see check just also about then first last
-merge deploy commit push pull request branch build test tests fix
+a an the and or but if then than so as at by for from in into of on to with without about over under
+i you he she it we they me my your his her its our their this that these those there here
+is are was were be been being am do does did done can could should would will shall may might must have has had
+what which who whom whose when where why how not no yes ok okay
+please go ahead next continue proceed start begin run make let lets us now look see check just also first last
+more most less very much many some any all each every other another same such only own too
+merge deploy commit push pull request branch build test tests fix review validate verify
+done finish finished ready item items step steps thing things part parts way case time times
 `) {
+		m[w] = true
+	}
+	for _, w := range extraStopwords() {
 		m[w] = true
 	}
 	return m
 }()
+
+// extraStopwords reads optional extra generic words (any language) from the
+// file named by M3M0S_PROMPT_STOPWORDS, or ~/.m3m0s/prompt-stopwords.txt:
+// whitespace-separated, accents folded. The built-in list is English only.
+func extraStopwords() []string {
+	path := os.Getenv("M3M0S_PROMPT_STOPWORDS")
+	if path == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil
+		}
+		path = filepath.Join(home, ".m3m0s", "prompt-stopwords.txt")
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil
+	}
+	return strings.Fields(foldText(string(data)))
+}
 
 // foldAccents maps the accented letters of Portuguese to ASCII so terms
 // match regardless of accents.

@@ -23,7 +23,7 @@ func TestProvenanceMigrationKeepsExistingRowsAndRoundTrips(t *testing.T) {
 	}
 	now := time.Now().UTC().Format(timeLayout)
 	if _, err := db.sql.ExecContext(ctx, `INSERT INTO entries (id, content, domain, domain_category, source, tags_json, metadata_json, created_at, updated_at)
-		VALUES ('old', 'legacy entry', 'codigo:x', 'codigo', 'manual', '[]', '{}', ?, ?)`, now, now); err != nil {
+		VALUES ('old', 'legacy entry', 'code:x', 'code', 'manual', '[]', '{}', ?, ?)`, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if err := goose.Up(db.sql, "migrations"); err != nil {
@@ -40,7 +40,7 @@ func TestProvenanceMigrationKeepsExistingRowsAndRoundTrips(t *testing.T) {
 
 	model, project := "claude-sonnet-5-5", "m3m0s"
 	t0 := time.Now().UTC()
-	if err := db.UpsertEntry(ctx, EntryRow{ID: "new", Content: "c", Domain: "codigo:x", DomainCategory: "codigo", Source: "claude-code", Model: &model, Project: &project, CreatedAt: t0, UpdatedAt: t0}); err != nil {
+	if err := db.UpsertEntry(ctx, EntryRow{ID: "new", Content: "c", Domain: "code:x", DomainCategory: "code", Source: "claude-code", Model: &model, Project: &project, CreatedAt: t0, UpdatedAt: t0}); err != nil {
 		t.Fatal(err)
 	}
 	rows, err = db.LoadAllEntries(ctx)

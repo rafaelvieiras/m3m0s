@@ -34,13 +34,13 @@ func TestCaptureFlagControlsBoilerplateFilterOverHTTP(t *testing.T) {
 	const digest = "[user]\\nThis session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.\\n\\nSummary: synthetic."
 
 	var captured apitypes.AddResponse
-	_ = json.Unmarshal(call("POST", "/api/v1/memories", `{"content":"`+digest+`","domain":"codigo:t","source":"claude-code","capture":true}`), &captured)
+	_ = json.Unmarshal(call("POST", "/api/v1/memories", `{"content":"`+digest+`","domain":"code:t","source":"claude-code","capture":true}`), &captured)
 	if len(captured.Entries) != 0 || captured.Filtered != 1 {
 		t.Fatalf("captured boilerplate was stored: %+v", captured)
 	}
 
 	var explicit apitypes.AddResponse
-	_ = json.Unmarshal(call("POST", "/api/v1/memories", `{"content":"`+digest+`","domain":"codigo:t","source":"manual"}`), &explicit)
+	_ = json.Unmarshal(call("POST", "/api/v1/memories", `{"content":"`+digest+`","domain":"code:t","source":"manual"}`), &explicit)
 	if len(explicit.Entries) != 1 || explicit.Filtered != 0 {
 		t.Fatalf("explicit write was filtered: %+v", explicit)
 	}

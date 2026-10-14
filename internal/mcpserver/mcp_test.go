@@ -64,8 +64,8 @@ func fakeServe(t *testing.T) *httptest.Server {
 			return
 		}
 		resp := apitypes.SearchResponse{
-			Results:      []schema.Entry{{ID: "mem_test0002", Content: "search result", Domain: "codigo:m3m0s", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}},
-			ContextBlock: "## Relevant memories\n\n1. [0.90] codigo:m3m0s (manual, 2026-07-15)\n   search result",
+			Results:      []schema.Entry{{ID: "mem_test0002", Content: "search result", Domain: "code:m3m0s", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}},
+			ContextBlock: "## Relevant memories\n\n1. [0.90] code:m3m0s (manual, 2026-07-15)\n   search result",
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
@@ -75,7 +75,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 			return
 		}
 		resp := apitypes.RecentResponse{
-			Results: []schema.Entry{{ID: "mem_test0003", Content: "recent memory", Domain: "codigo:m3m0s", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}},
+			Results: []schema.Entry{{ID: "mem_test0003", Content: "recent memory", Domain: "code:m3m0s", Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now}},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
 	})
@@ -86,7 +86,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 		}
 		extractModel := "fake-extract-model"
 		resp := apitypes.StatsResponse{
-			Count: 3, CountByDomainCategory: map[string]int{"codigo": 3}, Backend: "fake", Model: "fake-model",
+			Count: 3, CountByDomainCategory: map[string]int{"code": 3}, Backend: "fake", Model: "fake-model",
 			Extraction: apitypes.ExtractionInfo{Enabled: true, Model: &extractModel},
 		}
 		_ = json.NewEncoder(w).Encode(resp)
@@ -100,7 +100,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 		var req apitypes.UpdateRequest
 		_ = json.NewDecoder(r.Body).Decode(&req)
 		entry := schema.Entry{
-			ID: id, Content: "updated content", Domain: "codigo:m3m0s", DomainCategory: "codigo",
+			ID: id, Content: "updated content", Domain: "code:m3m0s", DomainCategory: "code",
 			Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now,
 		}
 		_ = json.NewEncoder(w).Encode(entry)
@@ -120,7 +120,7 @@ func fakeServe(t *testing.T) *httptest.Server {
 			return
 		}
 		entry := schema.Entry{
-			ID: id, Content: "content read via memory_get", Domain: "codigo:m3m0s", DomainCategory: "codigo",
+			ID: id, Content: "content read via memory_get", Domain: "code:m3m0s", DomainCategory: "code",
 			Source: "manual", Tags: []string{}, Metadata: map[string]string{}, CreatedAt: now, UpdatedAt: now,
 		}
 		_ = json.NewEncoder(w).Encode(entry)
@@ -230,7 +230,7 @@ func TestToolsCallMemoryAdd(t *testing.T) {
 
 	params := map[string]any{
 		"name":      "memory_add",
-		"arguments": map[string]any{"content": "test content", "domain": "codigo:m3m0s"},
+		"arguments": map[string]any{"content": "test content", "domain": "code:m3m0s"},
 	}
 	responses := runLines(t, []string{rpcCall(t, 1, "tools/call", params)})
 	result := responses[0]["result"].(map[string]any)
@@ -482,7 +482,7 @@ func TestReadOnlyHidesAndRejectsWriteTools(t *testing.T) {
 
 	resp := runLines(t, []string{
 		`{"jsonrpc":"2.0","id":1,"method":"tools/list"}`,
-		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"memory_add","arguments":{"content":"x","domain":"codigo:t","source":"manual"}}}`,
+		`{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"memory_add","arguments":{"content":"x","domain":"code:t","source":"manual"}}}`,
 	})
 	if len(resp) != 2 {
 		t.Fatalf("got %d responses", len(resp))

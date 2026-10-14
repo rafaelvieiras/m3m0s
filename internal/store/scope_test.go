@@ -9,7 +9,7 @@ import (
 
 func recallIDs(t *testing.T, s *MemoryStore, f Filter) map[string]bool {
 	t.Helper()
-	f.Domain, f.Mode = "codigo:t", ModeKeyword
+	f.Domain, f.Mode = "code:t", ModeKeyword
 	res, err := s.Search(context.Background(), "build tooling notes", 20, f, time.Now())
 	if err != nil {
 		t.Fatal(err)
@@ -99,7 +99,7 @@ func TestRelatedExpansionRespectsScope(t *testing.T) {
 	}
 	link(a.Entry.ID, b.Entry.ID)
 
-	res, err := s.Search(ctx, "alpha topic", 5, Filter{Domain: "codigo:t", Mode: ModeKeyword, Project: "proj-a"}, time.Now())
+	res, err := s.Search(ctx, "alpha topic", 5, Filter{Domain: "code:t", Mode: ModeKeyword, Project: "proj-a"}, time.Now())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -108,7 +108,7 @@ func TestRelatedExpansionRespectsScope(t *testing.T) {
 			t.Fatalf("project b entry leaked through related_to into proj-a recall: %+v", res)
 		}
 	}
-	res, _ = s.Search(ctx, "alpha topic", 5, Filter{Domain: "codigo:t", Mode: ModeKeyword}, time.Now())
+	res, _ = s.Search(ctx, "alpha topic", 5, Filter{Domain: "code:t", Mode: ModeKeyword}, time.Now())
 	found := false
 	for _, e := range res {
 		found = found || e.ID == b.Entry.ID
@@ -137,7 +137,7 @@ func TestProjectEntryOverridesContradictedGlobalEntry(t *testing.T) {
 
 	add := func(content, project string) AddedEntry {
 		t.Helper()
-		out, err := s.Add(ctx, AddInput{Content: content, Domain: "codigo:t", Source: "manual", Project: project}, time.Now())
+		out, err := s.Add(ctx, AddInput{Content: content, Domain: "code:t", Source: "manual", Project: project}, time.Now())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -154,7 +154,7 @@ func TestProjectEntryOverridesContradictedGlobalEntry(t *testing.T) {
 	}
 
 	has := func(f Filter, id string) bool {
-		f.Domain, f.Mode = "codigo:t", ModeKeyword
+		f.Domain, f.Mode = "code:t", ModeKeyword
 		res, err := s.Search(ctx, "the build uses", 10, f, time.Now())
 		if err != nil {
 			t.Fatal(err)

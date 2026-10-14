@@ -43,7 +43,7 @@ func TestInsightsEndpointsEndToEnd(t *testing.T) {
 	}
 
 	for _, text := range []string{"a", "bb", "bb ", "ccc token: hunter2hunter2"} {
-		body, _ := json.Marshal(map[string]string{"content": text, "domain": "codigo:test"})
+		body, _ := json.Marshal(map[string]string{"content": text, "domain": "code:test"})
 		if code, out := doReq(t, base, rawKey, "POST", "/api/v1/memories", string(body)); code/100 != 2 {
 			t.Fatalf("add %q = %d %s", text, code, out)
 		}

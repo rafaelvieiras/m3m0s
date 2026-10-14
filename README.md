@@ -98,8 +98,8 @@ Point the clients at the server:
 export M3M0S_URL=http://localhost:19234
 export M3M0S_API_KEY=<the key from the first start>
 
-m3m0s add "We use SQLite with versioned migrations" --domain codigo:myproject
-m3m0s search "which database do we use?" --domain codigo:myproject
+m3m0s add "We use SQLite with versioned migrations" --domain code:myproject
+m3m0s search "which database do we use?" --domain code:myproject
 ```
 
 Register the MCP bridge in your agent host as a stdio server with

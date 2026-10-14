@@ -20,7 +20,7 @@ func addText(t *testing.T, s *MemoryStore, domain, content string) AddOutput {
 
 func searchIDs(t *testing.T, s *MemoryStore, query, mode string) []string {
 	t.Helper()
-	res, err := s.Search(context.Background(), query, 5, Filter{Domain: "codigo:t", Mode: mode}, time.Now())
+	res, err := s.Search(context.Background(), query, 5, Filter{Domain: "code:t", Mode: mode}, time.Now())
 	if err != nil {
 		t.Fatalf("Search(%q, %s): %v", query, mode, err)
 	}
@@ -53,9 +53,9 @@ func TestKeywordOnlyServerAddsDedupsAndSearches(t *testing.T) {
 		t.Fatal("no key must mean keyword-only")
 	}
 
-	a := addText(t, s, "codigo:t", "The deploy runs on the living room notebook")
-	addText(t, s, "codigo:t", "Carrot cake recipe with chocolate")
-	again := addText(t, s, "codigo:t", "The deploy runs on the living room notebook")
+	a := addText(t, s, "code:t", "The deploy runs on the living room notebook")
+	addText(t, s, "code:t", "Carrot cake recipe with chocolate")
+	again := addText(t, s, "code:t", "The deploy runs on the living room notebook")
 	if len(a.Entries) != 1 || len(again.Entries) != 1 || !again.Entries[0].Deduped || again.Entries[0].Entry.ID != a.Entries[0].Entry.ID {
 		t.Fatalf("exact duplicate should dedup to the same entry: %+v / %+v", a, again)
 	}
@@ -63,7 +63,7 @@ func TestKeywordOnlyServerAddsDedupsAndSearches(t *testing.T) {
 		t.Fatalf("entries = %d, want 2", n)
 	}
 
-	res, err := s.Search(context.Background(), "notebook deploy", 5, Filter{Domain: "codigo:t"}, time.Now())
+	res, err := s.Search(context.Background(), "notebook deploy", 5, Filter{Domain: "code:t"}, time.Now())
 	if err != nil || len(res) != 1 || res[0].ID != a.Entries[0].Entry.ID {
 		t.Fatalf("keyword search = %+v (%v)", res, err)
 	}
@@ -90,13 +90,13 @@ func TestHybridFallsBackToKeywordWhenEmbeddingFails(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.db.Close() })
-	e := addText(t, s, "codigo:t", "Authelia protects the web interface")
+	e := addText(t, s, "code:t", "Authelia protects the web interface")
 
 	failing.Store(true)
 	if ids := searchIDs(t, s, "authelia interface", ""); !contains(ids, e.Entries[0].Entry.ID) {
 		t.Errorf("hybrid should fall back to keyword, got %v", ids)
 	}
-	if _, err := s.Search(context.Background(), "authelia", 5, Filter{Domain: "codigo:t", Mode: ModeVector}, time.Now()); err == nil {
+	if _, err := s.Search(context.Background(), "authelia", 5, Filter{Domain: "code:t", Mode: ModeVector}, time.Now()); err == nil {
 		t.Error("explicit vector mode should surface the embedding error")
 	}
 }
@@ -106,9 +106,9 @@ func TestHybridFallsBackToKeywordWhenEmbeddingFails(t *testing.T) {
 func TestHybridFindsExactTermsThatVectorsMiss(t *testing.T) {
 	s := newTestStore(t)
 	for i := 0; i < 40; i++ {
-		addText(t, s, "codigo:t", "filler note number "+string(rune('a'+i%26))+string(rune('A'+i/26))+" about nothing in particular")
+		addText(t, s, "code:t", "filler note number "+string(rune('a'+i%26))+string(rune('A'+i/26))+" about nothing in particular")
 	}
-	target := addText(t, s, "codigo:t", "zebracorn is the codename of the migration")
+	target := addText(t, s, "code:t", "zebracorn is the codename of the migration")
 
 	if ids := searchIDs(t, s, "zebracorn", ModeKeyword); len(ids) == 0 || ids[0] != target.Entries[0].Entry.ID {
 		t.Fatalf("keyword mode = %v", ids)
@@ -132,7 +132,7 @@ func TestAddEmbedsContentOnlyOnce(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { _ = s.db.Close() })
-	addText(t, s, "codigo:t", "a single fact")
+	addText(t, s, "code:t", "a single fact")
 	if got := calls.Load(); got != 1 {
 		t.Errorf("embedding calls for one Add = %d, want 1", got)
 	}

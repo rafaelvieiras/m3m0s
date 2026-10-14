@@ -74,7 +74,7 @@ func TestReplayDrainsSpoolWhenServerAnswersSlowly(t *testing.T) {
 	home := t.TempDir()
 	now := time.Now()
 	for i := 0; i < 3; i++ {
-		if _, err := Enqueue(home, apitypes.AddRequest{Content: "c" + string(rune('a'+i)), Domain: "codigo:x"}, context.DeadlineExceeded, now.Add(time.Duration(i))); err != nil {
+		if _, err := Enqueue(home, apitypes.AddRequest{Content: "c" + string(rune('a'+i)), Domain: "code:x"}, context.DeadlineExceeded, now.Add(time.Duration(i))); err != nil {
 			t.Fatal(err)
 		}
 	}

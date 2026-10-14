@@ -69,7 +69,7 @@ func TestEmbeddingConfigEndpoints(t *testing.T) {
 	}
 
 	// With stored vectors, a model change needs confirm_reembed.
-	if _, err := srv.store.Add(context.Background(), store.AddInput{Content: "a stored note", Domain: "pessoal:test"}, time.Now()); err != nil {
+	if _, err := srv.store.Add(context.Background(), store.AddInput{Content: "a stored note", Domain: "personal:test"}, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	change := `{"enabled":true,"model":"other-model","dimensions":4}`

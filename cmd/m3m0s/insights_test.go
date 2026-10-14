@@ -28,7 +28,7 @@ func TestInsightsShow(t *testing.T) {
 						{Kind: "noise", Eligible: 0, Legacy: []int{0, 0, 0, 0}, PerKind: []int{0, 0, 0, 0}},
 					},
 				}},
-			TopDomains: []apitypes.DomainStat{{Domain: "codigo:x", Count: 10}},
+			TopDomains: []apitypes.DomainStat{{Domain: "code:x", Count: 10}},
 		})
 	})
 	mux.HandleFunc("/api/v1/insights/hygiene", func(w http.ResponseWriter, r *http.Request) {
@@ -36,7 +36,7 @@ func TestInsightsShow(t *testing.T) {
 			ComputedAt: time.Now(), Scanned: 10,
 			Exact: apitypes.ExactDupReport{Groups: 1, Redundant: 1},
 			Near:  apitypes.NearDupReport{Available: true, Thresholds: []apitypes.NearDupThreshold{{Threshold: 0.98, Pairs: 2}}},
-			Noise: apitypes.NoiseReport{Category: "codigo", ConservativeUnion: 4},
+			Noise: apitypes.NoiseReport{Category: "code", ConservativeUnion: 4},
 		}})
 	})
 	srv := httptest.NewServer(mux)
