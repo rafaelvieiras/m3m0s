@@ -76,6 +76,8 @@ type Payload struct {
 	Cwd            string `json:"cwd"`
 	HookEventName  string `json:"hook_event_name"`
 	Source         string `json:"source"`
+	// Prompt is the text of a UserPromptSubmit event (D44).
+	Prompt string `json:"prompt"`
 }
 
 // DomainFunc derives the domain from the cwd received in the payload.
@@ -93,6 +95,10 @@ type Deps struct {
 	Getenv    func(string) string                         // os.Getenv in production
 	Domain    DomainFunc                                  // derives the domain from payload.Cwd
 	NewClient func(baseURL, apiKey string) *client.Client // client.New in production; injectable to point at an httptest.Server in tests
+	// PromptInject makes a UserPromptSubmit event run the synchronous read
+	// path (RunPromptSearch, D44) instead of the async capture path. Set by
+	// `m3m0s hook claude-code --inject`.
+	PromptInject bool
 }
 
 // Run dispatches `m3m0s hook claude-code` according to payload.HookEventName:
@@ -111,6 +117,10 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 
 	if payload.HookEventName == "SessionStart" {
 		RunSessionStart(ctx, payload, deps)
+		return
+	}
+	if payload.HookEventName == "UserPromptSubmit" && deps.PromptInject {
+		RunPromptSearch(ctx, payload, deps)
 		return
 	}
 
