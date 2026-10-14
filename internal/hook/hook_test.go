@@ -490,3 +490,21 @@ func TestRunStopsAtCaptureDeadlineAndSpools(t *testing.T) {
 		t.Fatalf("expected the digest to be spooled, got %d files (stderr: %s)", len(names), stderr.String())
 	}
 }
+
+func TestParseLineAcceptsPiMessageLines(t *testing.T) {
+	user := `{"type":"message","message":{"role":"user","content":[{"type":"text","text":"hello from pi"}]}}`
+	asst := `{"type":"message","message":{"role":"assistant","model":"cc/claude-sonnet-5","content":[{"type":"text","text":"hi"},{"type":"thinking","text":"x"}]}}`
+	sys := `{"type":"message","message":{"role":"system","content":"You are an expert coding assistant"}}`
+	custom := `{"type":"custom_message","message":{"role":"user","content":"injected"}}`
+	if m, ok := ParseLine([]byte(user)); !ok || m.Role != "user" || m.Text != "hello from pi" {
+		t.Fatalf("user: %+v %v", m, ok)
+	}
+	if m, ok := ParseLine([]byte(asst)); !ok || m.Role != "assistant" || m.Model != "cc/claude-sonnet-5" || m.Text != "hi" {
+		t.Fatalf("assistant: %+v %v", m, ok)
+	}
+	for _, l := range []string{sys, custom} {
+		if _, ok := ParseLine([]byte(l)); ok {
+			t.Fatalf("must be skipped: %s", l)
+		}
+	}
+}

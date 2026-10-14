@@ -20,6 +20,16 @@ import (
 // by this hook (D14).
 const ClaudeCodeSource = "claude-code"
 
+// captureSource is the source of captured memories: M3M0S_HOOK_SOURCE (set by
+// non-Claude-Code clients that reuse this pipeline, e.g. "pi", D46) or
+// ClaudeCodeSource.
+func captureSource(getenv func(string) string) string {
+	if v := strings.TrimSpace(getenv("M3M0S_HOOK_SOURCE")); v != "" {
+		return v
+	}
+	return ClaudeCodeSource
+}
+
 // replayPerHook bounds how many spooled payloads one hook run retries, so a
 // large backlog never stalls the host agent.
 const replayPerHook = 5
@@ -220,7 +230,7 @@ func Run(ctx context.Context, stdin io.Reader, deps Deps) {
 		down = Replay(ctx, deps.HomeDir, c, replayPerHook, now).Unreachable
 	}
 	for i, chunk := range chunks {
-		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: ClaudeCodeSource, Model: model, Project: project, Capture: true}
+		req := apitypes.AddRequest{Content: chunk, Domain: domain, Source: captureSource(deps.Getenv), Model: model, Project: project, Capture: true}
 		var sendErr error
 		if down {
 			sendErr = errors.New("server unavailable")

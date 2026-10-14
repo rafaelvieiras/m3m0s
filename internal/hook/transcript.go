@@ -58,7 +58,10 @@ func ParseLine(raw []byte) (TranscriptMessage, bool) {
 	if err := json.Unmarshal(raw, &line); err != nil {
 		return TranscriptMessage{}, false
 	}
-	if line.Type != "user" && line.Type != "assistant" {
+	// Claude Code writes "user"/"assistant" lines; pi writes "message" lines
+	// whose body carries the role (D46). pi's system/custom entries are
+	// dropped below by the role check.
+	if line.Type != "user" && line.Type != "assistant" && line.Type != "message" {
 		return TranscriptMessage{}, false
 	}
 	if len(line.Message) == 0 {
@@ -73,6 +76,9 @@ func ParseLine(raw []byte) (TranscriptMessage, bool) {
 	role := msg.Role
 	if role == "" {
 		role = line.Type
+	}
+	if role != "user" && role != "assistant" {
+		return TranscriptMessage{}, false
 	}
 
 	text := extractContentText(msg.Content)
