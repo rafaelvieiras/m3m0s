@@ -167,7 +167,8 @@ type MemoryStore struct {
 	index                   map[string]schema.Entry // in-memory cache, without embedding — reloaded from SQLite at boot
 	vecs                    *vecIndex               // compact int8 vector index for candidate selection (F5)
 	dataDir                 string
-	tokensSavedByCompaction int64 // telemetry (GET /stats) — see recordCompactionSavings
+	vocabState              vocabState // query-term correction vocabulary (D51)
+	tokensSavedByCompaction int64      // telemetry (GET /stats) — see recordCompactionSavings
 }
 
 // DB returns the underlying *sqlstore.DB (D28) — used by
@@ -1374,6 +1375,14 @@ func matchesTags(e schema.Entry, tags []string) bool {
 // filter chromem-go received via `where`); DomainCategory/Source/Agent/Tags
 // remain a post-filter in Go, as before.
 func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filter Filter, now time.Time) ([]schema.Entry, error) {
+	out, _, err := s.SearchCorrected(ctx, query, limit, filter, now)
+	return out, err
+}
+
+// SearchCorrected is Search plus the query actually searched when misspelled
+// terms were repaired (D51); the second result is "" when the query was used
+// as typed.
+func (s *MemoryStore) SearchCorrected(ctx context.Context, query string, limit int, filter Filter, now time.Time) ([]schema.Entry, string, error) {
 	filter.Domain = schema.CanonicalDomain(filter.Domain)
 	filter.DomainCategory = schema.CanonicalCategory(filter.DomainCategory)
 	if limit <= 0 {
@@ -1383,6 +1392,12 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 	mode := filter.Mode
 	if mode == "" {
 		mode = ModeHybrid
+	}
+	// Misspelled names are repaired against the store vocabulary: the
+	// corrected text is embedded, and the keyword side searches both forms.
+	typed, keywordText, correctedQuery := query, query, ""
+	if corrected, subs := s.correctQuery(ctx, query); len(subs) > 0 {
+		query, keywordText, correctedQuery = corrected, typed+" "+corrected, corrected
 	}
 	var queryVec []float32
 	if mode != ModeKeyword {
@@ -1397,14 +1412,14 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 				}
 				queryVec, mode = nil, ModeKeyword
 			} else {
-				return nil, fmt.Errorf("generate embedding: %w", err)
+				return nil, "", fmt.Errorf("generate embedding: %w", err)
 			}
 		}
 	}
 
 	// filter.Domain empty sweeps every domain in one pass of the vector
 	// index (docs/api-contract.md recommends always providing it).
-	scores, err := s.collectCandidates(ctx, filter.Domain, query, queryVec, limit, mode, func(e schema.Entry) bool {
+	scores, err := s.collectCandidates(ctx, filter.Domain, keywordText, queryVec, limit, mode, func(e schema.Entry) bool {
 		if filter.DomainCategory != "" && e.DomainCategory != filter.DomainCategory {
 			return false
 		}
@@ -1429,7 +1444,7 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 		return !isExpired(e, now) && !isSoftDeleted(e)
 	})
 	if err != nil {
-		return nil, fmt.Errorf("search query: %w", err)
+		return nil, "", fmt.Errorf("search query: %w", err)
 	}
 
 	out := make([]schema.Entry, 0, limit)
@@ -1461,7 +1476,7 @@ func (s *MemoryStore) Search(ctx context.Context, query string, limit int, filte
 		s.touchAccess(ctx, id, now)
 	}
 
-	return s.externalizeEntries(ctx, out), nil
+	return s.externalizeEntries(ctx, out), correctedQuery, nil
 }
 
 // Recent lists the most recent memories from the own index — SQLite is
