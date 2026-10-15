@@ -1,26 +1,34 @@
-"""m3m0s-memory: long-term memory for a Hermes agent (D50).
+"""m3m0s-memory: long-term memory for a Hermes agent, as a MemoryProvider (D50).
 
-Reuses the `m3m0s` binary, so the relevance gates, redaction, checkpoints and
-the durable queue are the ones every other client uses:
+Hermes wraps what a memory provider returns from prefetch() in a fenced
+<memory-context> block marked "NOT new user input" before appending it to the
+user message. A plain pre_llm_call hook skips that fence, and a model can then
+treat the user message as empty - so recall must go through a provider.
 
-- pre_llm_call: `m3m0s hook claude-code --inject` with the user message;
-  the relevant memories come back as {"context": ...}.
-- post_llm_call: appends the turn to a per-session JSONL transcript and runs
-  the capture path as "Stop" (gated by growth and minimum new text).
-- on_session_end: runs the capture path as "SessionEnd" (always captures).
+The provider reuses the `m3m0s` binary, so the relevance gates, redaction,
+checkpoints and the durable queue are the ones every other client uses:
+
+- prefetch:        `m3m0s hook claude-code --inject` with the user message.
+- sync_turn:       appends the turn to a per-session JSONL transcript and runs
+                   the capture path as "Stop" in the background.
+- on_session_end:  runs the capture path as "SessionEnd" (always captures).
 
 Configuration (read from /opt/data/.env, then the environment):
   M3M0S_URL, M3M0S_API_KEY   server and key (required)
-  M3M0S_HOOK_DOMAIN           domain of captured memories (default personal:hermes)
-  M3M0S_BIN                   binary path (default <plugin dir>/bin/m3m0s)
+  M3M0S_HOOK_DOMAIN          domain of captured memories (default personal:hermes)
+  M3M0S_BIN                  binary path (default <plugin dir>/bin/m3m0s)
 
-Every failure is silent: the plugin must never block the agent.
+Activate with `memory.provider: m3m0s-memory` in config.yaml. Every failure is
+silent: the provider must never block the agent.
 """
 
 import json
 import logging
 import os
 import subprocess
+import threading
+
+from agent.memory_provider import MemoryProvider
 
 logger = logging.getLogger(__name__)
 
@@ -78,77 +86,101 @@ def _run(args, payload, timeout):
 
 
 def _transcript(session_id):
-    os.makedirs(STATE_DIR, exist_ok=True)
     safe = "".join(c if c.isalnum() or c in "-_" else "_" for c in str(session_id))
     return os.path.join(STATE_DIR, "sessions", safe + ".jsonl")
 
 
-def pre_llm_call(session_id="", user_message="", platform="", **kwargs):
-    if platform in SKIP_PLATFORMS or not user_message:
-        return None
-    out = _run(
-        ["--inject"],
-        {
-            "session_id": "hermes-" + str(session_id),
-            "hook_event_name": "UserPromptSubmit",
-            "cwd": "/hermes",
-            "prompt": user_message,
-        },
-        timeout=6,
-    )
-    try:
-        block = json.loads(out)["hookSpecificOutput"]["additionalContext"]
-    except Exception:
-        return None
-    if not block:
-        return None
-    return {
-        "context": block
-        + "\n\n(Long-term memory notes; they may be outdated - prefer what the user says now.)"
-    }
+class M3m0sMemoryProvider(MemoryProvider):
+    def __init__(self):
+        self._session_id = ""
+        self._platform = ""
+        self._primary = True
+        self._lock = threading.Lock()
 
+    @property
+    def name(self):
+        return "m3m0s-memory"
 
-def post_llm_call(session_id="", user_message="", assistant_response="", platform="", model="", **kwargs):
-    if platform in SKIP_PLATFORMS or not (user_message or assistant_response):
-        return None
-    try:
-        path = _transcript(session_id)
-        os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "a") as f:
-            for role, text in (("user", user_message), ("assistant", assistant_response)):
-                if text and str(text).strip():
-                    f.write(json.dumps({
-                        "type": "message",
-                        "message": {"role": role, "model": model or "", "content": [{"type": "text", "text": str(text)}]},
-                    }) + "\n")
-        _run([], {
-            "session_id": "hermes-" + str(session_id),
-            "transcript_path": path,
-            "hook_event_name": "Stop",
-            "cwd": "/hermes",
-        }, timeout=20)
-    except Exception as exc:
-        logger.debug("m3m0s-memory: capture failed: %s", exc)
-    return None
+    def is_available(self):
+        return bool(_read_env("M3M0S_URL") and _read_env("M3M0S_API_KEY") and os.path.exists(_binary()))
 
+    def initialize(self, session_id, **kwargs):
+        self._session_id = str(session_id)
+        self._platform = str(kwargs.get("platform", ""))
+        self._primary = kwargs.get("agent_context", "primary") == "primary"
 
-def on_session_end(session_id="", **kwargs):
-    try:
-        path = _transcript(session_id)
-        if os.path.exists(path):
-            _run([], {
-                "session_id": "hermes-" + str(session_id),
-                "transcript_path": path,
-                "hook_event_name": "SessionEnd",
+    def _skip(self):
+        return (not self._primary) or self._platform in SKIP_PLATFORMS
+
+    def get_tool_schemas(self):
+        return []  # context-only: recall is injected, capture is automatic
+
+    def prefetch(self, query, *, session_id=""):
+        if self._skip() or not query:
+            return ""
+        sid = str(session_id or self._session_id)
+        out = _run(
+            ["--inject"],
+            {
+                "session_id": "hermes-" + sid,
+                "hook_event_name": "UserPromptSubmit",
                 "cwd": "/hermes",
-            }, timeout=30)
-    except Exception as exc:
-        logger.debug("m3m0s-memory: session end failed: %s", exc)
-    return None
+                "prompt": query,
+            },
+            timeout=6,
+        )
+        try:
+            return json.loads(out)["hookSpecificOutput"]["additionalContext"] or ""
+        except Exception:
+            return ""
+
+    def sync_turn(self, user_content, assistant_content, *, session_id="", messages=None):
+        if self._skip() or not (user_content or assistant_content):
+            return
+        sid = str(session_id or self._session_id)
+
+        def work():
+            try:
+                with self._lock:
+                    path = _transcript(sid)
+                    os.makedirs(os.path.dirname(path), exist_ok=True)
+                    with open(path, "a") as f:
+                        for role, text in (("user", user_content), ("assistant", assistant_content)):
+                            if text and str(text).strip():
+                                f.write(json.dumps({
+                                    "type": "message",
+                                    "message": {"role": role, "content": [{"type": "text", "text": str(text)}]},
+                                }) + "\n")
+                    _run([], {
+                        "session_id": "hermes-" + sid,
+                        "transcript_path": path,
+                        "hook_event_name": "Stop",
+                        "cwd": "/hermes",
+                    }, timeout=20)
+            except Exception as exc:
+                logger.debug("m3m0s-memory: capture failed: %s", exc)
+
+        threading.Thread(target=work, daemon=True, name="m3m0s-sync").start()
+
+    def on_session_end(self, messages):
+        if self._skip():
+            return
+        try:
+            path = _transcript(self._session_id)
+            if os.path.exists(path):
+                with self._lock:
+                    _run([], {
+                        "session_id": "hermes-" + self._session_id,
+                        "transcript_path": path,
+                        "hook_event_name": "SessionEnd",
+                        "cwd": "/hermes",
+                    }, timeout=30)
+        except Exception as exc:
+            logger.debug("m3m0s-memory: session end failed: %s", exc)
+
+    def on_session_switch(self, new_session_id, *, parent_session_id="", reset=False, rewound=False, **kwargs):
+        self._session_id = str(new_session_id)
 
 
 def register(ctx):
-    ctx.register_hook("pre_llm_call", pre_llm_call)
-    ctx.register_hook("post_llm_call", post_llm_call)
-    ctx.register_hook("on_session_end", on_session_end)
-    logger.info("Plugin m3m0s-memory registered (pre_llm_call, post_llm_call, on_session_end)")
+    ctx.register_memory_provider(M3m0sMemoryProvider())
