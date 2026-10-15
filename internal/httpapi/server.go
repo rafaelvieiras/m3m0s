@@ -414,7 +414,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_mode", "invalid mode: "+req.Mode+" (expected hybrid, vector or keyword)")
 		return
 	}
-	results, err := s.store.Search(r.Context(), req.Query, req.Limit, filter, time.Now())
+	results, corrected, err := s.store.SearchCorrected(r.Context(), req.Query, req.Limit, filter, time.Now())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search_failed", err.Error())
 		return
@@ -422,10 +422,14 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 
 	results = apitypes.FitTokenBudget(results, req.MaxTokens)
 	block := apitypes.BuildContextBlock(results)
+	if corrected != "" && block != "" {
+		block = "(Searched for \"" + corrected + "\": misspelled terms were corrected.)\n\n" + block
+	}
 	writeJSON(w, http.StatusOK, apitypes.SearchResponse{
 		Results:         results,
 		ContextBlock:    block,
 		EstimatedTokens: apitypes.EstimateTokens(block),
+		CorrectedQuery:  corrected,
 	})
 }
 

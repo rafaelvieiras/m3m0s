@@ -18,7 +18,7 @@ func TestDomainCategoryMigrationRenamesLegacyCategories(t *testing.T) {
 	defer func() { _ = db.Close() }()
 	ctx := context.Background()
 
-	if err := goose.Down(db.sql, "migrations"); err != nil { // one step: back before 00008
+	if err := goose.DownTo(db.sql, "migrations", 7); err != nil { // back before 00008
 		t.Fatalf("down: %v", err)
 	}
 	now := time.Now().UTC().Format(timeLayout)

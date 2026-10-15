@@ -140,3 +140,39 @@ func TestRunPromptSearchRequiresSharedTerm(t *testing.T) {
 		t.Fatalf("only the hit sharing a term must be injected: %q", got)
 	}
 }
+
+// A misspelled name in the prompt still ties it to a memory about the real
+// name (D51), while unrelated near-misses do not.
+func TestSharesTermToleratesMisspelling(t *testing.T) {
+	cases := []struct {
+		content string
+		terms   []string
+		want    bool
+	}{
+		{"The orchestrator retries a failed batch.", []string{"orchestrater"}, true},
+		{"The orchestrator retries a failed batch.", []string{"orchestrator"}, true},
+		{"The scheduler picks the next job.", []string{"orchestrater"}, false},
+		{"The test passed.", []string{"tent"}, false}, // too short to be fuzzy
+		{"Kubernetes runs the workloads.", []string{"kuberentes"}, true},
+	}
+	for _, c := range cases {
+		if got := sharesTerm(c.content, c.terms); got != c.want {
+			t.Errorf("sharesTerm(%q, %v) = %v, want %v", c.content, c.terms, got, c.want)
+		}
+	}
+}
+
+func TestRunPromptSearchInjectsHitForMisspelledName(t *testing.T) {
+	results := []schema.Entry{
+		scored(extractedEntry("mem_a", "The orchestrator retries a failed batch twice."), 0.66),
+	}
+	var calls int
+	var mode string
+	srv := promptServer(t, results, &calls, &mode)
+
+	var out, errb bytes.Buffer
+	RunPromptSearch(context.Background(), Payload{SessionID: "m", Cwd: "/x/r", Prompt: "what did we change in the orchestrater last?"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	if !strings.Contains(out.String(), "orchestrator retries") {
+		t.Fatalf("hit for the corrected name must be injected: %q", out.String())
+	}
+}

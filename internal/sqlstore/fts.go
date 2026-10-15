@@ -62,3 +62,23 @@ func (db *DB) SearchFTS(ctx context.Context, domain, text string, limit int) ([]
 	}
 	return ids, rows.Err()
 }
+
+// FTSVocabulary returns every distinct token of the keyword index with the
+// number of entries containing it (D51: query-term correction).
+func (db *DB) FTSVocabulary(ctx context.Context) (map[string]int, error) {
+	rows, err := db.sql.QueryContext(ctx, `SELECT term, doc FROM entries_fts_vocab`)
+	if err != nil {
+		return nil, fmt.Errorf("fts vocabulary: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	out := make(map[string]int)
+	for rows.Next() {
+		var term string
+		var doc int
+		if err := rows.Scan(&term, &doc); err != nil {
+			return nil, err
+		}
+		out[term] = doc
+	}
+	return out, rows.Err()
+}

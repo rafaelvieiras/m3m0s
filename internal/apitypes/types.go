@@ -121,6 +121,9 @@ type SearchResponse struct {
 	ContextBlock string         `json:"contextBlock"`
 	// EstimatedTokens is the estimated token cost of ContextBlock.
 	EstimatedTokens int `json:"estimatedTokens"`
+	// CorrectedQuery is the query actually searched when misspelled terms
+	// were repaired against the store vocabulary (D51); empty otherwise.
+	CorrectedQuery string `json:"correctedQuery,omitempty"`
 }
 
 // RecentParams are the query params of GET /recent.

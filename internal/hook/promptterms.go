@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode"
+
+	"github.com/rafaelvieiras/m3m0s/internal/fuzzy"
 )
 
 // genericWords are words that carry no topic: English function words plus the
@@ -83,12 +85,23 @@ func specificTerms(prompt string) []string {
 	return out
 }
 
-// sharesTerm reports whether content mentions at least one of the terms.
+// sharesTerm reports whether content mentions at least one of the terms,
+// exactly or - for a misspelled term (D51) - as a word within the edit
+// budget of fuzzy.MaxEdits, so "playtheadtv" still ties a prompt to a memory
+// about "playheadtv".
 func sharesTerm(content string, terms []string) bool {
 	c := foldText(content)
 	for _, t := range terms {
 		if strings.Contains(c, t) {
 			return true
+		}
+	}
+	words := fuzzy.Words(content)
+	for _, t := range terms {
+		for _, w := range words {
+			if fuzzy.Similar(t, w) {
+				return true
+			}
 		}
 	}
 	return false
