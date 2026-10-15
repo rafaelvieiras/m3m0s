@@ -63,6 +63,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D47 | Topic gate for per-prompt search | Accepted | [D47-prompt-search-topic-gate.md](D47-prompt-search-topic-gate.md) |
 | D48 | English domain categories and English-only built-in word lists | Accepted | [D48-english-domain-categories.md](D48-english-domain-categories.md) |
 | D49 | opencode integration reuses the hook pipeline | Accepted | [D49-opencode-integration.md](D49-opencode-integration.md) |
+| D50 | Hermes integration reuses the hook pipeline | Accepted | [D50-hermes-integration.md](D50-hermes-integration.md) |
 | D51 | Query-term correction (typo-tolerant search) | Accepted | [D51-query-term-correction.md](D51-query-term-correction.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |
