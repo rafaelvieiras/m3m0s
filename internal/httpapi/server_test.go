@@ -168,3 +168,41 @@ func TestHandleSearchModesAndTokenBudget(t *testing.T) {
 		t.Errorf("invalid mode: status %d, want 400", resp.StatusCode)
 	}
 }
+
+// A misspelled term is repaired by the search handler (D51): the response
+// names the query actually searched and the context block says so.
+func TestHandleSearchReportsCorrectedQuery(t *testing.T) {
+	srv, rawKey := newTestServer(t)
+	httpSrv := httptest.NewServer(srv.Handler())
+	defer httpSrv.Close()
+
+	do := func(method, path, body string) *http.Response {
+		req, _ := http.NewRequest(method, httpSrv.URL+path, strings.NewReader(body))
+		req.Header.Set("Authorization", "Bearer "+rawKey)
+		resp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		return resp
+	}
+	for i, c := range []string{"The orchestrator schedules nightly batches", "The orchestrator retries failed batches", "Restart the orchestrator after an upgrade"} {
+		resp := do("POST", "/api/v1/memories", fmt.Sprintf(`{"content":%q,"domain":"code:t%d","source":"t"}`, c, i))
+		if resp.StatusCode >= 300 {
+			t.Fatalf("seed %d: status %d", i, resp.StatusCode)
+		}
+		_ = resp.Body.Close()
+	}
+
+	resp := do("POST", "/api/v1/search", `{"query":"orchestrater","mode":"keyword","limit":5}`)
+	defer func() { _ = resp.Body.Close() }()
+	var out apitypes.SearchResponse
+	if err := json.NewDecoder(resp.Body).Decode(&out); err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != 200 || len(out.Results) != 3 {
+		t.Fatalf("status %d, %d results", resp.StatusCode, len(out.Results))
+	}
+	if out.CorrectedQuery != "orchestrator" || !strings.Contains(out.ContextBlock, "misspelled terms were corrected") {
+		t.Errorf("correctedQuery = %q, block = %q", out.CorrectedQuery, out.ContextBlock)
+	}
+}
