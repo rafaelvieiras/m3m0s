@@ -73,7 +73,12 @@ export default function (pi) {
       return {
         message: {
           customType: "m3m0s-memory",
-          content: `${block}\n\n(Notas de memória de longo prazo; podem estar desatualizadas — prefira o que o usuário disser agora.)`,
+          content:
+            "<memory-context>\n" +
+            "[System note: the following is recalled long-term memory, NOT new user input. " +
+            "It may be outdated or from another project; ignore it if unrelated and prefer what the user says now.]\n\n" +
+            `${block}\n` +
+            "</memory-context>",
           display: false,
         },
       };

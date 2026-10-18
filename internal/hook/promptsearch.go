@@ -28,6 +28,7 @@ const (
 	promptMaxInjected   = 3    // entries injected per prompt
 	promptTokenBudget   = 500  // estimated tokens injected per prompt
 	promptDefaultScore  = 0.60 // cosine floor; see D44
+	promptForeignBoost  = 0.10 // extra floor for memories of another code project
 )
 
 // promptMinScore reads M3M0S_PROMPT_MIN_SCORE (0..1), falling back to
@@ -110,10 +111,25 @@ func RunPromptSearch(ctx context.Context, payload Payload, deps Deps) {
 	}
 
 	floor := promptMinScore(deps.Getenv)
+	// A memory of another code project must clear a higher floor: auth or
+	// token talk in one repo should not drag in a different repo's notes.
+	// Pinned non-code domains (e.g. Hermes) have no "own project" and keep
+	// the plain floor.
+	own := ""
+	if deps.Domain != nil {
+		own = deps.Domain(payload.Cwd)
+	}
+	foreignFloor := floor
+	if strings.HasPrefix(own, "code:") && deps.Getenv("M3M0S_PROMPT_FOREIGN_BOOST") != "off" {
+		foreignFloor = floor + promptForeignBoost
+	}
 	seenPath, seen := loadSeen(deps.HomeDir, payload.SessionID)
 	var hits []schema.Entry
 	for _, e := range InjectableEntries(resp.Results) {
 		if e.Score == nil || *e.Score < floor || seen[e.ID] {
+			continue
+		}
+		if e.Domain != own && strings.HasPrefix(e.Domain, "code:") && *e.Score < foreignFloor {
 			continue
 		}
 		if terms != nil && !sharesTerm(e.Content, terms) {
