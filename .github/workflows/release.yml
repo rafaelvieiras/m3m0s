@@ -1,8 +1,19 @@
 name: Release
 
+# Runs from release-please.yml once a release is created. A manual `v*` tag
+# push still works as a fallback.
 on:
   push:
     tags: ["v*"]
+  workflow_call:
+    inputs:
+      tag:
+        description: Tag to release (for example v0.3.0)
+        required: true
+        type: string
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 permissions:
   contents: write
@@ -14,6 +25,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
+          ref: ${{ env.TAG }}
           fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
@@ -25,13 +37,13 @@ jobs:
           go-version-file: go.mod
       - name: Extract release notes from CHANGELOG
         run: |
-          version="${GITHUB_REF_NAME#v}"
+          version="${TAG#v}"
           awk -v v="$version" '
             $0 ~ "^## \\[" v "\\]" {found=1; next}
             found && /^## \[/ {exit}
             found {print}
           ' CHANGELOG.md > release-notes.md
-          if [ ! -s release-notes.md ]; then echo "Release $GITHUB_REF_NAME" > release-notes.md; fi
+          if [ ! -s release-notes.md ]; then echo "Release $TAG" > release-notes.md; fi
       # Builds the WebUI (before hook), the linux binaries, the archives and
       # checksums.txt. See .goreleaser.yaml.
       - uses: goreleaser/goreleaser-action@v6
@@ -45,6 +57,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - uses: docker/login-action@v3
@@ -57,8 +71,8 @@ jobs:
         with:
           images: ghcr.io/${{ github.repository }}
           tags: |
-            type=semver,pattern={{version}}
-            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{version}},value=${{ env.TAG }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ env.TAG }}
             type=raw,value=latest
       # The Dockerfile builds on the target platform (no cross-compilation),
       # so only amd64 and arm64 are published as images; armv7 is available
