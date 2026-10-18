@@ -40,6 +40,24 @@ The repository tracks only a placeholder `webui/dist/index.html`, so
 cd webui && npm ci && npm run build
 ```
 
+## Commit and PR titles
+
+PRs are squash-merged, so the **PR title** becomes the commit on `main` and
+must follow [Conventional Commits](https://www.conventionalcommits.org/); a CI
+check enforces it. Releases and the changelog are generated from these titles.
+
+```
+<type>(<optional scope>): <subject>
+```
+
+- Types: `feat` (minor bump), `fix` and `perf` (patch bump), `refactor`,
+  `docs`, `test`, `build`, `ci`, `chore`, `revert`.
+- Breaking change: add `!` after the type (`feat(api)!: ...`) or a
+  `BREAKING CHANGE:` footer (major bump).
+- The subject starts in lowercase and has no trailing period.
+- Scopes name the area: `hook`, `search`, `mcp`, `ingest`, `webui`, `pi`,
+  `opencode`, `hermes`, `claude-code`.
+
 ## Checks before opening a PR
 
 ```sh
