@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-18
+
 ### Added
 
+- Per-prompt recall (D44, D47): `m3m0s hook claude-code --inject` searches memory by the prompt
+  and injects up to 3 hits above a cosine floor (0.60), skipping prompts without a topic-bearing
+  term. Hits from another `code:` project must clear the floor plus 0.10.
+- Query-term correction (D51): a misspelled name in a search is repaired against the index
+  vocabulary (`correctedQuery` in the response) and the hook gate tolerates the typo.
+- Read-only MCP mode (D45), `pi` capture and recall extension (D46), opencode plugin (D49) and
+  Hermes memory provider with an `m3m0s_search` tool (D50).
+- Fact extraction is capped at 10 facts per piece (D43); domain categories are English (D48).
 - Durable ingest queue (D40, #68): an accepted `POST /memories` is persisted in SQLite
   (`ingest_queue`) before the server answers and processed by a bounded worker pool
   (`M3M0S_INGEST_WORKERS`). A failed extraction is retried with backoff and only the last attempt
