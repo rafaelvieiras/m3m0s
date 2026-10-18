@@ -115,3 +115,37 @@ secrets removed. For security problems, do **not** open a public issue; see
 
 By contributing you agree that your contributions are licensed under the
 project's [MIT License](LICENSE).
+
+## Releases
+
+Releases are automated with [release-please](https://github.com/googleapis/release-please)
+(`release-please-config.json`). Each component has its own version, tag and
+changelog, derived from the conventional commits that touch its directory:
+
+| Component | Path | Tag | Published to |
+|---|---|---|---|
+| m3m0s (server, CLI, hooks) | `/` | `vX.Y.Z` | GitHub release (binaries), ghcr image |
+| pi extension | `integrations/pi` | `pi-vX.Y.Z` | npm `@rafaelvieiras/m3m0s-pi` |
+| opencode plugin | `integrations/opencode` | `opencode-vX.Y.Z` | npm `@rafaelvieiras/m3m0s-opencode` |
+| Claude Code plugin | `integrations/claude-code` | `claude-code-vX.Y.Z` | marketplace in this repo (`.claude-plugin/marketplace.json`) |
+| Hermes plugin | `integrations/hermes` | `hermes-vX.Y.Z` | `hermes plugins install` from this repo |
+
+Merge the open "release" PR to cut a release. npm publishing uses trusted
+publishing (OIDC, no stored token) and `npm stage publish`: after the
+workflow runs, approve the staged version on npmjs.com (2FA).
+
+### First npm publish of a package (one time)
+
+npm cannot configure trusted publishing for a package that does not exist yet,
+so the first version is published by hand:
+
+```sh
+cd integrations/pi            # or integrations/opencode
+npm login --auth-type=web
+npm publish --access public
+npm trust github @rafaelvieiras/m3m0s-pi \
+  --repo rafaelvieiras/m3m0s --file release-please.yml --allow-stage-publish
+```
+
+The trust configuration must see a successful publish from CI within 2 days
+or it expires. Requires npm 11.15 or later and 2FA on the account.

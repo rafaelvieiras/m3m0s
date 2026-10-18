@@ -11,6 +11,7 @@ permissions:
   contents: write
   pull-requests: write
   packages: write
+  id-token: write
 
 jobs:
   release-please:
@@ -18,6 +19,8 @@ jobs:
     outputs:
       release_created: ${{ steps.rp.outputs.release_created }}
       tag_name: ${{ steps.rp.outputs.tag_name }}
+      pi_released: ${{ steps.rp.outputs['integrations/pi--release_created'] }}
+      opencode_released: ${{ steps.rp.outputs['integrations/opencode--release_created'] }}
     steps:
       - id: rp
         uses: googleapis/release-please-action@v4
@@ -36,3 +39,41 @@ jobs:
     permissions:
       contents: write
       packages: write
+
+  # npm trusted publishing (OIDC): no token is stored. The trusted publisher
+  # of each package is bound to THIS workflow file name (release-please.yml),
+  # so the publish jobs live here instead of in a reusable workflow. Releases
+  # are staged: a maintainer approves them on npmjs.com with 2FA.
+  publish-pi:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.pi_released == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - run: npm stage publish
+        working-directory: integrations/pi
+
+  publish-opencode:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.opencode_released == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - run: npm install -g npm@latest
+      - run: npm stage publish
+        working-directory: integrations/opencode

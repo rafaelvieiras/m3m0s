@@ -6,8 +6,11 @@
 // Capture: after each agent run ("Stop") and on shutdown ("SessionEnd") the
 // same hook reads this session file and POSTs new text (D46), source "pi".
 import { spawn } from "node:child_process";
+import { existsSync } from "node:fs";
 
-const BIN = `${process.env.HOME}/go/bin/m3m0s`;
+// M3M0S_BIN wins, then ~/go/bin/m3m0s (pi may not have it on PATH), then PATH.
+const GO_BIN = `${process.env.HOME}/go/bin/m3m0s`;
+const BIN = process.env.M3M0S_BIN || (existsSync(GO_BIN) ? GO_BIN : "m3m0s");
 
 function inject(prompt: string, cwd: string, sessionId: string): Promise<string> {
   return new Promise((resolve) => {

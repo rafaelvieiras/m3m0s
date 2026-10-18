@@ -1,0 +1,12 @@
+{
+  "name": "m3m0s-memory",
+  "displayName": "M3m0s Memory",
+  "version": "0.1.0",
+  "description": "Long-term memory from m3m0s: recall before each prompt, capture after each turn, read-only MCP search.",
+  "author": {
+    "name": "Rafael Vieiras"
+  },
+  "homepage": "https://github.com/rafaelvieiras/m3m0s",
+  "repository": "https://github.com/rafaelvieiras/m3m0s",
+  "license": "MIT"
+}

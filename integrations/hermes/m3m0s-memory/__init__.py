@@ -18,7 +18,7 @@ checkpoints and the durable queue are the ones every other client uses:
 Configuration (read from /opt/data/.env, then the environment):
   M3M0S_URL, M3M0S_API_KEY   server and key (required)
   M3M0S_HOOK_DOMAIN          domain of captured memories (default personal:hermes)
-  M3M0S_BIN                  binary path (default <plugin dir>/bin/m3m0s)
+  M3M0S_BIN                  binary path (default <plugin dir>/bin/m3m0s, else m3m0s on PATH)
 
 Activate with `memory.provider: m3m0s-memory` in config.yaml. Every failure is
 silent: the provider must never block the agent.
@@ -27,6 +27,7 @@ silent: the provider must never block the agent.
 import json
 import logging
 import os
+import shutil
 import subprocess
 import threading
 
@@ -56,7 +57,8 @@ def _read_env(name, default=""):
 
 
 def _binary():
-    return _read_env("M3M0S_BIN", os.path.join(PLUGIN_DIR, "bin", "m3m0s"))
+    bundled = os.path.join(PLUGIN_DIR, "bin", "m3m0s")
+    return _read_env("M3M0S_BIN", bundled if os.path.exists(bundled) else (shutil.which("m3m0s") or bundled))
 
 
 def _run(args, payload, timeout):

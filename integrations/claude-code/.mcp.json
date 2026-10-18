@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "m3m0s": {
+      "command": "sh",
+      "args": [
+        "-c",
+        "set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; exec m3m0s mcp --read-only"
+      ]
+    }
+  }
+}

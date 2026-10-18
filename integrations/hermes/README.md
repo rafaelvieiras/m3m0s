@@ -6,7 +6,16 @@ A [Hermes](https://github.com/NousResearch/hermes-agent) **memory provider** tha
 - **Capture** (`sync_turn` as `Stop`, `on_session_end` as `SessionEnd`): appends each turn to a per-session transcript and hands it to `m3m0s hook claude-code`. Memories carry `source: "hermes"` and the domain from `M3M0S_HOOK_DOMAIN` (default `personal:hermes`).
 - **Tool** `m3m0s_search` (read-only): `query`, `limit`, `domain`, or `recent` (newest memories of a domain; a query always takes precedence). Wraps `m3m0s search`/`recent`.
 
-## Install (inside the agent's data volume)
+## Install
+
+With the Hermes CLI (the binary must be on `PATH`, or at `<plugin dir>/bin/m3m0s`):
+
+```sh
+hermes plugins install rafaelvieiras/m3m0s/integrations/hermes/m3m0s-memory
+hermes memory setup   # pick m3m0s-memory
+```
+
+Manual install, inside the agent's data volume:
 
 1. Build a static binary: `CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o m3m0s ./cmd/m3m0s`.
 2. Copy `m3m0s-memory/` to `<data>/plugins/m3m0s-memory/` and the binary to `<data>/plugins/m3m0s-memory/bin/m3m0s` (owned by the agent user, mode 755).

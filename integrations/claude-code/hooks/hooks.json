@@ -1,0 +1,84 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 15
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code --inject 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 60
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "SessionEnd": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "sh -c 'set -a; [ -f \"$HOME/.m3m0s/hook.env\" ] && . \"$HOME/.m3m0s/hook.env\"; mkdir -p \"$HOME/.m3m0s/hooks\"; m3m0s hook claude-code 2>>\"$HOME/.m3m0s/hooks/claude-code.log\" || true'",
+            "timeout": 60,
+            "async": true
+          }
+        ]
+      }
+    ]
+  }
+}

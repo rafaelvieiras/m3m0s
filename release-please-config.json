@@ -7,7 +7,52 @@
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "bump-minor-pre-major": true,
-      "bump-patch-for-minor-pre-major": false
+      "bump-patch-for-minor-pre-major": false,
+      "exclude-paths": [
+        "integrations"
+      ]
+    },
+    "integrations/pi": {
+      "release-type": "node",
+      "component": "pi",
+      "package-name": "@rafaelvieiras/m3m0s-pi",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true
+    },
+    "integrations/opencode": {
+      "release-type": "node",
+      "component": "opencode",
+      "package-name": "@rafaelvieiras/m3m0s-opencode",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true
+    },
+    "integrations/claude-code": {
+      "release-type": "simple",
+      "component": "claude-code",
+      "package-name": "m3m0s-memory",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "extra-files": [
+        {
+          "type": "json",
+          "path": ".claude-plugin/plugin.json",
+          "jsonpath": "$.version"
+        }
+      ]
+    },
+    "integrations/hermes": {
+      "release-type": "simple",
+      "component": "hermes",
+      "package-name": "m3m0s-memory",
+      "changelog-path": "CHANGELOG.md",
+      "bump-minor-pre-major": true,
+      "extra-files": [
+        {
+          "type": "yaml",
+          "path": "m3m0s-memory/plugin.yaml",
+          "jsonpath": "$.version"
+        }
+      ]
     }
   }
 }
