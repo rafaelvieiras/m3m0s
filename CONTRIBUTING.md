@@ -115,3 +115,23 @@ secrets removed. For security problems, do **not** open a public issue; see
 
 By contributing you agree that your contributions are licensed under the
 project's [MIT License](LICENSE).
+
+## Website
+
+The site (`https://m3m0s.rafaelvieiras.com`) lives in `site/` (Astro). The home
+page is in `site/src/pages/index.astro` and the guide is Markdown in
+`site/src/content/guide/`. Open Graph images are generated at build time.
+
+```sh
+cd site && npm ci && npm run dev      # local preview
+npm run build                          # static output in site/dist
+```
+
+Deploy (Cloudflare Workers static assets, custom domain in `wrangler.jsonc`):
+
+```sh
+cd site && npm run build
+CLOUDFLARE_ACCOUNT_ID=<account id> npx wrangler deploy
+```
+
+Brand assets (icon, wordmark and banner, light and dark) are in `docs/brand/`.

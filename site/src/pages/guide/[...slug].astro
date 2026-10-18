@@ -1,0 +1,51 @@
+---
+import { render } from "astro:content";
+import Base from "../../layouts/Base.astro";
+import GuideNav from "../../components/GuideNav.astro";
+import { sortedGuide, guideHref, ogPathFor } from "../../lib/guide";
+
+export async function getStaticPaths() {
+  const entries = await sortedGuide();
+  return entries.map((entry, i) => ({
+    params: { slug: entry.id === "index" ? undefined : entry.id },
+    props: { entry, prev: entries[i - 1], next: entries[i + 1] },
+  }));
+}
+
+const { entry, prev, next } = Astro.props;
+const entries = await sortedGuide();
+const { Content, headings } = await render(entry);
+const toc = headings.filter((h) => h.depth === 2 || h.depth === 3);
+const title = entry.id === "index" ? "Guide · m3m0s" : `${entry.data.title} · m3m0s guide`;
+---
+<Base title={title} description={entry.data.description} ogImage={ogPathFor(entry)} type="article">
+  <div class="container">
+    <div class:list={["guide", toc.length > 1 && "has-toc"]}>
+      <details class="side-mobile">
+        <summary>Guide menu</summary>
+        <GuideNav entries={entries} currentId={entry.id} />
+      </details>
+      <GuideNav entries={entries} currentId={entry.id} />
+      <article class="prose">
+        <h1>{entry.data.title}</h1>
+        <p class="lede">{entry.data.description}</p>
+        <Content />
+        <nav class="pager" aria-label="Pagination">
+          {prev && <a class="prev" href={guideHref(prev)}><small>Previous</small>{prev.data.title}</a>}
+          {next && <a class="next" href={guideHref(next)}><small>Next</small>{next.data.title}</a>}
+        </nav>
+        <p class="edit-link">
+          <a href={`https://github.com/rafaelvieiras/m3m0s/edit/main/site/src/content/guide/${entry.id}.md`} rel="noopener">Edit this page on GitHub</a>
+        </p>
+      </article>
+      {toc.length > 1 && (
+        <aside class="toc" aria-label="On this page">
+          <h4>On this page</h4>
+          <ul>
+            {toc.map((h) => <li><a class={`d${h.depth}`} href={`#${h.slug}`}>{h.text}</a></li>)}
+          </ul>
+        </aside>
+      )}
+    </div>
+  </div>
+</Base>
