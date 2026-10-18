@@ -18,9 +18,20 @@ For Claude Code, m3m0s is a set of hooks that all run `m3m0s hook claude-code`. 
 
 Async hooks cannot inject context, which is why the `--inject` entry must be synchronous.
 
-## Configure the hooks
+## Install the plugin
 
-Add this to `~/.claude/settings.json`:
+The plugin bundles all the hooks below and the read-only MCP server. Install the binary and `~/.m3m0s/hook.env` first, then in Claude Code:
+
+```
+/plugin marketplace add rafaelvieiras/m3m0s
+/plugin install m3m0s-memory@m3m0s
+```
+
+From the shell, the equivalent is `claude plugin marketplace add rafaelvieiras/m3m0s` followed by `claude plugin install m3m0s-memory@m3m0s`. If you already configured these hooks in `settings.json`, remove them first so everything does not run twice. The plugin covers the MCP server too, so skip the optional section below.
+
+## Or configure the hooks by hand
+
+If you prefer not to use the plugin, add this to `~/.claude/settings.json`:
 
 ```json
 {
@@ -53,9 +64,7 @@ Add this to `~/.claude/settings.json`:
 
 Create the log directory once with `mkdir -p ~/.m3m0s/hooks`, then run `m3m0s doctor` to confirm the events are registered.
 
-> A packaged Claude Code plugin, installed with `/plugin install`, is planned. Until it ships, the settings above are the way to install.
-
-## Optional: read-only MCP server
+## Optional: read-only MCP server (manual install only)
 
 With capture and recall automatic, the agent only needs to search explicitly now and then. Register the MCP server in read-only mode, so it cannot add or rewrite memories:
 

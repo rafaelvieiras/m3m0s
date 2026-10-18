@@ -13,7 +13,17 @@ The opencode plugin gives [opencode](https://opencode.ai) the same memory loop a
 ## Install
 
 1. Install the binary and store the credentials: [CLI and credentials](/guide/cli/). Set `M3M0S_BIN` if the binary is not at `~/go/bin/m3m0s` or on `PATH`.
-2. Put the plugin in opencode's plugins folder:
+2. Add the npm package to the `plugin` array of `opencode.json`. opencode installs it on start:
+
+```json
+{
+  "plugin": ["@rafaelvieiras/m3m0s-opencode"]
+}
+```
+
+### Manual install
+
+Or put the file in opencode's plugins folder:
 
 ```sh
 mkdir -p ~/.config/opencode/plugins
@@ -21,15 +31,13 @@ curl -fsSL https://raw.githubusercontent.com/rafaelvieiras/m3m0s/main/integratio
   -o ~/.config/opencode/plugins/m3m0s-memory.js
 ```
 
-3. Add it to `opencode.json`:
+Then add it to `opencode.json`:
 
 ```json
 {
   "plugin": ["./plugins/m3m0s-memory.js"]
 }
 ```
-
-> An npm package is planned. Until it ships, copy the file as above.
 
 ## Optional: read-only MCP
 

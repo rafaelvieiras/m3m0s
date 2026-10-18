@@ -15,7 +15,20 @@ Cron and webhook turns are skipped. Failures are silent and never block the agen
 
 ## Install
 
-Hermes allows one external memory provider. The steps below assume the agent runs in a container with a data volume mounted at `<data>`.
+Hermes allows one external memory provider.
+
+### With the Hermes CLI
+
+The binary must be on `PATH`, or at `<plugin dir>/bin/m3m0s`:
+
+```sh
+hermes plugins install rafaelvieiras/m3m0s/integrations/hermes/m3m0s-memory
+hermes memory setup   # pick m3m0s-memory
+```
+
+### Manual install
+
+The steps below assume the agent runs in a container with a data volume mounted at `<data>`.
 
 1. Build a static binary for the agent's platform:
 
@@ -46,5 +59,3 @@ memory:
 ```
 
 `hermes memory status` should show it as active. State (checkpoints, spool, transcripts) lives in `<data>/m3m0s/`.
-
-> Installing with `hermes plugins install` is planned. The plugin needs the binary next to it either way, so the manual copy above stays valid.
