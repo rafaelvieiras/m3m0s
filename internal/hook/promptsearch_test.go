@@ -171,8 +171,33 @@ func TestRunPromptSearchInjectsHitForMisspelledName(t *testing.T) {
 	srv := promptServer(t, results, &calls, &mode)
 
 	var out, errb bytes.Buffer
-	RunPromptSearch(context.Background(), Payload{SessionID: "m", Cwd: "/x/r", Prompt: "what did we change in the orchestrater last?"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	RunPromptSearch(context.Background(), Payload{SessionID: "m", Cwd: "/x/some-repo", Prompt: "what did we change in the orchestrater last?"}, sessionStartDeps(t.TempDir(), srv, &out, &errb))
 	if !strings.Contains(out.String(), "orchestrator retries") {
 		t.Fatalf("hit for the corrected name must be injected: %q", out.String())
+	}
+}
+
+// A memory of another code project needs a higher floor than one of the
+// session's own project.
+func TestRunPromptSearchRaisesFloorForOtherProjects(t *testing.T) {
+	other := extractedEntry("mem_other", "The auth callback redirects after the token exchange.")
+	other.Domain = "code:other-repo"
+	results := []schema.Entry{
+		scored(other, 0.63),
+		scored(extractedEntry("mem_own", "The auth token is stored per device."), 0.63),
+	}
+	var calls int
+	var mode string
+	srv := promptServer(t, results, &calls, &mode)
+
+	var out, errb bytes.Buffer
+	payload := Payload{SessionID: "f", Cwd: "/x/some-repo", Prompt: "how does the auth token flow work for the callback?"}
+	RunPromptSearch(context.Background(), payload, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	got := out.String()
+	if !strings.Contains(got, "stored per device") {
+		t.Fatalf("own-project hit must be injected: %q", got)
+	}
+	if strings.Contains(got, "auth callback redirects") {
+		t.Fatalf("other-project hit below the raised floor must be dropped: %q", got)
 	}
 }
