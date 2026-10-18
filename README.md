@@ -1,3 +1,16 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/banner-dark.svg">
+    <img alt="m3m0s: long-term memory for LLM agents" src="docs/brand/banner-light.svg" width="720">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://m3m0s.rafaelvieiras.com"><b>Website</b></a> ·
+  <a href="https://m3m0s.rafaelvieiras.com/guide/">Guide</a> ·
+  <a href="https://github.com/rafaelvieiras/m3m0s/releases">Releases</a>
+</p>
+
 # M3m0s
 
 A self-hosted, long-term semantic memory service for LLM agents: one small Go

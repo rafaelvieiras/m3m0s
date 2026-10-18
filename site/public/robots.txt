@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://m3m0s.rafaelvieiras.com/sitemap-index.xml

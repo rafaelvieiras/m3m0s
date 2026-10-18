@@ -1,0 +1,133 @@
+---
+import Base from "../layouts/Base.astro";
+import { Code } from "astro:components";
+
+const quickstart = `cp .env.example .env     # set OPENAI_API_KEY (embeddings)
+docker compose up -d
+docker compose logs      # first start prints your API key
+
+export M3M0S_URL=http://localhost:19234
+export M3M0S_API_KEY=<the key from the log>
+m3m0s add "We use SQLite with versioned migrations" \\
+  --domain code:myproject
+m3m0s search "which database do we use?" \\
+  --domain code:myproject`;
+
+const tools = [
+  { name: "Claude Code", href: "/guide/claude-code/", text: "Hooks capture sessions and recall memory on every prompt, with an optional read-only MCP server." },
+  { name: "pi", href: "/guide/pi/", text: "An extension with the same recall and capture loop, fenced as memory and not as user input." },
+  { name: "opencode", href: "/guide/opencode/", text: "A plugin that appends relevant memories to each turn and captures when a session goes idle." },
+  { name: "Hermes", href: "/guide/hermes/", text: "A memory provider for Hermes agents, with a read-only search tool." },
+  { name: "Any MCP client", href: "/guide/mcp/", text: "A stdio MCP server with search, get, recent and stats. Read-only mode available." },
+];
+---
+<Base
+  title="m3m0s · Long-term memory for LLM agents"
+  description="A self-hosted, long-term memory for LLM agents. One Go binary and one SQLite file, shared across Claude Code, pi, opencode, Hermes and any MCP client."
+  ogImage="/og/home.png"
+>
+  <section class="hero">
+    <div class="container">
+      <div>
+        <span class="eyebrow">Self-hosted · MCP · CLI · HTTP</span>
+        <h1>One long-term memory for every agent you use.</h1>
+        <p class="lead">
+          m3m0s is a small Go binary that remembers what your coding agents learn and serves it back to
+          Claude Code, pi, opencode, Hermes and any MCP client, from a single SQLite file you own.
+        </p>
+        <div class="cta-row">
+          <a class="btn primary" href="/guide/quickstart/">Get started</a>
+          <a class="btn" href="https://github.com/rafaelvieiras/m3m0s" rel="noopener">View on GitHub</a>
+        </div>
+        <div class="install-line" aria-label="Quick install"><b>$</b> docker compose up -d</div>
+      </div>
+      <div class="mock" aria-label="Example of a recalled memory">
+        <div class="mock-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="mock-body">
+          <div class="bubble user"><small>You</small>Which database do we use for sessions?</div>
+          <div class="bubble mem"><small>Recalled by m3m0s · 0.68</small>
+            <code>code:myproject</code> We use SQLite with versioned migrations.
+          </div>
+          <div class="bubble user"><small>Agent</small>I'll store sessions in the existing SQLite database and add a versioned migration.</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container">
+      <h2>Every agent tool forgets on its own.</h2>
+      <p class="sub">Context gets re-explained every session, nothing travels between tools, and cheaper models can't be used because each session has to rediscover everything. m3m0s keeps one memory and shares it.</p>
+      <div class="grid">
+        <div class="card"><h3>Shared, not per-tool</h3><p>What you decide in Claude Code is there when you open pi or opencode. Memories are scoped by domain, such as a project or a topic.</p></div>
+        <div class="card"><h3>Automatic</h3><p>Hooks and plugins capture sessions and recall on each prompt. Agents don't have to remember to call a tool.</p></div>
+        <div class="card"><h3>Quiet by default</h3><p>Recall only fires above a relevance floor, with at most three hits and about 500 tokens. Unrelated prompts get nothing.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>How it works</h2>
+      <p class="sub">Three steps, all running on your own hardware.</p>
+      <div class="grid">
+        <div class="card"><span class="num">1</span><h3>Capture</h3><p>The integration reads the session transcript, redacts secrets, and optionally extracts short atomic facts with an LLM of your choice.</p></div>
+        <div class="card"><span class="num">2</span><h3>Store</h3><p>Facts land in SQLite with embeddings from any OpenAI-compatible endpoint. Duplicates are merged, contradicted facts expire, stale ones fade.</p></div>
+        <div class="card"><span class="num">3</span><h3>Recall</h3><p>On each prompt a vector search runs against your memory and injects the few relevant facts as fenced context, marked as not user input.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container">
+      <h2>Works with your tools</h2>
+      <p class="sub">First-class integrations share one binary and one memory.</p>
+      <div class="grid wide">
+        {tools.map((t) => (
+          <a class="card" href={t.href}><h3>{t.name} →</h3><p>{t.text}</p></a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>Light by design</h2>
+      <p class="sub">No extra databases, no daemons for the vector index. It runs on a small ARM board.</p>
+      <div class="stats">
+        <div class="stat"><b>1 binary</b><span>pure Go, no cgo</span></div>
+        <div class="stat"><b>1 file</b><span>SQLite with versioned migrations</span></div>
+        <div class="stat"><b>~250 MB</b><span>live size at 75k memories</span></div>
+        <div class="stat"><b>armv7</b><span>amd64 and arm64 too</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container split">
+      <div>
+        <h2>Running in five minutes</h2>
+        <p class="sub" style="margin-bottom:1rem">Start the server with Docker Compose, open the WebUI to create your account, then point any client at it.</p>
+        <ul style="padding-left:1.1rem;color:var(--muted);margin:0 0 1.5rem">
+          <li>Embedded WebUI to browse, edit and chat with your memory</li>
+          <li>Secret redaction before anything is stored or sent out</li>
+          <li>Retention and forgetting, with a grace period and restore</li>
+          <li>Read-only MCP mode so agents can search but never rewrite</li>
+        </ul>
+        <a class="btn primary" href="/guide/quickstart/">Read the quickstart</a>
+      </div>
+      <Code code={quickstart} lang="bash" themes={{ light: "github-light", dark: "github-dark-dimmed" }} defaultColor={false} />
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container">
+      <h2>Give your agents a memory that lasts.</h2>
+      <p>Open source under the MIT license. Your data stays on your machine.</p>
+      <div class="cta-row">
+        <a class="btn primary" href="/guide/">Read the guide</a>
+        <a class="btn" href="https://github.com/rafaelvieiras/m3m0s/releases" rel="noopener">Download a release</a>
+      </div>
+    </div>
+  </section>
+</Base>

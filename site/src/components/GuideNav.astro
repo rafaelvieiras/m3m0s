@@ -1,0 +1,17 @@
+---
+import { SECTIONS, guideHref, type GuideEntry } from "../lib/guide";
+interface Props { entries: GuideEntry[]; currentId: string }
+const { entries, currentId } = Astro.props;
+---
+<nav class="side" aria-label="Guide">
+  {SECTIONS.map((s) => (
+    <>
+      <h4>{s}</h4>
+      <ul>
+        {entries.filter((e) => e.data.section === s).map((e) => (
+          <li><a href={guideHref(e)} aria-current={e.id === currentId ? "page" : undefined}>{e.data.title}</a></li>
+        ))}
+      </ul>
+    </>
+  ))}
+</nav>

@@ -1,0 +1,9 @@
+---
+import raw from "../lib/icon-light.svg?raw";
+const { height = 28 } = Astro.props;
+const svg = raw
+  .replace(/fill="#[0-9a-f]{6}"/i, 'fill="currentColor"')
+  .replace("<svg ", `<svg height="${height}" aria-hidden="true" focusable="false" `)
+  .replace(/ role="img" aria-label="[^"]*"/, "");
+---
+<Fragment set:html={svg} />
