@@ -13,31 +13,16 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: npm
           cache-dependency-path: webui/package-lock.json
-      - name: Build WebUI
-        working-directory: webui
-        run: |
-          npm ci
-          npm run build
       - uses: actions/setup-go@v5
         with:
           go-version-file: go.mod
-      - name: Build binaries
-        run: |
-          mkdir -p dist
-          for target in linux/amd64 linux/arm64 linux/arm/7; do
-            IFS=/ read -r os arch arm <<< "$target"
-            name="m3m0s_${GITHUB_REF_NAME}_${os}_${arch}${arm:+v$arm}"
-            CGO_ENABLED=0 GOOS="$os" GOARCH="$arch" GOARM="$arm" \
-              go build -ldflags "-s -w" -o "dist/$name" ./cmd/m3m0s
-            tar -C dist -czf "dist/$name.tar.gz" "$name"
-            rm "dist/$name"
-          done
-          (cd dist && sha256sum *.tar.gz > checksums.txt)
       - name: Extract release notes from CHANGELOG
         run: |
           version="${GITHUB_REF_NAME#v}"
@@ -47,12 +32,14 @@ jobs:
             found {print}
           ' CHANGELOG.md > release-notes.md
           if [ ! -s release-notes.md ]; then echo "Release $GITHUB_REF_NAME" > release-notes.md; fi
-      - uses: softprops/action-gh-release@v2
+      # Builds the WebUI (before hook), the linux binaries, the archives and
+      # checksums.txt. See .goreleaser.yaml.
+      - uses: goreleaser/goreleaser-action@v6
         with:
-          body_path: release-notes.md
-          files: |
-            dist/*.tar.gz
-            dist/checksums.txt
+          version: "~> v2"
+          args: release --clean --release-notes=release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   docker:
     runs-on: ubuntu-latest
