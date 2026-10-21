@@ -22,7 +22,7 @@ docker compose logs         # the first start prints a generated API key
 
 ## 2. Create your account
 
-Open `http://localhost:19234/`. A fresh instance runs a first-time setup: paste the API key from the log (it proves you control the instance) and create the first account with a username and a password. From then on you sign in with that account.
+Open `http://localhost:19234/`. A fresh instance runs a first-time setup: create the first account with a username and a password, no key needed. Do it right away if the instance is reachable from the internet, because whoever opens it first claims it. From then on you sign in with that account.
 
 Accounts are for people using the WebUI. Hooks, MCP and the CLI keep using API keys.
 
