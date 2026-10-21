@@ -73,7 +73,7 @@ Working today:
   panel (history, run now, change interval), a memory health page (distributions,
   what forgetting would do next, duplicate and noise candidates; read-only), a
   context-injection preview, and a floating chat that answers from your memory and can save new memories.
-- **Claude Code hooks**: `SessionStart` (inject recent memory),
+- **Claude Code plugin** (`/plugin install m3m0s-memory --marketplace rafaelvieiras/m3m0s`) or manual hooks: `SessionStart` (inject recent memory),
   `PreCompact` and `SessionEnd` (capture the transcript delta).
 - **Self-documentation**: the project's own docs are embedded in the binary and
   indexed into memory at boot.

@@ -7,6 +7,10 @@ A plugin that gives [opencode](https://opencode.ai) the same memory loop as the 
 
 ## Install
 
+From npm (needs the `m3m0s` binary on `PATH` or at `~/go/bin/m3m0s`, plus `~/.m3m0s/hook.env`): add `"@rafaelvieiras/m3m0s-opencode"` to the `plugin` array of `opencode.json`.
+
+Manual install:
+
 1. Install `m3m0s` to `~/go/bin/m3m0s` (or set `M3M0S_BIN`) and create `~/.m3m0s/hook.env` with `M3M0S_URL` and `M3M0S_API_KEY`.
 2. Copy `m3m0s-memory.js` to `~/.config/opencode/plugins/` and add `"./plugins/m3m0s-memory.js"` to the `plugin` array of `opencode.json`.
 3. Optional: register the MCP server read-only so the agent can search explicitly:

@@ -10,12 +10,14 @@
 //
 // Every failure is silent: this plugin must never block opencode.
 import { spawn } from "node:child_process";
-import { mkdirSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
 
 const HOME = homedir();
-const BIN = process.env.M3M0S_BIN || join(HOME, "go", "bin", "m3m0s");
+// M3M0S_BIN wins, then ~/go/bin/m3m0s, then whatever is on PATH.
+const GO_BIN = join(HOME, "go", "bin", "m3m0s");
+const BIN = process.env.M3M0S_BIN || (existsSync(GO_BIN) ? GO_BIN : "m3m0s");
 const LOG = join(HOME, ".m3m0s", "hooks", "claude-code.log");
 const DIR = join(HOME, ".m3m0s", "hooks", "opencode");
 

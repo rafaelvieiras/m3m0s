@@ -1,0 +1,13 @@
+{
+  "name": "m3m0s",
+  "owner": {
+    "name": "Rafael Vieiras"
+  },
+  "plugins": [
+    {
+      "name": "m3m0s-memory",
+      "source": "./integrations/claude-code",
+      "description": "Long-term memory from m3m0s for Claude Code (hooks + read-only MCP)."
+    }
+  ]
+}

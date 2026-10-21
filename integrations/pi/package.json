@@ -1,0 +1,29 @@
+{
+  "name": "@rafaelvieiras/m3m0s-pi",
+  "version": "0.1.0",
+  "description": "Long-term memory from m3m0s for the pi coding agent (recall and capture).",
+  "keywords": [
+    "pi-package",
+    "m3m0s",
+    "memory"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rafaelvieiras/m3m0s.git",
+    "directory": "integrations/pi"
+  },
+  "homepage": "https://github.com/rafaelvieiras/m3m0s/tree/main/integrations/pi",
+  "files": [
+    "m3m0s-memory.ts",
+    "README.md"
+  ],
+  "pi": {
+    "extensions": [
+      "./m3m0s-memory.ts"
+    ]
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
