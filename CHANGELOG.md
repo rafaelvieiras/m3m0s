@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-20
+
+### Added
+
+- Accounts: the first account is created without an API key (D52), straight from the WebUI first-run page.
+- Plugin packaging and CI publishing for the pi, opencode, Claude Code and Hermes integrations (npm, marketplace).
+- Astro website with a usage guide, brand assets and a README banner.
+
+### Changed
+
+- CI uses conventional commits, release-please and GoReleaser.
+
 ## [0.2.0] - 2026-10-18
 
 ### Added
