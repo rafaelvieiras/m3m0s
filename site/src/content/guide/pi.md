@@ -15,7 +15,17 @@ Nothing is injected on compaction. Recall happens per prompt.
 ## Install
 
 1. Install the binary and store the credentials: [CLI and credentials](/guide/cli/). The extension looks for `m3m0s` at `~/go/bin/m3m0s` first and then on `PATH`.
-2. Copy the extension into pi's extensions folder:
+2. Install the package from npm:
+
+```sh
+pi install npm:@rafaelvieiras/m3m0s-pi
+```
+
+3. Restart pi. Set `M3M0S_BIN` if the binary lives somewhere else.
+
+### Manual install
+
+Copy the extension into pi's extensions folder instead:
 
 ```sh
 mkdir -p ~/.pi/agent/extensions
@@ -23,9 +33,8 @@ curl -fsSL https://raw.githubusercontent.com/rafaelvieiras/m3m0s/main/integratio
   -o ~/.pi/agent/extensions/m3m0s-memory.ts
 ```
 
-3. Restart pi. Set `M3M0S_BIN` if the binary lives somewhere else.
 
-> An npm package for `pi install` is planned. Until it ships, copy the file as above.
+Then restart pi.
 
 ## Optional: read-only MCP
 
