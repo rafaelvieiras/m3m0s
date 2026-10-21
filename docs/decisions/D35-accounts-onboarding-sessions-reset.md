@@ -1,6 +1,6 @@
 # D35 — Accounts: onboarding, sessions and CLI-issued password reset
 
-**Status:** Accepted (issue #35)
+**Status:** Accepted (issue #35); the onboarding key requirement was dropped in [D52](D52-keyless-onboarding.md)
 
 **Context:** the WebUI signed in by pasting an API key into the browser's local storage: no account, no revocable session, no first-run setup and no recovery path other than handling keys by hand.
 

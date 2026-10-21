@@ -132,12 +132,13 @@ func (s *Server) handleAuthStatus(w http.ResponseWriter, r *http.Request) {
 
 // ── POST /auth/onboard ──
 
-// handleOnboard creates the first account. The API is reachable before any
-// account exists, so the caller must prove control of the instance with an API
-// key (the bootstrap key printed at first boot); a stranger cannot claim it.
+// handleOnboard creates the first account. It needs no API key (D52): whoever
+// reaches a fresh instance first claims it, so create the account right after
+// deploying. It is refused once any account exists. The CSRF header keeps a
+// cross-site form from posting to it.
 func (s *Server) handleOnboard(w http.ResponseWriter, r *http.Request) {
-	if !s.validAPIKey(r) {
-		writeError(w, http.StatusUnauthorized, "unauthorized", "onboarding requires an API key")
+	if !hasCSRF(r) {
+		writeError(w, http.StatusForbidden, "csrf", "missing "+csrfHeader+" header")
 		return
 	}
 	var req apitypes.OnboardRequest

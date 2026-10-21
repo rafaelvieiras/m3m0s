@@ -1,3 +1,16 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/brand/banner-dark.svg">
+    <img alt="m3m0s: long-term memory for LLM agents" src="docs/brand/banner-light.svg" width="720">
+  </picture>
+</p>
+
+<p align="center">
+  <a href="https://m3m0s.rafaelvieiras.com"><b>Website</b></a> ·
+  <a href="https://m3m0s.rafaelvieiras.com/guide/">Guide</a> ·
+  <a href="https://github.com/rafaelvieiras/m3m0s/releases">Releases</a>
+</p>
+
 # M3m0s
 
 A self-hosted, long-term semantic memory service for LLM agents: one small Go
@@ -82,9 +95,9 @@ docker compose logs          # first start prints a generated API key — save i
 ```
 
 Then open `http://localhost:19234/`. A fresh instance runs a first-time setup:
-paste the API key from the log (it proves you control the instance) and create
-the first account (username and password). From then on you sign in with that
-account. Data lives in a named volume (`m3m0s-data`), so it survives restarts.
+create the first account (username and password), no key needed, so do it right
+away if the instance is reachable from the internet. From then on you sign in
+with that account. Data lives in a named volume (`m3m0s-data`), so it survives restarts.
 
 Accounts are for people using the WebUI; hooks, MCP and the CLI keep using API
 keys. Forgot the password? `m3m0s user reset <username>` prints a single-use,

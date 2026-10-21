@@ -73,12 +73,12 @@ func TestAccountsOnboardingLoginAndSessions(t *testing.T) {
 	}
 
 	onboard := `{"username":"admin","password":"` + pw + `","confirm":"` + pw + `"}`
-	e.expect(401, "", "POST", "/api/v1/auth/onboard", onboard) // a stranger cannot claim the instance
-	e.expect(400, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"`+pw+`","confirm":"different-pass-x"}`)
-	e.expect(400, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"short","confirm":"short"}`)
-	e.expect(400, "key", "POST", "/api/v1/auth/onboard", `{"username":"A B","password":"`+pw+`","confirm":"`+pw+`"}`)
-	e.expect(201, "browser", "POST", "/api/v1/auth/onboard", onboard, "Authorization", "Bearer "+e.apiKey)
-	e.expect(409, "key", "POST", "/api/v1/auth/onboard", onboard)
+	e.expect(403, "", "POST", "/api/v1/auth/onboard", onboard) // no CSRF header: a cross-site form cannot claim the instance
+	e.expect(400, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"`+pw+`","confirm":"different-pass-x"}`, csrf, "1")
+	e.expect(400, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"short","confirm":"short"}`, csrf, "1")
+	e.expect(400, "key", "POST", "/api/v1/auth/onboard", `{"username":"A B","password":"`+pw+`","confirm":"`+pw+`"}`, csrf, "1")
+	e.expect(201, "browser", "POST", "/api/v1/auth/onboard", onboard, csrf, "1")
+	e.expect(409, "key", "POST", "/api/v1/auth/onboard", onboard, csrf, "1")
 	_ = json.Unmarshal(e.expect(200, "", "GET", "/api/v1/auth/status", ""), &st)
 	if st.NeedsOnboarding {
 		t.Fatal("onboarding still offered after the first account")
@@ -119,7 +119,7 @@ func TestAccountsOnboardingLoginAndSessions(t *testing.T) {
 
 func TestAccountsLoginThrottle(t *testing.T) {
 	e := newAcctEnv(t)
-	e.expect(201, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"`+pw+`","confirm":"`+pw+`"}`)
+	e.expect(201, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"`+pw+`","confirm":"`+pw+`"}`, csrf, "1")
 	for i := 0; i < 6; i++ {
 		e.do("", "POST", "/api/v1/auth/login", `{"username":"admin","password":"bad-bad-bad-bad"}`, csrf, "1")
 	}
@@ -131,7 +131,7 @@ func TestAccountsLoginThrottle(t *testing.T) {
 
 func TestAccountsInviteAndCLIResetFlow(t *testing.T) {
 	e := newAcctEnv(t)
-	e.expect(201, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"`+pw+`","confirm":"`+pw+`"}`)
+	e.expect(201, "key", "POST", "/api/v1/auth/onboard", `{"username":"admin","password":"`+pw+`","confirm":"`+pw+`"}`, csrf, "1")
 
 	// admin routes need an API key
 	e.expect(401, "", "POST", "/api/v1/users", `{"username":"alice"}`)

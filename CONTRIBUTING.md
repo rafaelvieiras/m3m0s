@@ -149,3 +149,23 @@ npm trust github @rafaelvieiras/m3m0s-pi \
 
 The trust configuration must see a successful publish from CI within 2 days
 or it expires. Requires npm 11.15 or later and 2FA on the account.
+
+## Website
+
+The site (`https://m3m0s.rafaelvieiras.com`) lives in `site/` (Astro). The home
+page is in `site/src/pages/index.astro` and the guide is Markdown in
+`site/src/content/guide/`. Open Graph images are generated at build time.
+
+```sh
+cd site && npm ci && npm run dev      # local preview
+npm run build                          # static output in site/dist
+```
+
+Deploy (Cloudflare Workers static assets, custom domain in `wrangler.jsonc`):
+
+```sh
+cd site && npm run build
+CLOUDFLARE_ACCOUNT_ID=<account id> npx wrangler deploy
+```
+
+Brand assets (icon, wordmark and banner, light and dark) are in `docs/brand/`.
