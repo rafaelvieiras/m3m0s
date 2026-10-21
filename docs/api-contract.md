@@ -89,7 +89,7 @@ an account is a login, not a separate memory.
 | Route | Auth | Purpose |
 |---|---|---|
 | `GET /auth/status` | none | `{ "needsOnboarding": bool }`: true while no account exists |
-| `POST /auth/onboard` | **API key** | `{username, password, confirm}` creates the **first** account and signs in (`201` + cookie). `409 account_exists` once any account exists. The key proves control of the instance, so a stranger cannot claim a fresh one |
+| `POST /auth/onboard` | none (CSRF header) | `{username, password, confirm}` creates the **first** account and signs in (`201` + cookie). `409 account_exists` once any account exists. No key is needed ([D52](decisions/D52-keyless-onboarding.md)), so create the account right after deploying |
 | `POST /auth/login` | none + CSRF header | `{username, password}` → `200` + cookie. `401 invalid_credentials` (same answer for an unknown user); `429 too_many_attempts` + `Retry-After` after repeated failures (per username and per address, doubling up to 15 min) |
 | `POST /auth/logout` | cookie + CSRF header | revokes the session (`204`) |
 | `GET /auth/me` | key or cookie | `{ "via": "session" | "apikey", "username"? }`, else `401` |

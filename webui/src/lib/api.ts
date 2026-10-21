@@ -186,24 +186,9 @@ export function logout(): Promise<void> {
   return authRequest("/auth/logout", { method: "POST" }, null);
 }
 
-// Onboarding must carry an API key (the bootstrap key printed at first boot),
-// otherwise anyone reaching a fresh instance could claim it.
-export async function onboard(
-  apiKey: string,
-  username: string,
-  password: string,
-  confirm: string,
-): Promise<void> {
-  const res = await fetch(`${BASE_URL}${API_PREFIX}/auth/onboard`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({ username, password, confirm }),
-  });
-  if (!res.ok) {
-    const parsed = errorBodySchema.safeParse(await res.json().catch(() => null));
-    if (parsed.success) throw new ApiError(res.status, parsed.data.error.code, parsed.data.error.message);
-    throw new ApiError(res.status, "unknown_error", `HTTP ${res.status}`);
-  }
+// Onboarding needs no API key (D52); it is refused once any account exists.
+export function onboard(username: string, password: string, confirm: string): Promise<void> {
+  return authRequest("/auth/onboard", { method: "POST", body: JSON.stringify({ username, password, confirm }) }, null);
 }
 
 export function getResetInfo(token: string): Promise<ResetInfo> {

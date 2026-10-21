@@ -6,7 +6,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { KeyRound, Loader2, LogIn, UserPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
+import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { MISMATCH, PasswordFields, passwordProblem } from "@/components/auth/PasswordFields";
 import { useAuthStatus, useLogin, useOnboard } from "@/hooks/useAuth";
@@ -40,7 +40,6 @@ function errorText(e: unknown): string {
 function OnboardingForm() {
   const navigate = useNavigate();
   const onboard = useOnboard();
-  const [apiKey, setKey] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -51,9 +50,9 @@ function OnboardingForm() {
   function submit(e: React.FormEvent) {
     e.preventDefault();
     setTouched(true);
-    if (problem || userProblem || !username.trim() || !apiKey.trim()) return;
+    if (problem || userProblem || !username.trim()) return;
     onboard.mutate(
-      { apiKey: apiKey.trim(), username: username.trim(), password, confirm },
+      { username: username.trim(), password, confirm },
       { onSuccess: () => navigate({ to: "/search" }) },
     );
   }
@@ -62,26 +61,12 @@ function OnboardingForm() {
     <Shell title="Welcome to M3m0s" description="Create the first account to finish the setup.">
       <form onSubmit={submit}>
         <FieldGroup>
-          <Field>
-            <FieldLabel htmlFor="onboard-key">API key</FieldLabel>
-            <Input
-              id="onboard-key"
-              type="password"
-              autoComplete="off"
-              autoFocus
-              placeholder="m3m0s_..."
-              value={apiKey}
-              onChange={(e) => setKey(e.target.value)}
-            />
-            <FieldDescription>
-              The key printed in the server log on first start. It proves you control this instance.
-            </FieldDescription>
-          </Field>
           <Field data-invalid={userProblem || undefined}>
             <FieldLabel htmlFor="onboard-username">Username</FieldLabel>
             <Input
               id="onboard-username"
               autoComplete="username"
+              autoFocus
               value={username}
               aria-invalid={userProblem || undefined}
               onChange={(e) => setUsername(e.target.value)}
