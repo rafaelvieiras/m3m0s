@@ -24,8 +24,8 @@ export function useLogin() {
 
 export function useOnboard() {
   return useMutation({
-    mutationFn: async (v: { apiKey: string; username: string; password: string; confirm: string }) => {
-      await api.onboard(v.apiKey, v.username, v.password, v.confirm);
+    mutationFn: async (v: { username: string; password: string; confirm: string }) => {
+      await api.onboard(v.username, v.password, v.confirm);
     },
   });
 }
