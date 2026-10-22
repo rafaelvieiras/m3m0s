@@ -455,8 +455,7 @@ docs/
                           the mapping to the real storage (SQLite, D28)
   api-contract.md         MCP/CLI/HTTP contract of the core operations
   market-benchmark.md     comparison vs. Claude-Mem/Mem0/Cognee/Zep
-                          closed, rejected and open (updated version of the
-                          original benchmark)
+                          (feature matrix, known gaps and non-goals)
 cmd/m3m0s/               single binary: dispatcher serve/mcp/watch/hook/add/search/...
 webui/                   admin WebUI (Phase 5, D13) — Vite/React/TS, talks to the
                           `m3m0s serve` API under /api/v1; separate Node build
