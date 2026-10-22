@@ -116,7 +116,7 @@ func TestCanonicalDomainTranslatesLegacyCategories(t *testing.T) {
 		"escrita:book":    "writing:book",
 		"cliente:acme":    "client:acme",
 		"code:m3m0s":      "code:m3m0s",
-		"infra:homelab":   "infra:homelab",
+		"infra:server":   "infra:server",
 		"nocolon":         "nocolon",
 		"codigo-x:y":      "codigo-x:y",
 		"codigo":          "codigo",

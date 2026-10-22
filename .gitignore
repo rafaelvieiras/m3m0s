@@ -24,3 +24,7 @@ webui/dist/*
 
 # GoReleaser output
 /dist/
+
+# Python bytecode.
+__pycache__/
+*.pyc
