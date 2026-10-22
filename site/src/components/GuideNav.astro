@@ -1,15 +1,17 @@
 ---
 import { SECTIONS, guideHref, type GuideEntry } from "../lib/guide";
-interface Props { entries: GuideEntry[]; currentId: string }
-const { entries, currentId } = Astro.props;
+import { t, type Lang } from "../i18n";
+interface Props { entries: GuideEntry[]; currentId: string; lang: Lang }
+const { entries, currentId, lang } = Astro.props;
+const d = t(lang);
 ---
-<nav class="side" aria-label="Guide">
+<nav class="side" aria-label={d.guide.nav}>
   {SECTIONS.map((s) => (
     <>
-      <h4>{s}</h4>
+      <h4>{d.guide.sections[s]}</h4>
       <ul>
         {entries.filter((e) => e.data.section === s).map((e) => (
-          <li><a href={guideHref(e)} aria-current={e.id === currentId ? "page" : undefined}>{e.data.title}</a></li>
+          <li><a href={guideHref(lang, e)} aria-current={e.id === currentId ? "page" : undefined}>{e.data.title}</a></li>
         ))}
       </ul>
     </>

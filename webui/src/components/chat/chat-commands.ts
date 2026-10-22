@@ -2,13 +2,16 @@
 // autocomplete (ChatWidget) and execution (runChatCommand) stay in sync —
 // adding a new command is just one item here + 1 case in the runChatCommand
 // switch.
+import type { TKey } from "@/i18n";
+
 export interface ChatCommand {
   name: string;
-  description: string;
+  /** i18n key of the description shown in the autocomplete menu. */
+  description: TKey;
 }
 
 export const CHAT_COMMANDS: ChatCommand[] = [
-  { name: "clean", description: "Clears this conversation's history" },
+  { name: "clean", description: "chat.cmd.clean" },
 ];
 
 export function matchChatCommands(query: string): ChatCommand[] {

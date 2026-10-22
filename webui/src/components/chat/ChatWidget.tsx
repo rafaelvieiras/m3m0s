@@ -17,8 +17,10 @@ import { useChatMessage } from "@/hooks/useMemoryApi";
 import type { ChatMessagePayload } from "@/lib/schemas";
 import { matchChatCommands, parseSlashCommand } from "./chat-commands";
 import { toast } from "sonner";
+import { useT } from "@/i18n";
 
 export function ChatWidget() {
+  const { t } = useT();
   const [isOpen, setIsOpen] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [messages, setMessages] = useState<ChatMessagePayload[]>([]);
@@ -55,10 +57,10 @@ export function ChatWidget() {
     switch (name) {
       case "clean":
         setMessages([]);
-        toast.success("Conversation cleared");
+        toast.success(t("chat.cleared"));
         break;
       default:
-        toast.error(`Unknown command: /${name}`);
+        toast.error(t("chat.unknownCommand", { name }));
     }
   }
 
@@ -84,7 +86,7 @@ export function ChatWidget() {
           setMessages((prev) => [...prev, { role: "assistant", content: res.reply }]);
         },
         onError: (err) => {
-          toast.error(`Chat failed: ${err.message}`);
+          toast.error(t("chat.failed", { message: err.message }));
         },
       },
     );
@@ -126,7 +128,7 @@ export function ChatWidget() {
         type="button"
         size="icon-lg"
         onClick={() => setIsOpen((v) => !v)}
-        aria-label={isOpen ? "Close memory chat" : "Open memory chat"}
+        aria-label={isOpen ? t("chat.closeMemoryChat") : t("chat.openMemoryChat")}
         className="fixed right-4 bottom-4 z-50 rounded-full shadow-lg"
       >
         {isOpen ? <X /> : <MessageCircle />}
@@ -135,7 +137,7 @@ export function ChatWidget() {
       {isOpen && (
         <div
           role="complementary"
-          aria-label="Memory chat"
+          aria-label={t("chat.region")}
           className={cn(
             "fixed top-4 right-4 bottom-20 z-40 flex flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-2xl ring-1 ring-foreground/10 transition-[width] duration-150",
             isExpanded ? "w-[min(40rem,calc(100vw-2rem))]" : "w-[min(22rem,calc(100vw-2rem))]",
@@ -144,7 +146,7 @@ export function ChatWidget() {
           <header className="flex items-center justify-between gap-2 border-b px-3 py-2">
             <div className="flex items-center gap-1.5 text-sm font-semibold tracking-tight">
               <Bot className="size-4" />
-              Memory assistant
+              {t("chat.title")}
             </div>
             <div className="flex items-center gap-0.5">
               <Button
@@ -152,7 +154,7 @@ export function ChatWidget() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setIsExpanded((v) => !v)}
-                aria-label={isExpanded ? "Collapse panel" : "Expand panel"}
+                aria-label={isExpanded ? t("chat.collapse") : t("chat.expand")}
               >
                 {isExpanded ? <Minimize2 className="size-3.5" /> : <Maximize2 className="size-3.5" />}
               </Button>
@@ -161,7 +163,7 @@ export function ChatWidget() {
                 variant="ghost"
                 size="icon-sm"
                 onClick={() => setIsOpen(false)}
-                aria-label="Close chat"
+                aria-label={t("chat.close")}
               >
                 <X className="size-3.5" />
               </Button>
@@ -171,8 +173,7 @@ export function ChatWidget() {
           <div ref={listRef} className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
             {messages.length === 0 && (
               <p className="text-sm text-muted-foreground">
-                Ask something about your memories, or ask me to save new information.
-                Type <code className="font-mono">/</code> to see the available commands.
+                {t("chat.empty", { slash: "/" })}
               </p>
             )}
             {messages.map((m, i) => (
@@ -181,7 +182,7 @@ export function ChatWidget() {
             {chatMutation.isPending && (
               <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                 <Bot className="size-4 shrink-0" />
-                <span className="animate-pulse">typing…</span>
+                <span className="animate-pulse">{t("chat.typing")}</span>
               </div>
             )}
           </div>
@@ -201,7 +202,7 @@ export function ChatWidget() {
                       )}
                     >
                       <span className="font-mono">/{cmd.name}</span>
-                      <span className="truncate text-xs text-muted-foreground">{cmd.description}</span>
+                      <span className="truncate text-xs text-muted-foreground">{t(cmd.description)}</span>
                     </button>
                   </li>
                 ))}
@@ -213,7 +214,7 @@ export function ChatWidget() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask or request to save something… (/ for commands)"
+                placeholder={t("chat.placeholder")}
                 rows={1}
                 disabled={chatMutation.isPending}
                 className="min-h-8 resize-none py-1.5 text-sm"
@@ -223,7 +224,7 @@ export function ChatWidget() {
                 size="icon"
                 onClick={handleSend}
                 disabled={chatMutation.isPending || !input.trim()}
-                aria-label="Send message"
+                aria-label={t("chat.send")}
               >
                 <Send className="size-4" />
               </Button>

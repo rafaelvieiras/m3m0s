@@ -1,0 +1,139 @@
+---
+import Base from "../layouts/Base.astro";
+import { Code } from "astro:components";
+import { t, localePath, type Lang } from "../i18n";
+
+const { lang } = Astro.props as { lang: Lang };
+const d = t(lang);
+const h = d.home;
+const abs = (p: string) => new URL(p, Astro.site).href;
+const p = (path: string) => localePath(lang, path);
+
+const jsonLd = [
+  {
+    "@type": "SoftwareApplication",
+    "@id": abs("/#software"),
+    name: "m3m0s",
+    description: d.schema.appDescription,
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Linux, macOS, Windows, Docker",
+    license: "https://opensource.org/licenses/MIT",
+    url: abs(p("/")),
+    codeRepository: "https://github.com/rafaelvieiras/m3m0s",
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    author: { "@type": "Person", name: "Rafael Vieiras", url: "https://github.com/rafaelvieiras" },
+    inLanguage: ["en", "pt-BR", "es"],
+  },
+];
+
+const quickstart = `cp .env.example .env     # ${h.qsComment1}
+docker compose up -d
+docker compose logs      # ${h.qsComment2}
+
+export M3M0S_URL=http://localhost:19234
+export M3M0S_API_KEY=<${h.qsComment3}>
+m3m0s add "We use SQLite with versioned migrations" \\
+  --domain code:myproject
+m3m0s search "which database do we use?" \\
+  --domain code:myproject`;
+
+---
+<Base
+  lang={lang}
+  title={d.site.homeTitle}
+  description={d.site.homeDescription}
+  ogImage={`/og/${lang}/home.png`}
+  jsonLd={jsonLd}
+>
+  <section class="hero">
+    <div class="container">
+      <div>
+        <span class="eyebrow">{h.eyebrow}</span>
+        <h1>{h.h1}</h1>
+        <p class="lead">{h.lead}</p>
+        <div class="cta-row">
+          <a class="btn primary" href={p("/guide/quickstart/")}>{h.getStarted}</a>
+          <a class="btn" href="https://github.com/rafaelvieiras/m3m0s" rel="noopener">{h.github}</a>
+        </div>
+        <div class="install-line" aria-label={h.quickInstall}><b>$</b> docker compose up -d</div>
+      </div>
+      <div class="mock" aria-label={h.mockLabel}>
+        <div class="mock-bar" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="mock-body">
+          <div class="bubble user"><small>{h.mockYou}</small>{h.mockQuestion}</div>
+          <div class="bubble mem"><small>{h.mockRecalled}</small>
+            <code>code:myproject</code> {h.mockFact}
+          </div>
+          <div class="bubble user"><small>{h.mockAgent}</small>{h.mockReply}</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container">
+      <h2>{h.problemTitle}</h2>
+      <p class="sub">{h.problemSub}</p>
+      <div class="grid">
+        {h.problems.map((x) => <div class="card"><h3>{x.h}</h3><p>{x.p}</p></div>)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>{h.howTitle}</h2>
+      <p class="sub">{h.howSub}</p>
+      <div class="grid">
+        {h.steps.map((x, i) => <div class="card"><span class="num">{i + 1}</span><h3>{x.h}</h3><p>{x.p}</p></div>)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container">
+      <h2>{h.toolsTitle}</h2>
+      <p class="sub">{h.toolsSub}</p>
+      <div class="grid wide">
+        {h.tools.map((x) => (
+          <a class="card" href={p(x.href)}><h3>{x.name} →</h3><p>{x.text}</p></a>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="container">
+      <h2>{h.lightTitle}</h2>
+      <p class="sub">{h.lightSub}</p>
+      <div class="stats">
+        {h.stats.map((x) => <div class="stat"><b>{x.b}</b><span>{x.s}</span></div>)}
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt">
+    <div class="container split">
+      <div>
+        <h2>{h.fiveTitle}</h2>
+        <p class="sub" style="margin-bottom:1rem">{h.fiveSub}</p>
+        <ul style="padding-left:1.1rem;color:var(--muted);margin:0 0 1.5rem">
+          {h.fiveList.map((x) => <li>{x}</li>)}
+        </ul>
+        <a class="btn primary" href={p("/guide/quickstart/")}>{h.quickstartBtn}</a>
+      </div>
+      <Code code={quickstart} lang="bash" themes={{ light: "github-light", dark: "github-dark-dimmed" }} defaultColor={false} />
+    </div>
+  </section>
+
+  <section class="cta-band">
+    <div class="container">
+      <h2>{h.ctaTitle}</h2>
+      <p>{h.ctaText}</p>
+      <div class="cta-row">
+        <a class="btn primary" href={p("/guide/")}>{h.readGuide}</a>
+        <a class="btn" href="https://github.com/rafaelvieiras/m3m0s/releases" rel="noopener">{h.download}</a>
+      </div>
+    </div>
+  </section>
+</Base>

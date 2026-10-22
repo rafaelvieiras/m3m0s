@@ -4,19 +4,22 @@ import { Button } from "@/components/ui/button";
 import { ChatWidget } from "@/components/chat/ChatWidget";
 import { logout } from "@/lib/api";
 import { clearApiKey } from "@/lib/auth";
+import { useT, type TKey } from "@/i18n";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
 
 const navItems = [
-  { to: "/search", label: "Search", icon: SearchIcon },
-  { to: "/recent", label: "Recent", icon: Clock },
-  { to: "/stats", label: "Stats", icon: BarChart3 },
-  { to: "/insights", label: "Insights", icon: HeartPulse },
-  { to: "/add", label: "Add", icon: Plus },
-  { to: "/jobs", label: "Jobs", icon: ListChecks },
-  { to: "/embedding", label: "Embedding", icon: Cpu },
-  { to: "/preview", label: "Preview", icon: Eye },
-] as const;
+  { to: "/search", label: "common.nav.search", icon: SearchIcon },
+  { to: "/recent", label: "common.nav.recent", icon: Clock },
+  { to: "/stats", label: "common.nav.stats", icon: BarChart3 },
+  { to: "/insights", label: "common.nav.insights", icon: HeartPulse },
+  { to: "/add", label: "common.nav.add", icon: Plus },
+  { to: "/jobs", label: "common.nav.jobs", icon: ListChecks },
+  { to: "/embedding", label: "common.nav.embedding", icon: Cpu },
+  { to: "/preview", label: "common.nav.preview", icon: Eye },
+] as const satisfies readonly { to: string; label: TKey; icon: unknown }[];
 
 export function AppShell() {
+  const { t } = useT();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
 
   async function handleLogout() {
@@ -33,7 +36,7 @@ export function AppShell() {
     <div className="min-h-svh bg-background text-foreground">
       <header className="border-b">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-3">
-          <span className="text-sm font-semibold tracking-tight">M3m0s</span>
+          <span className="text-sm font-semibold tracking-tight">{t("common.appName")}</span>
           <nav className="flex flex-wrap items-center gap-1">
             {navItems.map(({ to, label, icon: Icon }) => {
               const active = pathname === to || pathname.startsWith(`${to}/`);
@@ -45,15 +48,18 @@ export function AppShell() {
                   size="sm"
                 >
                   <Icon data-icon="inline-start" />
-                  {label}
+                  {t(label)}
                 </Button>
               );
             })}
           </nav>
-          <Button variant="ghost" size="sm" onClick={handleLogout}>
-            <LogOut data-icon="inline-start" />
-            Log out
-          </Button>
+          <div className="flex items-center gap-2">
+            <LanguageSwitcher />
+            <Button variant="ghost" size="sm" onClick={handleLogout}>
+              <LogOut data-icon="inline-start" />
+              {t("common.logout")}
+            </Button>
+          </div>
         </div>
       </header>
       <main className="mx-auto max-w-5xl px-4 py-6">

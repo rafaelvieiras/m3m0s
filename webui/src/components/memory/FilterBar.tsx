@@ -3,6 +3,7 @@
 // not include tags in /recent). All are free-form strings (not a closed
 // enum), hence Input instead of Select.
 import { Search as SearchIcon } from "lucide-react";
+import { useT } from "@/i18n";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
@@ -37,6 +38,7 @@ interface FilterBarProps {
 }
 
 export function FilterBar({ value, onChange, onApply, showTags = false }: FilterBarProps) {
+  const { t } = useT();
   function set<K extends keyof FilterValues>(key: K, v: FilterValues[K]) {
     onChange({ ...value, [key]: v });
   }
@@ -105,21 +107,21 @@ export function FilterBar({ value, onChange, onApply, showTags = false }: Filter
           />
         </Field>
         <Field>
-          <FieldLabel htmlFor="filter-scope">project scope</FieldLabel>
+          <FieldLabel htmlFor="filter-scope">{t("memory.filter.scope")}</FieldLabel>
           <select
             id="filter-scope"
             className="h-8 w-full rounded-lg border border-input bg-transparent px-2.5 text-sm"
             value={value.scope}
             onChange={(e) => set("scope", e.target.value as FilterValues["scope"])}
           >
-            <option value="">project + global (or everything)</option>
-            <option value="project-only">project only</option>
-            <option value="global">global only</option>
+            <option value="">{t("memory.filter.scopeAll")}</option>
+            <option value="project-only">{t("memory.filter.scopeProject")}</option>
+            <option value="global">{t("memory.filter.scopeGlobal")}</option>
           </select>
         </Field>
         {showTags && (
           <Field>
-            <FieldLabel htmlFor="filter-tags">tags (comma-separated)</FieldLabel>
+            <FieldLabel htmlFor="filter-tags">{t("memory.filter.tags")}</FieldLabel>
             <Input
               id="filter-tags"
               placeholder="chapter-3,draft"
@@ -132,7 +134,7 @@ export function FilterBar({ value, onChange, onApply, showTags = false }: Filter
       <div className="mt-3 flex justify-end">
         <Button type="submit" size="sm">
           <SearchIcon data-icon="inline-start" />
-          Apply filters
+          {t("memory.filter.apply")}
         </Button>
       </div>
     </form>

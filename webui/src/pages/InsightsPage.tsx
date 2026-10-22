@@ -13,6 +13,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useT } from "@/i18n";
 import { useCancelHygiene, useHygiene, useInsightsOverview, useStartHygiene } from "@/hooks/useInsightsApi";
 import {
   barWidths,
@@ -37,8 +38,8 @@ import type {
   RetentionShadow,
 } from "@/lib/schemas";
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" });
-const formatDateTime = (iso: string) => dateTimeFormatter.format(new Date(iso));
+const formatDateTime = (iso: string, tag: string) =>
+  new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -50,8 +51,9 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-function BarList({ items, empty = "No data." }: { items: CountItem[]; empty?: string }) {
-  if (items.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
+function BarList({ items, empty }: { items: CountItem[]; empty?: string }) {
+  const { t } = useT();
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">{empty ?? t("insights.noData")}</p>;
   const widths = barWidths(items);
   return (
     <ul className="flex flex-col gap-1.5">
@@ -72,11 +74,12 @@ function BarList({ items, empty = "No data." }: { items: CountItem[]; empty?: st
 
 // Days with soft-deletes as vertical bars (one per day, oldest first).
 function DayBars({ items }: { items: CountItem[] }) {
-  if (items.length === 0) return <p className="text-sm text-muted-foreground">Nothing was soft-deleted yet.</p>;
+  const { t } = useT();
+  if (items.length === 0) return <p className="text-sm text-muted-foreground">{t("insights.softDeleted.empty")}</p>;
   const widths = barWidths(items);
   return (
     <div>
-      <div className="flex h-24 items-end gap-0.5" role="img" aria-label="Soft-deleted memories per day">
+      <div className="flex h-24 items-end gap-0.5" role="img" aria-label={t("insights.softDeleted.aria")}>
         {items.map((item, i) => (
           <div
             key={item.key}
@@ -109,72 +112,81 @@ function Section({ title, description, children }: { title: string; description?
 // ── Overview ──
 
 function OverviewSection({ ov }: { ov: InsightsOverview }) {
-  const t = ov.totals;
+  const { t } = useT();
+  const o = ov.totals;
   return (
     <>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <Tile label="Active memories" value={formatCount(t.active)} hint={`${formatCount(t.total)} stored in total`} />
         <Tile
-          label="Soft-deleted"
-          value={formatCount(t.soft_deleted)}
-          hint="hidden, restorable until hard-deleted"
+          label={t("insights.ov.active")}
+          value={formatCount(o.active)}
+          hint={t("insights.ov.activeHint", { total: formatCount(o.total) })}
         />
         <Tile
-          label="Never accessed"
-          value={`${t.never_accessed_pct.toFixed(1)}%`}
-          hint={`${formatCount(t.never_accessed)} of ${formatCount(t.active)} active`}
+          label={t("insights.ov.softDeleted")}
+          value={formatCount(o.soft_deleted)}
+          hint={t("insights.ov.softDeletedHint")}
         />
         <Tile
-          label="Past valid_until"
-          value={formatCount(t.expired)}
-          hint={`${formatCount(t.with_valid_until)} have a valid_until · ${formatPercent(t.expired, t.active)} of active`}
-        />
-        <Tile label="Pinned" value={formatCount(t.pinned)} hint="exempt from forgetting" />
-        <Tile
-          label="Extracted facts"
-          value={formatCount(t.extracted)}
-          hint={`${formatCount(t.raw)} raw · ${formatPercent(t.extracted, t.active)} extracted`}
+          label={t("insights.neverAccessed")}
+          value={`${o.never_accessed_pct.toFixed(1)}%`}
+          hint={t("insights.ov.neverAccessedHint", { count: formatCount(o.never_accessed), active: formatCount(o.active) })}
         />
         <Tile
-          label="Average text length"
-          value={`${Math.round(ov.text.avg_chars)} chars`}
-          hint={`median ${ov.text.median_chars} · p90 ${ov.text.p90_chars} · max ${formatCount(ov.text.max_chars)}`}
+          label={t("insights.pastValidUntil")}
+          value={formatCount(o.expired)}
+          hint={t("insights.ov.pastValidUntilHint", { count: formatCount(o.with_valid_until), pct: formatPercent(o.expired, o.active) })}
         />
-        <Tile label="Vectors indexed" value={formatCount(ov.vectors_indexed)} hint={`${formatCount(ov.domain_count)} domains`} />
+        <Tile label={t("insights.ov.pinned")} value={formatCount(o.pinned)} hint={t("insights.ov.pinnedHint")} />
+        <Tile
+          label={t("insights.ov.extracted")}
+          value={formatCount(o.extracted)}
+          hint={t("insights.ov.extractedHint", { raw: formatCount(o.raw), pct: formatPercent(o.extracted, o.active) })}
+        />
+        <Tile
+          label={t("insights.ov.avgLen")}
+          value={t("insights.ov.chars", { n: Math.round(ov.text.avg_chars) })}
+          hint={t("insights.ov.avgLenHint", { median: ov.text.median_chars, p90: ov.text.p90_chars, max: formatCount(ov.text.max_chars) })}
+        />
+        <Tile
+          label={t("insights.ov.vectors")}
+          value={formatCount(ov.vectors_indexed)}
+          hint={t("insights.domainsCount", { count: ov.domain_count })}
+        />
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
-        <Section title="By age" description="Active memories by time since creation.">
+        <Section title={t("insights.ov.byAge")} description={t("insights.ov.byAgeDesc")}>
           <BarList items={ov.by_age} />
         </Section>
-        <Section title="By source (tool)" description="Which tool wrote the active memories.">
+        <Section title={t("insights.ov.bySource")} description={t("insights.ov.bySourceDesc")}>
           <BarList items={ov.by_source} />
         </Section>
         <Section
-          title="By nature (kind)"
-          description="What each active memory is: decision, rule, gotcha... Untagged ones count as other."
+          title={t("insights.ov.byKind")}
+          description={t("insights.ov.byKindDesc")}
         >
           <BarList items={ov.by_kind ?? []} />
         </Section>
-        <Section title="Who tagged the nature" description="none = never classified (stored before the tag existed).">
+        <Section title={t("insights.ov.byKindSource")} description={t("insights.ov.byKindSourceDesc")}>
           <BarList items={ov.by_kind_source ?? []} />
         </Section>
-        <Section title="By domain category">
+        <Section title={t("insights.ov.byCategory")}>
           <BarList items={ov.by_category} />
         </Section>
-        <Section title="Soft-deleted per day" description="Memories hidden by forgetting, by deletion day.">
+        <Section title={t("insights.ov.perDay")} description={t("insights.ov.perDayDesc")}>
           <DayBars items={ov.soft_deleted_by_day} />
         </Section>
       </div>
 
-      <Section title="Top domains" description={`${formatCount(ov.domain_count)} domains in total.`}>
+      <Section title={t("insights.ov.topDomains")} description={t("insights.ov.topDomainsDesc", { count: ov.domain_count })}>
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Domain</TableHead>
-              <TableHead className="text-right">Memories</TableHead>
-              <TableHead className="text-right">Never accessed</TableHead>
-              <TableHead className="text-right">Past valid_until</TableHead>
+              <TableHead>{t("insights.ov.colDomain")}</TableHead>
+              <TableHead className="text-right">{t("insights.ov.colMemories")}</TableHead>
+              <TableHead className="text-right">{t("insights.neverAccessed")}</TableHead>
+              <TableHead className="text-right">{t("insights.pastValidUntil")}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -196,25 +208,26 @@ function OverviewSection({ ov }: { ov: InsightsOverview }) {
 }
 
 function ForgettingSection({ f }: { f: ForgettingStats }) {
+  const { t } = useT();
   return (
     <Section
-      title="Forgetting"
-      description={`What the next forget-sweep would do with the ${f.model ?? "legacy"} retention model (cold below ${f.threshold}). Nothing is changed here.`}
+      title={t("insights.fg.title")}
+      description={t("insights.fg.desc", { model: f.model ?? t("insights.fg.legacy"), threshold: f.threshold })}
     >
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Tile label="Cold right now" value={formatCount(f.cold_now)} hint="would be soft-deleted by a sweep" />
+          <Tile label={t("insights.fg.cold")} value={formatCount(f.cold_now)} hint={t("insights.fg.coldHint")} />
           <Tile
-            label="Waiting for hard-delete"
+            label={t("insights.fg.waiting")}
             value={formatCount(f.soft_deleted)}
-            hint={`${formatCount(f.hard_delete_due)} already past the ${f.grace_days}-day grace window`}
+            hint={t("insights.fg.waitingHint", { count: formatCount(f.hard_delete_due), days: f.grace_days })}
           />
-          <Tile label="Eligible to decay" value={formatCount(f.eligible)} hint="extracted and not pinned" />
-          <Tile label="Exempt" value={formatCount(f.exempt)} hint="raw content or pinned" />
+          <Tile label={t("insights.fg.eligible")} value={formatCount(f.eligible)} hint={t("insights.fg.eligibleHint")} />
+          <Tile label={t("insights.fg.exempt")} value={formatCount(f.exempt)} hint={t("insights.fg.exemptHint")} />
         </div>
         <div>
-          <p className="mb-2 text-sm font-medium">Retention score of eligible memories</p>
-          <BarList items={f.retention_histogram} empty="No memory is eligible to decay." />
+          <p className="mb-2 text-sm font-medium">{t("insights.fg.histogram")}</p>
+          <BarList items={f.retention_histogram} empty={t("insights.fg.histogramEmpty")} />
         </div>
         {f.shadow ? <ShadowSection s={f.shadow} /> : null}
       </div>
@@ -225,32 +238,34 @@ function ForgettingSection({ f }: { f: ForgettingStats }) {
 // Old versus new retention model, side by side (D39 shadow mode): how many
 // eligible memories each would forget by each horizon if nothing reads them.
 function ShadowSection({ s }: { s: RetentionShadow }) {
+  const { t } = useT();
   const horizons = s.horizons_days;
   const rows = s.by_kind.filter((k) => k.eligible > 0);
   const cell = (legacy: number[], perKind: number[], i: number) => (
     <TableCell key={i} className="text-right tabular-nums">
-      {formatCount(legacy[i] ?? 0)} <span className="text-muted-foreground">to</span> {formatCount(perKind[i] ?? 0)}
-      <span className="block text-xs text-muted-foreground">{shadowDelta(legacy[i] ?? 0, perKind[i] ?? 0)}</span>
+      {formatCount(legacy[i] ?? 0)} <span className="text-muted-foreground">{t("insights.sh.to")}</span> {formatCount(perKind[i] ?? 0)}
+      <span className="block text-xs text-muted-foreground">{shadowDelta(legacy[i] ?? 0, perKind[i] ?? 0, t)}</span>
     </TableCell>
   );
   return (
     <div>
-      <p className="mb-1 text-sm font-medium">Per-kind retention, in shadow</p>
+      <p className="mb-1 text-sm font-medium">{t("insights.sh.title")}</p>
       <p className="mb-2 text-xs text-muted-foreground">
-        Memories each model would forget, legacy to per-kind, assuming nothing reads them meanwhile. The sweep uses the{" "}
-        <strong>{s.active}</strong> model; nothing changes until M3M0S_RETENTION_MODEL is switched.
-        {s.protected > 0 ? ` ${formatCount(s.protected)} memories are exempt only under per-kind (manual durable tag).` : ""}
-        {s.expired_cap_enabled ? ` Expired valid_until caps the half-life at ${s.expired_cap_days} days.` : " The cap for an expired valid_until is off."}
+        {t("insights.sh.intro")} <strong>{s.active}</strong> {t("insights.sh.outro")}
+        {s.protected > 0 ? ` ${t("insights.sh.protected", { count: formatCount(s.protected) })}` : ""}
+        {s.expired_cap_enabled
+          ? ` ${t("insights.sh.capOn", { days: s.expired_cap_days })}`
+          : ` ${t("insights.sh.capOff")}`}
       </p>
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Kind</TableHead>
-            <TableHead className="text-right">Half-life</TableHead>
-            <TableHead className="text-right">Eligible</TableHead>
+            <TableHead>{t("insights.sh.colKind")}</TableHead>
+            <TableHead className="text-right">{t("insights.sh.colHalfLife")}</TableHead>
+            <TableHead className="text-right">{t("insights.sh.colEligible")}</TableHead>
             {horizons.map((h) => (
               <TableHead key={h} className="text-right">
-                {horizonLabel(h)}
+                {horizonLabel(h, t)}
               </TableHead>
             ))}
           </TableRow>
@@ -259,13 +274,13 @@ function ShadowSection({ s }: { s: RetentionShadow }) {
           {rows.map((k) => (
             <TableRow key={k.kind}>
               <TableCell>{k.kind}</TableCell>
-              <TableCell className="text-right tabular-nums">{s.half_life_days[k.kind] ?? "-"} d</TableCell>
+              <TableCell className="text-right tabular-nums">{s.half_life_days[k.kind] ?? "-"} {t("insights.unit.days")}</TableCell>
               <TableCell className="text-right tabular-nums">{formatCount(k.eligible)}</TableCell>
               {horizons.map((_, i) => cell(k.legacy, k.per_kind, i))}
             </TableRow>
           ))}
           <TableRow className="font-medium">
-            <TableCell>All</TableCell>
+            <TableCell>{t("insights.sh.all")}</TableCell>
             <TableCell />
             <TableCell className="text-right tabular-nums">{formatCount(s.eligible)}</TableCell>
             {horizons.map((_, i) => cell(s.legacy, s.per_kind, i))}
@@ -277,20 +292,21 @@ function ShadowSection({ s }: { s: RetentionShadow }) {
 }
 
 function FilterSection({ f }: { f: FilterOverview }) {
+  const { t } = useT();
   return (
     <Section
-      title="Ingestion filter"
-      description={`Tooling boilerplate stopped at automatic capture (mode ${f.mode}, rules v${f.rules_version}). Counters reset when the server restarts. Explicit writes and pinned memories are never filtered.`}
+      title={t("insights.fl.title")}
+      description={t("insights.fl.desc", { mode: f.mode, version: f.rules_version })}
     >
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Rule</TableHead>
-            <TableHead>Scope</TableHead>
-            <TableHead>Action</TableHead>
-            <TableHead className="text-right">Seen</TableHead>
-            <TableHead className="text-right">Dropped</TableHead>
-            <TableHead className="text-right">Tagged</TableHead>
+            <TableHead>{t("insights.fl.colRule")}</TableHead>
+            <TableHead>{t("insights.fl.colScope")}</TableHead>
+            <TableHead>{t("insights.fl.colAction")}</TableHead>
+            <TableHead className="text-right">{t("insights.fl.colSeen")}</TableHead>
+            <TableHead className="text-right">{t("insights.fl.colDropped")}</TableHead>
+            <TableHead className="text-right">{t("insights.fl.colTagged")}</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -315,7 +331,8 @@ function FilterSection({ f }: { f: FilterOverview }) {
 // ── Hygiene analysis ──
 
 function ExampleList({ examples }: { examples: ExampleEntry[] }) {
-  if (examples.length === 0) return <p className="text-sm text-muted-foreground">No example to show.</p>;
+  const { t } = useT();
+  if (examples.length === 0) return <p className="text-sm text-muted-foreground">{t("insights.hy.noExample")}</p>;
   return (
     <ul className="flex flex-col gap-2">
       {examples.map((e) => (
@@ -342,6 +359,7 @@ function Expandable({ summary, children }: { summary: string; children: React.Re
 }
 
 function RunControls({ status, report }: { status: HygieneStatus; report: HygieneReport | null }) {
+  const { t, tag } = useT();
   const start = useStartHygiene();
   const cancel = useCancelHygiene();
   const pct = progressPercent(status.done, status.total);
@@ -356,21 +374,24 @@ function RunControls({ status, report }: { status: HygieneStatus; report: Hygien
         {status.running ? (
           <Button variant="destructive" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate()}>
             <Square data-icon="inline-start" />
-            Cancel
+            {t("insights.hy.cancel")}
           </Button>
         ) : (
           <Button size="sm" disabled={start.isPending} onClick={run}>
             <Play data-icon="inline-start" />
-            Run analysis
+            {t("insights.hy.run")}
           </Button>
         )}
         {report ? (
           <span className="text-sm text-muted-foreground">
-            Last run {formatDateTime(report.computed_at)} · took {formatDuration(report.duration_ms)} ·{" "}
-            {formatCount(report.scanned)} memories scanned
+            {t("insights.hy.lastRun", {
+              date: formatDateTime(report.computed_at, tag),
+              duration: formatDuration(report.duration_ms),
+              count: formatCount(report.scanned),
+            })}
           </span>
         ) : (
-          <span className="text-sm text-muted-foreground">Never run.</span>
+          <span className="text-sm text-muted-foreground">{t("insights.hy.neverRun")}</span>
         )}
       </div>
 
@@ -387,7 +408,7 @@ function RunControls({ status, report }: { status: HygieneStatus; report: Hygien
           </div>
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="size-3.5 animate-spin" />
-            {status.phase || "Starting"}
+            {status.phase || t("insights.hy.starting")}
             {status.total > 0 ? ` · ${pct}%` : ""}
           </p>
         </div>
@@ -395,7 +416,7 @@ function RunControls({ status, report }: { status: HygieneStatus; report: Hygien
 
       {!status.running && status.last_error ? (
         <Alert variant="destructive">
-          <AlertTitle>The last run did not finish</AlertTitle>
+          <AlertTitle>{t("insights.hy.lastFailed")}</AlertTitle>
           <AlertDescription>{status.last_error}</AlertDescription>
         </Alert>
       ) : null}
@@ -403,7 +424,7 @@ function RunControls({ status, report }: { status: HygieneStatus; report: Hygien
       {report?.partial ? (
         <Alert>
           <AlertTriangle />
-          <AlertTitle>Partial result</AlertTitle>
+          <AlertTitle>{t("insights.hy.partial")}</AlertTitle>
           <AlertDescription>{report.partial_reason}</AlertDescription>
         </Alert>
       ) : null}
@@ -412,31 +433,32 @@ function RunControls({ status, report }: { status: HygieneStatus; report: Hygien
 }
 
 function ExactSection({ report }: { report: HygieneReport }) {
+  const { t } = useT();
   const x = report.exact_duplicates;
   return (
     <Section
-      title="Identical text"
-      description="Memories whose text is the same after ignoring case, accents and punctuation."
+      title={t("insights.ex.title")}
+      description={t("insights.ex.desc")}
     >
       <div className="flex flex-col gap-4">
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <Tile label="Groups" value={formatCount(x.groups)} hint={`${formatCount(x.entries)} memories involved`} />
-          <Tile label="Redundant copies" value={formatCount(x.redundant)} />
+          <Tile label={t("insights.ex.groups")} value={formatCount(x.groups)} hint={t("insights.ex.groupsHint", { count: formatCount(x.entries) })} />
+          <Tile label={t("insights.ex.redundant")} value={formatCount(x.redundant)} />
           <Tile
-            label="Same domain / across domains"
+            label={t("insights.ex.sameCross")}
             value={`${formatCount(x.same_domain_groups)} / ${formatCount(x.cross_domain_groups)}`}
-            hint="groups"
+            hint={t("insights.ex.groupsUnit")}
           />
-          <Tile label="Across tools" value={formatCount(x.cross_source_groups)} hint="groups with mixed sources" />
+          <Tile label={t("insights.acrossTools")} value={formatCount(x.cross_source_groups)} hint={t("insights.ex.mixedHint")} />
         </div>
         {x.examples.length > 0 ? (
-          <Expandable summary={`Largest groups (${x.examples.length})`}>
+          <Expandable summary={t("insights.ex.largest", { count: x.examples.length })}>
             <ul className="flex flex-col gap-2">
               {x.examples.map((g) => (
                 <li key={g.members.map((m) => m.id).join()} className="rounded border p-2 text-sm">
                   <p>{g.text}</p>
                   <p className="mt-1 text-xs text-muted-foreground">
-                    {g.size} copies · {g.domains} domain{g.domains === 1 ? "" : "s"} ·{" "}
+                    {t("insights.ex.copies", { count: g.size })} · {t("insights.domainsCount", { count: g.domains })} ·{" "}
                     {g.members.map((m) => domainInstance(m.domain)).join(", ")}
                   </p>
                 </li>
@@ -450,35 +472,39 @@ function ExactSection({ report }: { report: HygieneReport }) {
 }
 
 function NearSection({ report }: { report: HygieneReport }) {
+  const { t } = useT();
   const n = report.near_duplicates;
   if (!n.available) {
     return (
-      <Section title="Near-duplicates" description="Memories that mean the same thing in different words.">
-        <p className="text-sm text-muted-foreground">Not available: {n.reason ?? "no vectors."}</p>
+      <Section title={t("insights.nr.title")} description={t("insights.nr.descUnavailable")}>
+        <p className="text-sm text-muted-foreground">
+          {t("insights.nr.unavailable", { reason: n.reason ?? t("insights.nr.noVectors") })}
+        </p>
       </Section>
     );
   }
   return (
     <Section
-      title="Near-duplicates"
-      description={`Cosine similarity between memory vectors (${formatCount(n.indexed ?? 0)} compared, ${
-        n.method === "lsh" ? "approximate hashing" : "all pairs"
-      }). Pairs are counted at or above each threshold.`}
+      title={t("insights.nr.title")}
+      description={t("insights.nr.desc", {
+        count: formatCount(n.indexed ?? 0),
+        method: n.method === "lsh" ? t("insights.nr.methodLsh") : t("insights.nr.methodAll"),
+      })}
     >
       <div className="flex flex-col gap-4">
         <div className="overflow-x-auto">
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Cosine</TableHead>
-                <TableHead className="text-right">Pairs</TableHead>
-                <TableHead className="text-right">Clusters</TableHead>
-                <TableHead className="text-right">Redundant</TableHead>
-                <TableHead className="text-right">Same domain</TableHead>
-                <TableHead className="text-right">Across domains</TableHead>
-                <TableHead className="text-right">Across tools</TableHead>
-                <TableHead className="text-right">Same capture</TableHead>
-                <TableHead className="text-right">Numbers differ</TableHead>
+                <TableHead>{t("insights.nr.colCosine")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colPairs")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colClusters")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colRedundant")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colSameDomain")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colAcrossDomains")}</TableHead>
+                <TableHead className="text-right">{t("insights.acrossTools")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colSameCapture")}</TableHead>
+                <TableHead className="text-right">{t("insights.nr.colNumbersDiffer")}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -499,23 +525,21 @@ function NearSection({ report }: { report: HygieneReport }) {
           </Table>
         </div>
         <p className="text-xs text-muted-foreground">
-          Redundant = copies beyond one per cluster. Same capture = both facts came from the same source text. Numbers
-          differ = the texts hold different numbers, so they are probably distinct facts of the same shape rather than
-          duplicates.
+          {t("insights.nr.legend")}
           {n.cross_source.length > 0
-            ? ` Across tools: ${n.cross_source.map((c) => `${c.key} (${c.count})`).join(", ")}.`
+            ? ` ${t("insights.nr.acrossToolsList", { list: n.cross_source.map((c) => `${c.key} (${c.count})`).join(", ") })}`
             : ""}
-          {n.pairs_truncated ? " Pair collection hit its safety cap, so counts are a lower bound." : ""}
+          {n.pairs_truncated ? ` ${t("insights.nr.truncated")}` : ""}
         </p>
         {n.bands.map((b) => (
-          <Expandable key={b.label} summary={`${b.label} (${b.examples.length} example${b.examples.length === 1 ? "" : "s"})`}>
+          <Expandable key={b.label} summary={t("insights.nr.bandSummary", { label: b.label, count: b.examples.length })}>
             {b.examples.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No pair in this band.</p>
+              <p className="text-sm text-muted-foreground">{t("insights.nr.noPair")}</p>
             ) : (
               <ul className="flex flex-col gap-2">
                 {b.examples.map((p) => (
                   <li key={p.a.id + p.b.id} className="rounded border p-2 text-sm">
-                    <Badge variant="outline">cosine {p.similarity.toFixed(3)}</Badge>
+                    <Badge variant="outline">{t("insights.nr.cosine", { value: p.similarity.toFixed(3) })}</Badge>
                     <p className="mt-1">{p.a.text}</p>
                     <p className="text-xs text-muted-foreground">
                       {p.a.id} · {p.a.domain} · {p.a.source}
@@ -536,20 +560,21 @@ function NearSection({ report }: { report: HygieneReport }) {
 }
 
 function CriterionRow({ c, scanned }: { c: NoiseCriterion; scanned: number }) {
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-2 rounded-lg border p-3">
       <div className="flex flex-wrap items-center gap-2">
         <Badge variant="outline">{c.id}</Badge>
         <span className="font-medium">{c.name}</span>
-        <Badge variant={c.tier === "conservative" ? "secondary" : "outline"}>{tierLabel(c.tier)}</Badge>
+        <Badge variant={c.tier === "conservative" ? "secondary" : "outline"}>{tierLabel(c.tier, t)}</Badge>
         <span className="ml-auto text-sm tabular-nums">
           {formatCount(c.matches)} <span className="text-muted-foreground">({formatPercent(c.matches, scanned)})</span>
         </span>
       </div>
       <p className="text-sm text-muted-foreground">{c.description}</p>
-      <p className="text-xs text-muted-foreground">{formatCount(c.never_accessed)} never accessed</p>
+      <p className="text-xs text-muted-foreground">{t("insights.nz.neverAccessed", { count: formatCount(c.never_accessed) })}</p>
       {c.examples.length > 0 ? (
-        <Expandable summary={`Examples (${c.examples.length})`}>
+        <Expandable summary={t("insights.nz.examples", { count: c.examples.length })}>
           <ExampleList examples={c.examples} />
         </Expandable>
       ) : null}
@@ -558,21 +583,22 @@ function CriterionRow({ c, scanned }: { c: NoiseCriterion; scanned: number }) {
 }
 
 function NoiseSection({ report }: { report: HygieneReport }) {
+  const { t } = useT();
   const n = report.noise;
   return (
     <Section
-      title={`Low-value candidates in “${n.category}”`}
-      description="Patterns that usually mean noise. This only reports: nothing is flagged or deleted. Conservative patterns are narrow; the others need a human look."
+      title={t("insights.nz.title", { category: n.category })}
+      description={t("insights.nz.desc")}
     >
       <div className="flex flex-col gap-3">
         <div className="grid gap-3 sm:grid-cols-3">
           <Tile
-            label="Conservative candidates"
+            label={t("insights.nz.conservative")}
             value={formatCount(n.conservative_union)}
-            hint={`${formatCount(n.conservative_eligible)} also never accessed, not pinned, extracted`}
+            hint={t("insights.nz.conservativeHint", { count: formatCount(n.conservative_eligible) })}
           />
-          <Tile label="For review" value={formatCount(n.review_union)} hint="matches that need a human decision" />
-          <Tile label="Scanned" value={formatCount(n.scanned)} hint={`“${n.category}” memories`} />
+          <Tile label={t("insights.tier.review")} value={formatCount(n.review_union)} hint={t("insights.nz.reviewHint")} />
+          <Tile label={t("insights.nz.scanned")} value={formatCount(n.scanned)} hint={t("insights.nz.scannedHint", { category: n.category })} />
         </div>
         {n.criteria.map((c) => (
           <CriterionRow key={c.id} c={c} scanned={n.scanned} />
@@ -583,18 +609,19 @@ function NoiseSection({ report }: { report: HygieneReport }) {
 }
 
 function HygieneSection() {
+  const { t } = useT();
   const { data, isLoading, error } = useHygiene();
   return (
     <Section
-      title="Hygiene analysis"
-      description="Looks for duplicates and low-value memories. It only reads: it never changes or deletes anything. It runs on demand and keeps its last result, so this page is cheap to open."
+      title={t("insights.hy.title")}
+      description={t("insights.hy.desc")}
     >
       {isLoading ? (
         <Skeleton className="h-24 w-full" />
       ) : error || !data ? (
         <Alert variant="destructive">
-          <AlertTitle>Could not load the analysis</AlertTitle>
-          <AlertDescription>{error instanceof Error ? error.message : "Unknown error"}</AlertDescription>
+          <AlertTitle>{t("insights.hy.loadError")}</AlertTitle>
+          <AlertDescription>{error instanceof Error ? error.message : t("insights.unknownError")}</AlertDescription>
         </Alert>
       ) : (
         <div className="flex flex-col gap-4">
@@ -602,10 +629,9 @@ function HygieneSection() {
           {data.report === null ? (
             <Empty className="border">
               <EmptyHeader>
-                <EmptyTitle>No analysis yet</EmptyTitle>
+                <EmptyTitle>{t("insights.hy.emptyTitle")}</EmptyTitle>
                 <EmptyDescription>
-                  Run it once to see identical and near-duplicate memories and low-value candidates. It needs no
-                  network and uses little memory; large collections take a few minutes.
+                  {t("insights.hy.emptyDesc")}
                 </EmptyDescription>
               </EmptyHeader>
             </Empty>
@@ -616,7 +642,7 @@ function HygieneSection() {
               <NoiseSection report={data.report} />
               <p className="flex items-center gap-1.5 text-xs text-muted-foreground">
                 <CheckCircle2 className="size-3.5" />
-                Examples are truncated and exclude anything that looks like a secret.
+                {t("insights.hy.footnote")}
               </p>
             </div>
           )}
@@ -627,14 +653,15 @@ function HygieneSection() {
 }
 
 export default function InsightsPage() {
+  const { t, tag } = useT();
   const { data, isLoading, error } = useInsightsOverview();
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">Memory health</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("insights.page.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          How the collection looks, what would be forgotten next, and where duplicates and noise hide.
-          {data ? ` Updated ${formatDateTime(data.generated_at)}.` : ""}
+          {t("insights.page.subtitle")}
+          {data ? ` ${t("insights.page.updated", { date: formatDateTime(data.generated_at, tag) })}` : ""}
         </p>
       </div>
       {isLoading ? (
@@ -645,8 +672,8 @@ export default function InsightsPage() {
         </div>
       ) : error || !data ? (
         <Alert variant="destructive">
-          <AlertTitle>Could not load the overview</AlertTitle>
-          <AlertDescription>{error instanceof Error ? error.message : "Unknown error"}</AlertDescription>
+          <AlertTitle>{t("insights.page.loadError")}</AlertTitle>
+          <AlertDescription>{error instanceof Error ? error.message : t("insights.unknownError")}</AlertDescription>
         </Alert>
       ) : (
         <>

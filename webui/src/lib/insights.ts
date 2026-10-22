@@ -1,9 +1,10 @@
 // Pure helpers for the memory-health page (D37), kept out of the component so
 // they can be unit-tested.
+import { getLocale, LOCALE_TAGS, translate, type TKey } from "@/i18n";
 import type { CountItem } from "./schemas";
 
-export function formatCount(n: number): string {
-  return n.toLocaleString("en-US");
+export function formatCount(n: number, tag: string = LOCALE_TAGS[getLocale()]): string {
+  return n.toLocaleString(tag);
 }
 
 // percent returns part/total as a percentage, 0 when total is not positive.
@@ -39,8 +40,8 @@ export function progressPercent(done: number, total: number): number {
   return Math.max(0, Math.min(100, Math.floor((done / total) * 100)));
 }
 
-export function tierLabel(tier: string): string {
-  return tier === "conservative" ? "Conservative" : "For review";
+export function tierLabel(tier: string, t: (key: TKey) => string = translate): string {
+  return tier === "conservative" ? t("insights.tier.conservative") : t("insights.tier.review");
 }
 
 // domainInstance shows the part of a domain after the category colon.
@@ -50,14 +51,14 @@ export function domainInstance(domain: string): string {
 }
 
 // horizonLabel names a shadow horizon: 0 is "now", others "+30 d".
-export function horizonLabel(days: number): string {
-  return days <= 0 ? "now" : `+${days} d`;
+export function horizonLabel(days: number, t: (key: TKey) => string = translate): string {
+  return days <= 0 ? t("insights.horizon.now") : `+${days} ${t("insights.unit.days")}`;
 }
 
 // shadowDelta describes how many fewer (or more) memories the per-kind model
 // forgets than the legacy one at a horizon, e.g. "-120" or "+3" or "same".
-export function shadowDelta(legacy: number, perKind: number): string {
+export function shadowDelta(legacy: number, perKind: number, t: (key: TKey) => string = translate): string {
   const d = perKind - legacy;
-  if (d === 0) return "same";
+  if (d === 0) return t("insights.delta.same");
   return `${d > 0 ? "+" : "-"}${formatCount(Math.abs(d))}`;
 }

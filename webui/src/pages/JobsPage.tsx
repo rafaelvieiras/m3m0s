@@ -23,15 +23,11 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useJobs, useSetJobInterval, useTriggerJob } from "@/hooks/useJobsApi";
+import { useT, type TKey } from "@/i18n";
 import type { JobStatus } from "@/lib/schemas";
 
-const dateTimeFormatter = new Intl.DateTimeFormat(undefined, {
-  dateStyle: "short",
-  timeStyle: "medium",
-});
-
-function formatDateTime(iso: string): string {
-  return dateTimeFormatter.format(new Date(iso));
+function formatDateTime(iso: string, tag: string): string {
+  return new Intl.DateTimeFormat(tag, { dateStyle: "short", timeStyle: "medium" }).format(new Date(iso));
 }
 
 function formatDurationMs(ms: number): string {
@@ -51,10 +47,10 @@ const UNIT_FACTOR: Record<IntervalUnit, number> = {
   hours: 3600,
 };
 
-const UNIT_LABEL: Record<IntervalUnit, string> = {
-  seconds: "seconds",
-  minutes: "minutes",
-  hours: "hours",
+const UNIT_LABEL: Record<IntervalUnit, TKey> = {
+  seconds: "jobs.unit.seconds",
+  minutes: "jobs.unit.minutes",
+  hours: "jobs.unit.hours",
 };
 
 // bestUnitFor picks the largest unit that divides totalSeconds evenly —
@@ -67,36 +63,38 @@ function bestUnitFor(totalSeconds: number): IntervalUnit {
 }
 
 function StatusBadge({ running }: { running: boolean }) {
+  const { t } = useT();
   return running ? (
     <Badge variant="secondary">
       <Loader2 data-icon="inline-start" className="animate-spin" />
-      Running
+      {t("jobs.status.running")}
     </Badge>
   ) : (
-    <Badge variant="outline">Idle</Badge>
+    <Badge variant="outline">{t("jobs.status.idle")}</Badge>
   );
 }
 
 function LastRunSummary({ job }: { job: JobStatus }) {
+  const { t, tag } = useT();
   if (!job.lastRunAt) {
-    return <p className="text-sm text-muted-foreground">Has not run on this server instance yet.</p>;
+    return <p className="text-sm text-muted-foreground">{t("jobs.lastRun.never")}</p>;
   }
   return (
     <div className="flex flex-col gap-1">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm">{formatDateTime(job.lastRunAt)}</span>
+        <span className="text-sm">{formatDateTime(job.lastRunAt, tag)}</span>
         <span className="text-xs text-muted-foreground">
           ({formatDurationMs(job.lastDurationMs ?? 0)})
         </span>
         {job.lastSuccess ? (
           <Badge variant="outline" className="text-green-600 dark:text-green-400">
             <CheckCircle2 data-icon="inline-start" />
-            Success
+            {t("jobs.lastRun.success")}
           </Badge>
         ) : (
           <Badge variant="destructive">
             <XCircle data-icon="inline-start" />
-            Failed
+            {t("jobs.lastRun.failed")}
           </Badge>
         )}
       </div>
@@ -107,17 +105,18 @@ function LastRunSummary({ job }: { job: JobStatus }) {
 }
 
 function HistoryTable({ job }: { job: JobStatus }) {
+  const { t, tag } = useT();
   if (job.history.length === 0) {
-    return <p className="text-sm text-muted-foreground">No history yet.</p>;
+    return <p className="text-sm text-muted-foreground">{t("jobs.history.empty")}</p>;
   }
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>Started</TableHead>
-          <TableHead>Duration</TableHead>
-          <TableHead>Status</TableHead>
-          <TableHead>Details</TableHead>
+          <TableHead>{t("jobs.history.started")}</TableHead>
+          <TableHead>{t("jobs.history.duration")}</TableHead>
+          <TableHead>{t("jobs.history.status")}</TableHead>
+          <TableHead>{t("jobs.history.details")}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
@@ -126,15 +125,15 @@ function HistoryTable({ job }: { job: JobStatus }) {
           // enough for a read-only list (most recent first, already sorted by
           // the backend, internal/jobs.Scheduler.Status).
           <TableRow key={`${run.startedAt}-${i}`}>
-            <TableCell className="whitespace-nowrap">{formatDateTime(run.startedAt)}</TableCell>
+            <TableCell className="whitespace-nowrap">{formatDateTime(run.startedAt, tag)}</TableCell>
             <TableCell className="whitespace-nowrap">{formatDurationMs(run.durationMs)}</TableCell>
             <TableCell>
               {run.success ? (
                 <Badge variant="outline" className="text-green-600 dark:text-green-400">
-                  OK
+                  {t("jobs.history.ok")}
                 </Badge>
               ) : (
-                <Badge variant="destructive">Error</Badge>
+                <Badge variant="destructive">{t("jobs.history.error")}</Badge>
               )}
             </TableCell>
             <TableCell className="max-w-xs truncate text-muted-foreground">
@@ -148,6 +147,7 @@ function HistoryTable({ job }: { job: JobStatus }) {
 }
 
 function IntervalEditor({ job }: { job: JobStatus }) {
+  const { t } = useT();
   // Local state initialized once (lazy useState) from the job's current
   // value — it does not re-initialize on every polling refetch (useJobs,
   // 5s refetchInterval), otherwise a user editing the field would have their
@@ -169,7 +169,7 @@ function IntervalEditor({ job }: { job: JobStatus }) {
   return (
     <div className="flex flex-wrap items-end gap-2">
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">Interval</span>
+        <span className="text-xs text-muted-foreground">{t("jobs.interval.label")}</span>
         <div className="flex items-center gap-1.5">
           <Input
             type="number"
@@ -187,7 +187,7 @@ function IntervalEditor({ job }: { job: JobStatus }) {
             <SelectContent>
               {(Object.keys(UNIT_LABEL) as IntervalUnit[]).map((u) => (
                 <SelectItem key={u} value={u}>
-                  {UNIT_LABEL[u]}
+                  {t(UNIT_LABEL[u])}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -205,7 +205,7 @@ function IntervalEditor({ job }: { job: JobStatus }) {
         ) : (
           <Save data-icon="inline-start" />
         )}
-        Save
+        {t("jobs.interval.save")}
       </Button>
       {setInterval.isError ? (
         <p className="w-full text-xs text-destructive">{setInterval.error.message}</p>
@@ -215,6 +215,7 @@ function IntervalEditor({ job }: { job: JobStatus }) {
 }
 
 function JobCard({ job }: { job: JobStatus }) {
+  const { t, tag } = useT();
   const triggerJob = useTriggerJob();
   const isTriggeringThis = triggerJob.isPending && triggerJob.variables === job.name;
 
@@ -224,7 +225,7 @@ function JobCard({ job }: { job: JobStatus }) {
         <div>
           <CardTitle className="font-mono text-base">{job.name}</CardTitle>
           <CardDescription>
-            Schedule: every {job.intervalSeconds}s · next run {formatDateTime(job.nextRunAt)}
+            {t("jobs.card.schedule", { seconds: job.intervalSeconds, next: formatDateTime(job.nextRunAt, tag) })}
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
@@ -239,7 +240,7 @@ function JobCard({ job }: { job: JobStatus }) {
             ) : (
               <Play data-icon="inline-start" />
             )}
-            Run now
+            {t("jobs.card.runNow")}
           </Button>
         </div>
       </CardHeader>
@@ -253,14 +254,14 @@ function JobCard({ job }: { job: JobStatus }) {
         <Separator />
 
         <div>
-          <h3 className="mb-1.5 text-sm font-medium">Last run</h3>
+          <h3 className="mb-1.5 text-sm font-medium">{t("jobs.card.lastRun")}</h3>
           <LastRunSummary job={job} />
         </div>
 
         <Separator />
 
         <div>
-          <h3 className="mb-1.5 text-sm font-medium">Recent history</h3>
+          <h3 className="mb-1.5 text-sm font-medium">{t("jobs.card.recentHistory")}</h3>
           <HistoryTable job={job} />
         </div>
       </CardContent>
@@ -269,6 +270,7 @@ function JobCard({ job }: { job: JobStatus }) {
 }
 
 export default function JobsPage() {
+  const { t } = useT();
   const { data, isLoading, isError, error } = useJobs();
 
   if (isLoading) {
@@ -283,7 +285,7 @@ export default function JobsPage() {
   if (isError || !data) {
     return (
       <p className="text-sm text-destructive">
-        Failed to load jobs: {error?.message ?? "unexpected response"}
+        {t("jobs.page.loadFailed", { message: error?.message ?? t("jobs.page.unexpected") })}
       </p>
     );
   }
@@ -291,17 +293,16 @@ export default function JobsPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Jobs</h1>
+        <h1 className="text-lg font-semibold">{t("jobs.page.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Periodic server routines (internal/jobs) — history, manual runs and
-          an interval configurable without restarting (D27).
+          {t("jobs.page.description")}
         </p>
       </div>
 
       {data.jobs.length === 0 ? (
         <Card>
           <CardContent className="pt-6">
-            <p className="text-sm text-muted-foreground">No jobs registered on this server.</p>
+            <p className="text-sm text-muted-foreground">{t("jobs.page.empty")}</p>
           </CardContent>
         </Card>
       ) : (

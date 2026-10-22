@@ -1,0 +1,23 @@
+// Keys are "common.*": shell, navigation and strings shared across pages.
+export const common = {
+  "common.language": "Language",
+  "common.logout": "Log out",
+  "common.appName": "M3m0s",
+  "common.nav.search": "Search",
+  "common.nav.recent": "Recent",
+  "common.nav.stats": "Stats",
+  "common.nav.insights": "Insights",
+  "common.nav.add": "Add",
+  "common.nav.jobs": "Jobs",
+  "common.nav.embedding": "Embedding",
+  "common.nav.preview": "Preview",
+  "common.loading": "Loading…",
+  "common.cancel": "Cancel",
+  "common.save": "Save",
+  "common.delete": "Delete",
+  "common.edit": "Edit",
+  "common.close": "Close",
+  "common.retry": "Retry",
+  "common.back": "Back",
+  "common.error": "Error",
+} as const;

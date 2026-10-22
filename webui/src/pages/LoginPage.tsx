@@ -8,7 +8,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Field, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
-import { MISMATCH, PasswordFields, passwordProblem } from "@/components/auth/PasswordFields";
+import { PasswordFields, passwordProblemCode, passwordProblemText } from "@/components/auth/PasswordFields";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
+import { translate, useT } from "@/i18n";
 import { useAuthStatus, useLogin, useOnboard } from "@/hooks/useAuth";
 import { ApiError, validateApiKey } from "@/lib/api";
 import { setApiKey } from "@/lib/auth";
@@ -16,7 +18,8 @@ import { usernameRegex } from "@/lib/schemas";
 
 function Shell({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-background px-4">
+      <LanguageSwitcher className="absolute top-4 right-4" />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
@@ -34,10 +37,11 @@ function Spinner({ busy, icon }: { busy: boolean; icon: React.ReactNode }) {
 
 function errorText(e: unknown): string {
   if (e instanceof ApiError) return e.message;
-  return "Could not reach the server.";
+  return translate("auth.unreachable");
 }
 
 function OnboardingForm() {
+  const { t } = useT();
   const navigate = useNavigate();
   const onboard = useOnboard();
   const [username, setUsername] = useState("");
@@ -45,7 +49,7 @@ function OnboardingForm() {
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState(false);
   const userProblem = username.length > 0 && !usernameRegex.test(username.trim().toLowerCase());
-  const problem = passwordProblem(password, confirm);
+  const problem = passwordProblemCode(password, confirm);
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -58,11 +62,11 @@ function OnboardingForm() {
   }
 
   return (
-    <Shell title="Welcome to M3m0s" description="Create the first account to finish the setup.">
+    <Shell title={t("auth.onboard.title")} description={t("auth.onboard.description")}>
       <form onSubmit={submit}>
         <FieldGroup>
           <Field data-invalid={userProblem || undefined}>
-            <FieldLabel htmlFor="onboard-username">Username</FieldLabel>
+            <FieldLabel htmlFor="onboard-username">{t("auth.username")}</FieldLabel>
             <Input
               id="onboard-username"
               autoComplete="username"
@@ -73,7 +77,7 @@ function OnboardingForm() {
             />
             {userProblem && (
               <FieldError
-                errors={[{ message: "3-32 characters: lowercase letters, digits, '.', '_' or '-'." }]}
+                errors={[{ message: t("auth.usernameRule") }]}
               />
             )}
           </Field>
@@ -84,11 +88,11 @@ function OnboardingForm() {
             onConfirm={setConfirm}
             touched={touched}
           />
-          {touched && problem && problem !== MISMATCH && <FieldError errors={[{ message: problem }]} />}
+          {touched && problem && problem !== "mismatch" && <FieldError errors={[{ message: passwordProblemText(problem) }]} />}
           {onboard.isError && <FieldError errors={[{ message: errorText(onboard.error) }]} />}
           <Button type="submit" disabled={onboard.isPending}>
             <Spinner busy={onboard.isPending} icon={<UserPlus data-icon="inline-start" />} />
-            Create account
+            {t("auth.onboard.submit")}
           </Button>
         </FieldGroup>
       </form>
@@ -97,6 +101,7 @@ function OnboardingForm() {
 }
 
 function PasswordLogin({ onUseKey }: { onUseKey: () => void }) {
+  const { t } = useT();
   const navigate = useNavigate();
   const login = useLogin();
   const [username, setUsername] = useState("");
@@ -112,11 +117,11 @@ function PasswordLogin({ onUseKey }: { onUseKey: () => void }) {
   }
 
   return (
-    <Shell title="M3m0s" description="Sign in to your memory.">
+    <Shell title={t("auth.login.title")} description={t("auth.login.description")}>
       <form onSubmit={submit}>
         <FieldGroup>
           <Field data-invalid={login.isError || undefined}>
-            <FieldLabel htmlFor="login-username">Username</FieldLabel>
+            <FieldLabel htmlFor="login-username">{t("auth.username")}</FieldLabel>
             <Input
               id="login-username"
               autoFocus
@@ -126,7 +131,7 @@ function PasswordLogin({ onUseKey }: { onUseKey: () => void }) {
             />
           </Field>
           <Field data-invalid={login.isError || undefined}>
-            <FieldLabel htmlFor="login-password">Password</FieldLabel>
+            <FieldLabel htmlFor="login-password">{t("auth.password")}</FieldLabel>
             <Input
               id="login-password"
               type="password"
@@ -139,10 +144,10 @@ function PasswordLogin({ onUseKey }: { onUseKey: () => void }) {
           </Field>
           <Button type="submit" disabled={login.isPending || !username.trim() || !password}>
             <Spinner busy={login.isPending} icon={<LogIn data-icon="inline-start" />} />
-            Sign in
+            {t("auth.login.submit")}
           </Button>
           <Button type="button" variant="link" size="sm" onClick={onUseKey}>
-            Use an API key instead
+            {t("auth.login.useKey")}
           </Button>
         </FieldGroup>
       </form>
@@ -151,6 +156,7 @@ function PasswordLogin({ onUseKey }: { onUseKey: () => void }) {
 }
 
 function ApiKeyLogin({ onBack }: { onBack: () => void }) {
+  const { t } = useT();
   const navigate = useNavigate();
   const [key, setKey] = useState("");
   const [status, setStatus] = useState<"idle" | "checking" | "invalid">("idle");
@@ -168,11 +174,11 @@ function ApiKeyLogin({ onBack }: { onBack: () => void }) {
   }
 
   return (
-    <Shell title="M3m0s" description="Paste an API key to sign in.">
+    <Shell title={t("auth.login.title")} description={t("auth.key.description")}>
       <form onSubmit={submit}>
         <FieldGroup>
           <Field data-invalid={status === "invalid" || undefined}>
-            <FieldLabel htmlFor="api-key">API key</FieldLabel>
+            <FieldLabel htmlFor="api-key">{t("auth.key.label")}</FieldLabel>
             <Input
               id="api-key"
               type="password"
@@ -187,15 +193,15 @@ function ApiKeyLogin({ onBack }: { onBack: () => void }) {
               }}
             />
             {status === "invalid" && (
-              <FieldError errors={[{ message: "Invalid key or server unreachable." }]} />
+              <FieldError errors={[{ message: t("auth.key.invalid") }]} />
             )}
           </Field>
           <Button type="submit" disabled={status === "checking" || !key.trim()}>
             <Spinner busy={status === "checking"} icon={<KeyRound data-icon="inline-start" />} />
-            Sign in
+            {t("auth.login.submit")}
           </Button>
           <Button type="button" variant="link" size="sm" onClick={onBack}>
-            Back to username and password
+            {t("auth.key.back")}
           </Button>
         </FieldGroup>
       </form>

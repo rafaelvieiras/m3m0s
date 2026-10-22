@@ -7,6 +7,7 @@ import { CheckCircle2, Copy, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useT } from "@/i18n";
 import type { AddResponse } from "@/lib/schemas";
 
 interface ExtractionPreviewProps {
@@ -20,6 +21,7 @@ export function ExtractionPreview({
   response,
   onAddAnother,
 }: ExtractionPreviewProps) {
+  const { t } = useT();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
@@ -27,8 +29,8 @@ export function ExtractionPreview({
         <div>
           <p className="text-sm font-medium">
             {response.extracted
-              ? `Fact extraction on: ${response.entries.length} fact(s) generated from the text.`
-              : "Fact extraction off — the text was saved as is."}
+              ? t("preview.extraction.on", { count: response.entries.length })
+              : t("preview.extraction.off")}
           </p>
         </div>
       </div>
@@ -37,7 +39,7 @@ export function ExtractionPreview({
         {response.extracted && (
           <Card>
             <CardHeader>
-              <CardTitle className="text-sm text-muted-foreground">Original text</CardTitle>
+              <CardTitle className="text-sm text-muted-foreground">{t("preview.extraction.original")}</CardTitle>
             </CardHeader>
             <CardContent>
               <p className="whitespace-pre-wrap text-sm">{originalContent}</p>
@@ -50,16 +52,16 @@ export function ExtractionPreview({
             <Card key={entry.id}>
               <CardHeader className="flex-row items-center justify-between gap-2 space-y-0">
                 <CardTitle className="text-sm">
-                  {response.extracted ? `Fact ${i + 1}` : "Entry created"}
+                  {response.extracted ? t("preview.extraction.fact", { n: i + 1 }) : t("preview.extraction.created")}
                 </CardTitle>
                 <div className="flex items-center gap-1.5">
                   {deduped ? (
                     <Badge variant="secondary">
                       <Copy data-icon="inline-start" />
-                      deduped (merged with existing)
+                      {t("preview.extraction.deduped")}
                     </Badge>
                   ) : (
-                    <Badge variant="outline">new</Badge>
+                    <Badge variant="outline">{t("preview.extraction.new")}</Badge>
                   )}
                 </div>
               </CardHeader>
@@ -82,7 +84,7 @@ export function ExtractionPreview({
       <div className="flex justify-end">
         <Button variant="outline" onClick={onAddAnother}>
           <RefreshCw data-icon="inline-start" />
-          Add another memory
+          {t("preview.extraction.addAnother")}
         </Button>
       </div>
     </div>

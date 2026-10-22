@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { useDeleteMemory } from "@/hooks/useMemoryApi";
 import { toast } from "sonner";
+import { useT } from "@/i18n";
 
 interface DeleteEntryDialogProps {
   id: string;
@@ -21,11 +22,12 @@ interface DeleteEntryDialogProps {
 }
 
 export function DeleteEntryDialog({ id, onDeleted, trigger }: DeleteEntryDialogProps) {
+  const { t } = useT();
   const deleteMemory = useDeleteMemory();
   const triggerElement = trigger ?? (
     <Button variant="destructive" size="sm">
       <Trash2 data-icon="inline-start" />
-      Delete
+      {t("memory.delete.button")}
     </Button>
   );
 
@@ -34,29 +36,28 @@ export function DeleteEntryDialog({ id, onDeleted, trigger }: DeleteEntryDialogP
       <AlertDialogTrigger render={triggerElement as React.ReactElement} />
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Delete this memory?</AlertDialogTitle>
+          <AlertDialogTitle>{t("memory.delete.title")}</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. ID <code className="font-mono">{id}</code> will no
-            longer exist in the M3m0s index.
+            {t("memory.delete.descriptionBefore")}<code className="font-mono">{id}</code>{t("memory.delete.descriptionAfter")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Cancel</AlertDialogCancel>
+          <AlertDialogCancel>{t("memory.delete.cancel")}</AlertDialogCancel>
           <AlertDialogAction
             disabled={deleteMemory.isPending}
             onClick={() => {
               deleteMemory.mutate(id, {
                 onSuccess: () => {
-                  toast.success("Memory deleted");
+                  toast.success(t("memory.delete.success"));
                   onDeleted?.();
                 },
                 onError: (err) => {
-                  toast.error(`Failed to delete: ${err.message}`);
+                  toast.error(t("memory.delete.failed", { message: err.message }));
                 },
               });
             }}
           >
-            {deleteMemory.isPending ? "Deleting…" : "Delete"}
+            {deleteMemory.isPending ? t("memory.delete.deleting") : t("memory.delete.button")}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

@@ -14,6 +14,7 @@ import { ExtractionPreview } from "@/components/memory/ExtractionPreview";
 import { useAddMemory } from "@/hooks/useMemoryApi";
 import { domainSchema, metadataSchema, type AddResponse } from "@/lib/schemas";
 import { z } from "zod";
+import { useT } from "@/i18n";
 
 interface AddFormShape {
   content: string;
@@ -47,6 +48,7 @@ function parseMetadata(metadataText: string): Record<string, string> {
 }
 
 export default function AddPage() {
+  const { t } = useT();
   const addMemory = useAddMemory();
   const [result, setResult] = useState<{ content: string; response: AddResponse } | null>(null);
 
@@ -77,7 +79,7 @@ export default function AddPage() {
   if (result) {
     return (
       <div className="flex flex-col gap-4">
-        <h1 className="text-lg font-semibold">Memory added</h1>
+        <h1 className="text-lg font-semibold">{t("add.added")}</h1>
         <ExtractionPreview
           originalContent={result.content}
           response={result.response}
@@ -93,16 +95,15 @@ export default function AddPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Add memory</h1>
+        <h1 className="text-lg font-semibold">{t("add.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          POST /memories — if fact extraction is enabled on the server, the text becomes N
-          atomic facts (Phase 4/D12).
+          {t("add.subtitle")}
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">New entry</CardTitle>
+          <CardTitle className="text-base">{t("add.newEntry")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -116,12 +117,12 @@ export default function AddPage() {
               <form.Field
                 name="content"
                 validators={{
-                  onChange: z.string().min(1, "content is required"),
+                  onChange: z.string().min(1, t("add.contentRequired")),
                 }}
               >
                 {(field) => (
                   <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-                    <FieldLabel htmlFor={field.name}>Content</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>{t("add.content")}</FieldLabel>
                     <Textarea
                       id={field.name}
                       name={field.name}
@@ -130,7 +131,7 @@ export default function AddPage() {
                       onBlur={field.handleBlur}
                       onChange={(e) => field.handleChange(e.target.value)}
                       aria-invalid={field.state.meta.errors.length > 0 || undefined}
-                      placeholder="The text/fact to remember..."
+                      placeholder={t("add.contentPlaceholder")}
                     />
                     <FieldError errors={field.state.meta.errors.map((m) => ({ message: String(m) }))} />
                   </Field>
@@ -156,7 +157,7 @@ export default function AddPage() {
                         aria-invalid={field.state.meta.errors.length > 0 || undefined}
                         placeholder="code:m3m0s"
                       />
-                      <FieldDescription>category:instance — e.g. writing:book-x</FieldDescription>
+                      <FieldDescription>{t("add.domainHelp")}</FieldDescription>
                       <FieldError errors={field.state.meta.errors.map((m) => ({ message: String(m) }))} />
                     </Field>
                   )}
@@ -172,7 +173,7 @@ export default function AddPage() {
                         value={field.state.value}
                         onBlur={field.handleBlur}
                         onChange={(e) => field.handleChange(e.target.value)}
-                        placeholder="manual (default)"
+                        placeholder={t("add.sourcePlaceholder")}
                       />
                     </Field>
                   )}
@@ -181,7 +182,7 @@ export default function AddPage() {
                 <form.Field name="agent">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>agent (optional)</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("add.agent")}</FieldLabel>
                       <Input
                         id={field.name}
                         name={field.name}
@@ -197,7 +198,7 @@ export default function AddPage() {
                 <form.Field name="tagsText">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>tags (comma-separated)</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("add.tags")}</FieldLabel>
                       <Input
                         id={field.name}
                         name={field.name}
@@ -220,11 +221,11 @@ export default function AddPage() {
                     try {
                       parsed = JSON.parse(value);
                     } catch {
-                      return "metadata must be valid JSON";
+                      return t("add.metadataJson");
                     }
                     const result = metadataSchema.safeParse(parsed);
                     if (!result.success) {
-                      return "metadata must be a flat JSON object of string:string (no nesting)";
+                      return t("add.metadataFlat");
                     }
                     return undefined;
                   },
@@ -232,7 +233,7 @@ export default function AddPage() {
               >
                 {(field) => (
                   <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-                    <FieldLabel htmlFor={field.name}>metadata (JSON, optional)</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>{t("add.metadata")}</FieldLabel>
                     <Textarea
                       id={field.name}
                       name={field.name}
@@ -244,7 +245,7 @@ export default function AddPage() {
                       placeholder='{"conversationId": "conv_8f2a"}'
                     />
                     <FieldDescription>
-                      Values must be strings (same limitation as chromem-go's map[string]string).
+                      {t("add.metadataHelp")}
                     </FieldDescription>
                     <FieldError errors={field.state.meta.errors.map((m) => ({ message: String(m) }))} />
                   </Field>
@@ -259,7 +260,7 @@ export default function AddPage() {
                     ) : (
                       <Plus data-icon="inline-start" />
                     )}
-                    Add memory
+                    {t("add.submit")}
                   </Button>
                 )}
               </form.Subscribe>

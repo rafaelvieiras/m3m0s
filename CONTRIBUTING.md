@@ -153,8 +153,23 @@ or it expires. Requires npm 11.15 or later and 2FA on the account.
 ## Website
 
 The site (`https://m3m0s.rafaelvieiras.com`) lives in `site/` (Astro). The home
-page is in `site/src/pages/index.astro` and the guide is Markdown in
-`site/src/content/guide/`. Open Graph images are generated at build time.
+page is `site/src/components/Home.astro` and the guide is Markdown in
+`site/src/content/guide/<lang>/`. Open Graph images, `llms.txt`, `llms-full.txt`
+and per-page `.md` twins are generated at build time.
+
+## Translations
+
+English is the default; Brazilian Portuguese (`pt`) and Spanish (`es`) are
+supported on both the site and the WebUI. English is the source of truth.
+
+- Site: UI strings are in `site/src/i18n/{en,pt,es}.ts`; guide pages are
+  `site/src/content/guide/{en,pt,es}/<slug>.md`. Keep `section` and `order` in
+  the front matter identical across languages, and write internal links as
+  `/<lang>/guide/<slug>/` (no prefix for English).
+- WebUI: messages are in `webui/src/i18n/locales/{en,pt,es}/<namespace>.ts`.
+  Add the key to `en` first (it types the keys); `pt` and `es` must define the
+  same keys or `tsc` fails. Use `t("ns.key", { name })` in components and
+  `translate()` outside React. The chosen language is stored in `localStorage`.
 
 ```sh
 cd site && npm ci && npm run dev      # local preview

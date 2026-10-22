@@ -21,9 +21,10 @@ export interface OgInput {
   title: string;
   description: string;
   kicker?: string;
+  tagline?: string;
 }
 
-export async function renderOg({ title, description, kicker }: OgInput): Promise<Buffer> {
+export async function renderOg({ title, description, kicker, tagline = "Long-term memory for LLM agents" }: OgInput): Promise<Buffer> {
   const long = title.length > 34;
   const tree = h(
     "div",
@@ -44,7 +45,7 @@ export async function renderOg({ title, description, kicker }: OgInput): Promise
       ]),
       h("div", { width: "100%", justifyContent: "space-between", fontSize: 24, color: "#a0a3ad" }, [
         h("div", {}, "m3m0s.rafaelvieiras.com"),
-        h("div", { color: "#5eead4", fontWeight: 600 }, "Long-term memory for LLM agents"),
+        h("div", { color: "#5eead4", fontWeight: 600 }, tagline),
       ]),
     ],
   );

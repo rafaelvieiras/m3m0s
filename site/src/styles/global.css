@@ -89,6 +89,22 @@ a:hover { text-decoration-thickness: 2px; }
 .nav a:hover, .nav button:hover, .nav a[aria-current="page"] { color: var(--text); background: var(--bg-soft); }
 .nav .icon-btn { display: inline-grid; place-items: center; width: 2.25rem; height: 2.25rem; padding: 0; }
 .nav .gh { display: inline-flex; align-items: center; gap: 0.4rem; }
+.lang-menu { position: relative; }
+.lang-menu summary {
+  list-style: none; display: inline-flex; align-items: center; gap: 0.35rem; cursor: pointer;
+  color: var(--muted); font-size: 0.85rem; font-weight: 600; padding: 0.45rem 0.6rem; border-radius: 8px;
+}
+.lang-menu summary::-webkit-details-marker { display: none; }
+.lang-menu summary:hover, .lang-menu[open] summary { color: var(--text); background: var(--bg-soft); }
+.lang-menu ul {
+  position: absolute; right: 0; top: calc(100% + 0.35rem); margin: 0; padding: 0.3rem; list-style: none;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 10px; min-width: 9rem;
+  box-shadow: 0 8px 24px rgb(0 0 0 / 0.12);
+}
+.lang-menu li a { display: block; }
+.lang-menu li a[aria-current="true"] { color: var(--text); background: var(--bg-soft); }
+.skip-link { position: absolute; left: 0.5rem; top: -3rem; z-index: 100; background: var(--surface); color: var(--text); padding: 0.5rem 0.9rem; border-radius: 8px; border: 1px solid var(--border); }
+.skip-link:focus { top: 0.5rem; }
 @media (max-width: 520px) { .nav .gh span { display: none; } .nav a, .nav button { padding: 0.45rem 0.6rem; } }
 
 /* ---------- buttons ---------- */

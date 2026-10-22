@@ -20,15 +20,17 @@ import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { usePreviewInjection } from "@/hooks/useMemoryApi";
+import { useT, type TKey } from "@/i18n";
 import type { PreviewInjectionMode } from "@/lib/schemas";
 
-const MODE_LABEL: Record<PreviewInjectionMode, string> = {
-  hook: "Hook Claude Code",
-  mcp: "MCP tool",
-  manual: "Manual text",
+const MODE_LABEL: Record<PreviewInjectionMode, TKey> = {
+  hook: "preview.mode.hook",
+  mcp: "preview.mode.mcp",
+  manual: "preview.mode.manual",
 };
 
 function CopyButton({ text }: { text: string }) {
+  const { t } = useT();
   const [copied, setCopied] = useState(false);
 
   async function handleCopy() {
@@ -40,12 +42,13 @@ function CopyButton({ text }: { text: string }) {
   return (
     <Button size="sm" variant="outline" onClick={handleCopy}>
       {copied ? <Check data-icon="inline-start" /> : <Copy data-icon="inline-start" />}
-      {copied ? "Copied" : "Copy"}
+      {copied ? t("preview.copied") : t("preview.copy")}
     </Button>
   );
 }
 
 export default function PreviewPage() {
+  const { t } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
@@ -68,10 +71,9 @@ export default function PreviewPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Context injection preview</h1>
+          <h1 className="text-lg font-semibold">{t("preview.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            What each injection mechanism would produce today for a real domain (D29) —
-            before implementing new hooks/integrations for other tools.
+            {t("preview.description")}
           </p>
         </div>
         {isFetching && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
@@ -80,17 +82,17 @@ export default function PreviewPage() {
       <Card>
         <CardContent className="flex flex-col gap-4 pt-6">
           <Field>
-            <FieldLabel htmlFor="preview-domain">Domain</FieldLabel>
+            <FieldLabel htmlFor="preview-domain">{t("preview.domain")}</FieldLabel>
             <div className="flex gap-2">
               <Input
                 id="preview-domain"
-                placeholder="code:m3m0s (empty = all domains)"
+                placeholder={t("preview.domainPlaceholder")}
                 value={domainInput}
                 onChange={(e) => setDomainInput(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && applyDomain()}
               />
               <Button variant="secondary" onClick={applyDomain}>
-                Apply
+                {t("preview.apply")}
               </Button>
             </div>
           </Field>
@@ -99,7 +101,7 @@ export default function PreviewPage() {
             <TabsList>
               {(Object.keys(MODE_LABEL) as PreviewInjectionMode[]).map((mode) => (
                 <TabsTrigger key={mode} value={mode}>
-                  {MODE_LABEL[mode]}
+                  {t(MODE_LABEL[mode])}
                 </TabsTrigger>
               ))}
             </TabsList>
@@ -114,30 +116,30 @@ export default function PreviewPage() {
         </div>
       )}
 
-      {isError && <p className="text-sm text-destructive">Failed to load: {error.message}</p>}
+      {isError && <p className="text-sm text-destructive">{t("preview.loadFailed", { message: error.message })}</p>}
 
       {data && (
         <Card>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
             <div>
-              <CardTitle className="text-sm">{MODE_LABEL[data.mode]}</CardTitle>
+              <CardTitle className="text-sm">{t(MODE_LABEL[data.mode])}</CardTitle>
               <CardDescription>{data.mechanism}</CardDescription>
             </div>
             <CopyButton text={data.raw} />
           </CardHeader>
           <CardContent className="flex flex-col gap-3">
             <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-              <Badge variant="secondary">{data.domain || "all domains"}</Badge>
-              <Badge variant="outline">{data.entriesFetched} memory(ies) fetched</Badge>
-              <Badge variant="outline">{data.entriesUsed} used in the result</Badge>
+              <Badge variant="secondary">{data.domain || t("preview.allDomains")}</Badge>
+              <Badge variant="outline">{t("preview.fetched", { count: data.entriesFetched })}</Badge>
+              <Badge variant="outline">{t("preview.used", { count: data.entriesUsed })}</Badge>
             </div>
 
             {data.raw.trim().length === 0 || data.entriesUsed === 0 ? (
               <Empty className="border">
                 <EmptyHeader>
-                  <EmptyTitle>Nothing would be injected</EmptyTitle>
+                  <EmptyTitle>{t("preview.empty.title")}</EmptyTitle>
                   <EmptyDescription>
-                    No memories eligible for this mode in this domain yet.
+                    {t("preview.empty.description")}
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>

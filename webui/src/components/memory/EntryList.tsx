@@ -3,6 +3,7 @@
 // (truncated content + badges), hence `measureElement` instead of a fixed
 // estimateSize.
 import { useRef } from "react";
+import { useT } from "@/i18n";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { Link } from "@tanstack/react-router";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +17,8 @@ interface EntryListProps {
   emptyLabel?: string;
 }
 
-export function EntryList({ entries, emptyLabel = "No memories found." }: EntryListProps) {
+export function EntryList({ entries, emptyLabel }: EntryListProps) {
+  const { t } = useT();
   const parentRef = useRef<HTMLDivElement>(null);
 
   const virtualizer = useVirtualizer({
@@ -30,8 +32,8 @@ export function EntryList({ entries, emptyLabel = "No memories found." }: EntryL
     return (
       <Empty className="border">
         <EmptyHeader>
-          <EmptyTitle>Nothing here</EmptyTitle>
-          <EmptyDescription>{emptyLabel}</EmptyDescription>
+          <EmptyTitle>{t("memory.list.emptyTitle")}</EmptyTitle>
+          <EmptyDescription>{emptyLabel ?? t("memory.list.empty")}</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );
@@ -68,6 +70,7 @@ export function EntryList({ entries, emptyLabel = "No memories found." }: EntryL
 }
 
 function EntryRow({ entry }: { entry: Entry }) {
+  const { t, tag } = useT();
   const snippet =
     entry.content.length > MAX_SNIPPET_CHARS
       ? `${entry.content.slice(0, MAX_SNIPPET_CHARS)}…`
@@ -93,8 +96,8 @@ function EntryRow({ entry }: { entry: Entry }) {
           ))}
         </div>
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          {entry.score !== undefined && <span>score {entry.score.toFixed(2)}</span>}
-          <span>{new Date(entry.createdAt).toLocaleString()}</span>
+          {entry.score !== undefined && <span>{t("memory.list.score", { score: entry.score.toFixed(2) })}</span>}
+          <span>{new Date(entry.createdAt).toLocaleString(tag)}</span>
         </div>
       </div>
       <p className="mt-1.5 text-sm text-foreground">{snippet}</p>
