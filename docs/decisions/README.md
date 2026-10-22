@@ -21,7 +21,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D5 | Name: M3m0s (was "Engram" until 15 Jul 2026) | Accepted | [D5-name-m3m0s.md](D5-name-m3m0s.md) |
 | D6 | Analysis of getengram.app (external reference, 15 Jul 2026) | Accepted | [D6-getengram-analysis.md](D6-getengram-analysis.md) |
 | D7 | License: MIT | Accepted | [D7-license-mit.md](D7-license-mit.md) |
-| D8 | Remote repo created on GitHub as private | Accepted | [D8-private-github-repo.md](D8-private-github-repo.md) |
+| D8 | Remote repo created on GitHub as private (opened to the public with v0.3.x) | Accepted | [D8-private-github-repo.md](D8-private-github-repo.md) |
 | D9 | `scope`/`domain` schema: 4 orthogonal axes | Accepted | [D9-scope-domain-schema-four-axes.md](D9-scope-domain-schema-four-axes.md) |
 | D10 | `pi` adapter: dropped, `pi` already has a generic MCP client (closes A5) | Accepted | [D10-pi-adapter-dropped.md](D10-pi-adapter-dropped.md) |
 | D11 | `m3m0s watch` mechanism (closes A4) | Accepted | [D11-watch-mechanism.md](D11-watch-mechanism.md) |
