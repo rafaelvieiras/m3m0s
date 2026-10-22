@@ -18,7 +18,7 @@ Nothing is injected on compaction. Recall happens per prompt.
 2. Install the package from npm:
 
 ```sh
-pi install npm:@rafaelvieiras/m3m0s-pi
+pi install npm:m3m0s-pi
 ```
 
 3. Restart pi. Set `M3M0S_BIN` if the binary lives somewhere else.

@@ -7,7 +7,7 @@ A plugin that gives [opencode](https://opencode.ai) the same memory loop as the 
 
 ## Install
 
-From npm (needs the `m3m0s` binary on `PATH` or at `~/go/bin/m3m0s`, plus `~/.m3m0s/hook.env`): add `"@rafaelvieiras/m3m0s-opencode"` to the `plugin` array of `opencode.json`.
+From npm (needs the `m3m0s` binary on `PATH` or at `~/go/bin/m3m0s`, plus `~/.m3m0s/hook.env`): add `"m3m0s-opencode"` to the `plugin` array of `opencode.json`.
 
 Manual install:
 

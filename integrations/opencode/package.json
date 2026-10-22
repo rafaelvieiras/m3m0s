@@ -1,5 +1,5 @@
 {
-  "name": "@rafaelvieiras/m3m0s-opencode",
+  "name": "m3m0s-opencode",
   "version": "0.1.0",
   "description": "Long-term memory from m3m0s for opencode (recall and capture).",
   "keywords": [
