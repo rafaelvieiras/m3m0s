@@ -27,12 +27,10 @@ only "make that tool's memory as good as Mem0/Cognee/Zep".
 reduce tokens spent rediscovering context and to allow cheaper models with the
 same quality. Under that goal, MCP/CLI (access) become P0, not P3.
 
-An updated, versioned version of that benchmark lives in the repo at
-**[docs/market-benchmark.md](docs/market-benchmark.md)**: a scoreboard of which
-of the 9 original gaps were closed (and by which decision), a full matrix
-comparing m3m0s against the 4 competitors, and what is still missing even where
-we deliberately chose not to pursue it. Update that file when a new decision
-closes or opens a relevant gap.
+The current comparison lives in the repo at
+**[docs/market-benchmark.md](docs/market-benchmark.md)**: a feature matrix
+comparing m3m0s against the 4 competitors, and the known gaps and non-goals.
+Update that file when a new decision closes or opens a relevant gap.
 
 ## Decisions already made (do not reopen without new grounds)
 
@@ -456,9 +454,8 @@ docs/
   memory-schema.md        technical spec of the memory schema (D9/A3), including
                           the mapping to the real storage (SQLite, D28)
   api-contract.md         MCP/CLI/HTTP contract of the core operations
-  market-benchmark.md     comparison vs. Claude-Mem/Mem0/Cognee/Zep — gaps
-                          closed, rejected and open (updated version of the
-                          original benchmark)
+  market-benchmark.md     comparison vs. Claude-Mem/Mem0/Cognee/Zep
+                          (feature matrix, known gaps and non-goals)
 cmd/m3m0s/               single binary: dispatcher serve/mcp/watch/hook/add/search/...
 webui/                   admin WebUI (Phase 5, D13) — Vite/React/TS, talks to the
                           `m3m0s serve` API under /api/v1; separate Node build

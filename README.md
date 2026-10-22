@@ -22,14 +22,13 @@ M3m0s exists because every agent tool keeps its own isolated memory — or none.
 The result is context re-explained every session (wasted tokens), nothing that
 travels between tools, and no way to use cheaper models because each session
 has to rediscover everything from scratch. Memory systems that already tackle
-this — Claude-Mem, Mem0, Cognee, Zep — each take a different trade-off: Claude-Mem
-is tied to a single tool and a Node/Bun + ChromaDB stack; Mem0 and Cognee are
-heavier to self-host (extra databases, optional graph stores); Zep's full
-platform is cloud-only. M3m0s aims at the opposite corner: **one static binary
-backed by a single SQLite file**, light enough for a small ARM board, speaking
-the protocols every agent tool already supports, and keeping the memory
-*shared* instead of per-tool. A feature-by-feature comparison is in
-[`docs/market-benchmark.md`](docs/market-benchmark.md).
+this — Claude-Mem, Mem0, Cognee, Zep — each make different trade-offs, with
+more emphasis on a single tool, graph features or a hosted platform. M3m0s
+aims at a different corner: **one static binary backed by a single SQLite
+file**, light enough for a small ARM board, speaking the protocols every agent
+tool already supports, and keeping the memory *shared* instead of per-tool. A
+feature comparison (a good-faith summary of public docs, corrections welcome)
+is in [`docs/market-benchmark.md`](docs/market-benchmark.md).
 
 - **Server** (`m3m0s serve`): HTTP API + embedded WebUI in one process. SQLite
   storage (pure Go, no cgo) with versioned migrations; embeddings from any
