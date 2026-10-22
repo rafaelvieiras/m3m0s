@@ -1,0 +1,28 @@
+import type { Messages } from "../../types";
+
+export const preview: Messages<typeof import("../en/preview").preview> = {
+  "preview.mode.hook": "Hook Claude Code",
+  "preview.mode.mcp": "Herramienta MCP",
+  "preview.mode.manual": "Texto manual",
+  "preview.copy": "Copiar",
+  "preview.copied": "Copiado",
+  "preview.title": "Vista previa de la inyección de contexto",
+  "preview.description": "Lo que produciría hoy cada mecanismo de inyección para un dominio real (D29) — antes de implementar nuevos hooks/integraciones para otras herramientas.",
+  "preview.domain": "Dominio",
+  "preview.domainPlaceholder": "code:m3m0s (vacío = todos los dominios)",
+  "preview.apply": "Aplicar",
+  "preview.loadFailed": "No se pudo cargar: {message}",
+  "preview.allDomains": "todos los dominios",
+  "preview.fetched": "{count} memoria(s) obtenida(s)",
+  "preview.used": "{count} usada(s) en el resultado",
+  "preview.empty.title": "No se inyectaría nada",
+  "preview.empty.description": "Aún no hay memorias elegibles para este modo en este dominio.",
+  "preview.extraction.on": "Extracción de hechos activada: {count} hecho(s) generado(s) a partir del texto.",
+  "preview.extraction.off": "Extracción de hechos desactivada — el texto se guardó tal cual.",
+  "preview.extraction.original": "Texto original",
+  "preview.extraction.fact": "Hecho {n}",
+  "preview.extraction.created": "Entrada creada",
+  "preview.extraction.deduped": "deduplicada (fusionada con la existente)",
+  "preview.extraction.new": "nueva",
+  "preview.extraction.addAnother": "Agregar otra memoria",
+};

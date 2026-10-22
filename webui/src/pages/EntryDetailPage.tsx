@@ -2,6 +2,7 @@
 // extraction (D13, item 3) — the "Extracted from: ..." section with the
 // original text (metadata.source_content).
 import { Route } from "@/routes/entry-detail";
+import { useT } from "@/i18n";
 import { Link } from "@tanstack/react-router";
 import { ArrowLeft, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,7 @@ import { DeleteEntryDialog } from "@/components/memory/DeleteEntryDialog";
 import { useEntry } from "@/hooks/useMemoryApi";
 
 export default function EntryDetailPage() {
+  const { t, tag } = useT();
   const { id } = Route.useParams();
   const navigate = Route.useNavigate();
   const { data: entry, isError, error } = useEntry(id);
@@ -22,14 +24,14 @@ export default function EntryDetailPage() {
     return (
       <Empty className="border">
         <EmptyHeader>
-          <EmptyTitle>Memory not found</EmptyTitle>
+          <EmptyTitle>{t("memory.notFound.title")}</EmptyTitle>
           <EmptyDescription>
-            {error?.message ?? "Go back to search/recent and open the memory again."}
+            {error?.message ?? t("memory.notFound.hint")}
           </EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" render={<Link to="/search" />}>
           <ArrowLeft data-icon="inline-start" />
-          Back to search
+          {t("memory.notFound.back")}
         </Button>
       </Empty>
     );
@@ -43,12 +45,12 @@ export default function EntryDetailPage() {
       <div className="flex items-center justify-between">
         <Button variant="ghost" size="sm" render={<Link to="/search" />}>
           <ArrowLeft data-icon="inline-start" />
-          Back
+          {t("memory.detail.back")}
         </Button>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" render={<Link to="/entries/$id/edit" params={{ id: entry.id }} />}>
             <Pencil data-icon="inline-start" />
-            Edit
+            {t("memory.detail.edit")}
           </Button>
           <DeleteEntryDialog id={entry.id} onDeleted={() => navigate({ to: "/search" })} />
         </div>
@@ -61,7 +63,7 @@ export default function EntryDetailPage() {
             <Badge variant="outline">{entry.domainCategory}</Badge>
             <Badge variant="outline">{entry.source}</Badge>
             {entry.kind && (
-              <Badge variant="outline" title={entry.kindSource ? `kind set by ${entry.kindSource}` : "never classified"}>
+              <Badge variant="outline" title={entry.kindSource ? t("memory.detail.kindSetBy", { source: entry.kindSource }) : t("memory.detail.neverClassified")}>
                 {entry.kind}
               </Badge>
             )}
@@ -82,15 +84,15 @@ export default function EntryDetailPage() {
           <p className="whitespace-pre-wrap text-sm">{entry.content}</p>
 
           <div className="flex gap-4 text-xs text-muted-foreground">
-            <span>created at {new Date(entry.createdAt).toLocaleString()}</span>
-            <span>updated at {new Date(entry.updatedAt).toLocaleString()}</span>
+            <span>{t("memory.detail.createdAt", { date: new Date(entry.createdAt).toLocaleString(tag) })}</span>
+            <span>{t("memory.detail.updatedAt", { date: new Date(entry.updatedAt).toLocaleString(tag) })}</span>
           </div>
 
           {sourceContent && (
             <>
               <Separator />
               <div>
-                <h2 className="mb-1 text-sm font-medium">Extracted from:</h2>
+                <h2 className="mb-1 text-sm font-medium">{t("memory.detail.extractedFrom")}</h2>
                 <div className="rounded-md bg-muted p-3 text-muted-foreground">
                   <Markdown content={sourceContent} />
                 </div>
@@ -102,7 +104,7 @@ export default function EntryDetailPage() {
             <>
               <Separator />
               <div>
-                <h2 className="mb-1 text-sm font-medium">Metadata</h2>
+                <h2 className="mb-1 text-sm font-medium">{t("memory.detail.metadata")}</h2>
                 <dl className="grid grid-cols-[max-content_1fr] gap-x-3 gap-y-1 text-sm">
                   {otherMetadata.map(([key, value]) => (
                     <div key={key} className="contents">

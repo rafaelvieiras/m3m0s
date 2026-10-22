@@ -7,24 +7,24 @@ import { Clock, Coins, Database, KeyRound, MemoryStick, PiggyBank, Sparkles, Spa
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useT } from "@/i18n";
 import { useStats } from "@/hooks/useMemoryApi";
 import type { StatsResponse } from "@/lib/schemas";
 
-const numberFormatter = new Intl.NumberFormat("en-US");
-
-function formatMB(mb: number): string {
-  if (mb >= 1024) return `${numberFormatter.format(Math.round((mb / 1024) * 100) / 100)} GB`;
-  return `${numberFormatter.format(mb)} MB`;
+function formatMB(mb: number, tag: string): string {
+  const nf = new Intl.NumberFormat(tag);
+  if (mb >= 1024) return `${nf.format(Math.round((mb / 1024) * 100) / 100)} GB`;
+  return `${nf.format(mb)} MB`;
 }
 
-function formatUptime(seconds: number): string {
+function formatUptime(seconds: number, t: (k: "stats.unit.d" | "stats.unit.h" | "stats.unit.min") => string): string {
   const totalMinutes = Math.floor(seconds / 60);
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
   const minutes = totalMinutes % 60;
-  if (days > 0) return `${days}d ${hours}h`;
-  if (hours > 0) return `${hours}h ${minutes}min`;
-  return `${minutes}min`;
+  if (days > 0) return `${days}${t("stats.unit.d")} ${hours}${t("stats.unit.h")}`;
+  if (hours > 0) return `${hours}${t("stats.unit.h")} ${minutes}${t("stats.unit.min")}`;
+  return `${minutes}${t("stats.unit.min")}`;
 }
 
 type TelemetryTileProps = {
@@ -48,45 +48,47 @@ function TelemetryTile({ icon, label, value, hint }: TelemetryTileProps) {
 }
 
 function TelemetrySection({ telemetry }: { telemetry: StatsResponse["telemetry"] }) {
+  const { t, tag } = useT();
+  const numberFormatter = new Intl.NumberFormat(tag);
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">Telemetry</CardTitle>
-        <CardDescription>Process/database footprint and the token savings from fact extraction.</CardDescription>
+        <CardTitle className="text-base">{t("stats.telemetry.title")}</CardTitle>
+        <CardDescription>{t("stats.telemetry.desc")}</CardDescription>
       </CardHeader>
       <CardContent>
         <div className="grid gap-4 sm:grid-cols-3">
           <TelemetryTile
             icon={<KeyRound className="size-5" />}
-            label="API keys"
+            label={t("stats.telemetry.apiKeys")}
             value={numberFormatter.format(telemetry.apiKeyCount)}
           />
           <TelemetryTile
             icon={<MemoryStick className="size-5" />}
-            label="Process memory"
-            value={formatMB(telemetry.memoryUsageMB)}
+            label={t("stats.telemetry.processMemory")}
+            value={formatMB(telemetry.memoryUsageMB, tag)}
           />
           <TelemetryTile
             icon={<Database className="size-5" />}
-            label="Database size"
-            value={formatMB(telemetry.databaseSizeMB)}
+            label={t("stats.telemetry.dbSize")}
+            value={formatMB(telemetry.databaseSizeMB, tag)}
           />
           <TelemetryTile
             icon={<Clock className="size-5" />}
-            label="Uptime"
-            value={formatUptime(telemetry.uptimeSeconds)}
+            label={t("stats.telemetry.uptime")}
+            value={formatUptime(telemetry.uptimeSeconds, t)}
           />
           <TelemetryTile
             icon={<Coins className="size-5" />}
-            label="Tokens used (extraction)"
+            label={t("stats.telemetry.tokensUsed")}
             value={numberFormatter.format(telemetry.extractionTokensUsed)}
-            hint="prompt + completion, since the server started"
+            hint={t("stats.telemetry.tokensUsedHint")}
           />
           <TelemetryTile
             icon={<PiggyBank className="size-5" />}
-            label="Tokens saved"
+            label={t("stats.telemetry.tokensSaved")}
             value={numberFormatter.format(telemetry.tokensSavedByCompaction)}
-            hint="estimate — how much extraction shrank the content"
+            hint={t("stats.telemetry.tokensSavedHint")}
           />
         </div>
       </CardContent>
@@ -95,6 +97,7 @@ function TelemetrySection({ telemetry }: { telemetry: StatsResponse["telemetry"]
 }
 
 export default function StatsPage() {
+  const { t } = useT();
   const { data, isLoading, isError, error } = useStats();
 
   if (isLoading) {
@@ -108,7 +111,7 @@ export default function StatsPage() {
   }
 
   if (isError || !data) {
-    return <p className="text-sm text-destructive">Failed to load stats: {error?.message}</p>;
+    return <p className="text-sm text-destructive">{t("stats.loadError", { message: error?.message ?? "" })}</p>;
   }
 
   const entries = Object.entries(data.countByDomainCategory).sort((a, b) => b[1] - a[1]);
@@ -116,12 +119,12 @@ export default function StatsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">Stats</h1>
+      <h1 className="text-lg font-semibold">{t("stats.title")}</h1>
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
-            <CardDescription>Total memories</CardDescription>
+            <CardDescription>{t("stats.total")}</CardDescription>
             <CardTitle className="text-3xl">{data.count}</CardTitle>
           </CardHeader>
         </Card>
@@ -129,9 +132,9 @@ export default function StatsPage() {
         <Card>
           <CardHeader className="flex-row items-center justify-between space-y-0">
             <div>
-              <CardDescription>Fact extraction (Phase 4/D12)</CardDescription>
+              <CardDescription>{t("stats.extraction")}</CardDescription>
               <CardTitle className="text-base">
-                {data.extraction.enabled ? "On" : "Off"}
+                {data.extraction.enabled ? t("stats.on") : t("stats.off")}
               </CardTitle>
             </div>
             {data.extraction.enabled ? (
@@ -142,10 +145,10 @@ export default function StatsPage() {
           </CardHeader>
           <CardContent>
             {data.extraction.enabled ? (
-              <Badge variant="secondary">model: {data.extraction.model}</Badge>
+              <Badge variant="secondary">{t("stats.modelBadge", { model: data.extraction.model ?? "" })}</Badge>
             ) : (
               <p className="text-sm text-muted-foreground">
-                `memory_add` stores the raw content as 1 entry (no extraction).
+                {t("stats.extractionOff")}
               </p>
             )}
           </CardContent>
@@ -153,11 +156,11 @@ export default function StatsPage() {
 
         <Card className="sm:col-span-2">
           <CardHeader>
-            <CardDescription>Backend</CardDescription>
+            <CardDescription>{t("stats.backend")}</CardDescription>
             <CardTitle className="text-base">{data.backend}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">Embedding model: {data.model}</p>
+            <p className="text-sm text-muted-foreground">{t("stats.embeddingModel", { model: data.model })}</p>
           </CardContent>
         </Card>
       </div>
@@ -166,12 +169,12 @@ export default function StatsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">By domainCategory</CardTitle>
-          <CardDescription>Field derived from the `domain` prefix (D9/memory-schema.md).</CardDescription>
+          <CardTitle className="text-base">{t("stats.byCategory")}</CardTitle>
+          <CardDescription>{t("stats.byCategoryDesc")}</CardDescription>
         </CardHeader>
         <CardContent>
           {entries.length === 0 ? (
-            <p className="text-sm text-muted-foreground">No memories yet.</p>
+            <p className="text-sm text-muted-foreground">{t("stats.empty")}</p>
           ) : (
             <div className="flex flex-col gap-2">
               {entries.map(([category, count]) => (

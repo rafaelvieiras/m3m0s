@@ -1,5 +1,6 @@
 // GET /recent — same filters as search (except tags/query, D11/contract).
 import { useState } from "react";
+import { useT } from "@/i18n";
 import { Route } from "@/routes/recent";
 import { Loader2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,6 +9,7 @@ import { EntryList } from "@/components/memory/EntryList";
 import { useRecent } from "@/hooks/useMemoryApi";
 
 export default function RecentPage() {
+  const { t } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
@@ -51,9 +53,9 @@ export default function RecentPage() {
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-semibold">Recent memories</h1>
+          <h1 className="text-lg font-semibold">{t("memory.recent.title")}</h1>
           <p className="text-sm text-muted-foreground">
-            Sorted by creation date (GET /recent), no semantic search.
+            {t("memory.recent.subtitle")}
           </p>
         </div>
         {isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
@@ -69,9 +71,9 @@ export default function RecentPage() {
         </div>
       )}
 
-      {isError && <p className="text-sm text-destructive">Failed to load: {error.message}</p>}
+      {isError && <p className="text-sm text-destructive">{t("memory.recent.failed", { message: error.message })}</p>}
 
-      {data && <EntryList entries={data.results} emptyLabel="No recent memories match these filters." />}
+      {data && <EntryList entries={data.results} emptyLabel={t("memory.recent.empty")} />}
     </div>
   );
 }

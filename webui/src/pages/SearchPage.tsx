@@ -2,6 +2,7 @@
 // reflected in the URL (route search params, see src/routes/search.tsx) so
 // the screen is back-navigable/shareable.
 import { useState } from "react";
+import { useT } from "@/i18n";
 import { Route } from "@/routes/search";
 import { Search as SearchIcon, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { EntryList } from "@/components/memory/EntryList";
 import { useSearchMemories } from "@/hooks/useMemoryApi";
 
 export default function SearchPage() {
+  const { t } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
 
@@ -68,9 +70,9 @@ export default function SearchPage() {
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Semantic search</h1>
+        <h1 className="text-lg font-semibold">{t("memory.search.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Vector search against the M3m0s index (POST /search).
+          {t("memory.search.subtitle")}
         </p>
       </div>
 
@@ -84,11 +86,11 @@ export default function SearchPage() {
         <FieldGroup className="flex-1">
           <Field>
             <FieldLabel htmlFor="search-query" className="sr-only">
-              Query
+              {t("memory.search.queryLabel")}
             </FieldLabel>
             <Input
               id="search-query"
-              placeholder="What are you looking for?"
+              placeholder={t("memory.search.placeholder")}
               value={queryInput}
               onChange={(e) => setQueryInput(e.target.value)}
               autoFocus
@@ -101,7 +103,7 @@ export default function SearchPage() {
           ) : (
             <SearchIcon data-icon="inline-start" />
           )}
-          Search
+          {t("memory.search.button")}
         </Button>
       </form>
 
@@ -113,7 +115,7 @@ export default function SearchPage() {
       />
 
       {params === null && (
-        <p className="text-sm text-muted-foreground">Type a query and click Search.</p>
+        <p className="text-sm text-muted-foreground">{t("memory.search.prompt")}</p>
       )}
 
       {params !== null && isLoading && (
@@ -125,10 +127,10 @@ export default function SearchPage() {
       )}
 
       {isError && (
-        <p className="text-sm text-destructive">Search failed: {error.message}</p>
+        <p className="text-sm text-destructive">{t("memory.search.failed", { message: error.message })}</p>
       )}
 
-      {data && <EntryList entries={data.results} emptyLabel="No results for this search/filters." />}
+      {data && <EntryList entries={data.results} emptyLabel={t("memory.search.empty")} />}
     </div>
   );
 }

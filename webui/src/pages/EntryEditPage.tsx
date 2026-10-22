@@ -9,6 +9,7 @@ import { z } from "zod";
 import { useForm } from "@tanstack/react-form";
 import { Link } from "@tanstack/react-router";
 import { Route } from "@/routes/entry-edit";
+import { useT } from "@/i18n";
 import { ArrowLeft, Loader2, Save } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -38,6 +39,7 @@ function parseTags(tagsText: string): string[] {
 }
 
 export default function EntryEditPage() {
+  const { t } = useT();
   const { id } = Route.useParams();
   const { data: entry, isError, error } = useEntry(id);
 
@@ -49,14 +51,14 @@ export default function EntryEditPage() {
     return (
       <Empty className="border">
         <EmptyHeader>
-          <EmptyTitle>Memory not found</EmptyTitle>
+          <EmptyTitle>{t("memory.notFound.title")}</EmptyTitle>
           <EmptyDescription>
-            {error?.message ?? "Go back to search/recent and open the memory again."}
+            {error?.message ?? t("memory.notFound.hint")}
           </EmptyDescription>
         </EmptyHeader>
         <Button variant="outline" render={<Link to="/search" />}>
           <ArrowLeft data-icon="inline-start" />
-          Back to search
+          {t("memory.notFound.back")}
         </Button>
       </Empty>
     );
@@ -66,6 +68,7 @@ export default function EntryEditPage() {
 }
 
 function EditForm({ entry }: { entry: Entry }) {
+  const { t } = useT();
   const { id } = Route.useParams();
   const navigate = Route.useNavigate();
   const updateMemory = useUpdateMemory(id);
@@ -113,12 +116,12 @@ function EditForm({ entry }: { entry: Entry }) {
           const parsed = JSON.parse(value.metadataText || "{}");
           const result = metadataSchema.safeParse(parsed);
           if (!result.success) {
-            setSubmitError("metadata must be a flat JSON object of string:string.");
+            setSubmitError(t("memory.edit.metadataFlat"));
             return;
           }
           payload.metadata = result.data;
         } catch {
-          setSubmitError("metadata must be valid JSON.");
+          setSubmitError(t("memory.edit.metadataJson"));
           return;
         }
       }
@@ -132,7 +135,7 @@ function EditForm({ entry }: { entry: Entry }) {
         await updateMemory.mutateAsync(payload);
         navigate({ to: "/entries/$id", params: { id } });
       } catch (err) {
-        setSubmitError(err instanceof Error ? err.message : "Failed to save.");
+        setSubmitError(err instanceof Error ? err.message : t("memory.edit.saveFailed"));
       }
     },
   });
@@ -141,12 +144,12 @@ function EditForm({ entry }: { entry: Entry }) {
     <div className="flex flex-col gap-4">
       <Button variant="ghost" size="sm" render={<Link to="/entries/$id" params={{ id }} />} className="self-start">
         <ArrowLeft data-icon="inline-start" />
-        Cancel
+        {t("memory.edit.cancel")}
       </Button>
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-mono text-sm">Editing {entry.id}</CardTitle>
+          <CardTitle className="text-base font-mono text-sm">{t("memory.edit.editing", { id: entry.id })}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -159,11 +162,11 @@ function EditForm({ entry }: { entry: Entry }) {
             <FieldGroup>
               <form.Field
                 name="content"
-                validators={{ onChange: z.string().min(1, "content is required") }}
+                validators={{ onChange: z.string().min(1, t("memory.edit.contentRequired")) }}
               >
                 {(field) => (
                   <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-                    <FieldLabel htmlFor={field.name}>Content</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>{t("memory.edit.content")}</FieldLabel>
                     <Textarea
                       id={field.name}
                       rows={6}
@@ -197,7 +200,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 <form.Field
                   name="source"
                   validators={{
-                    onChange: z.string().min(1, "source cannot be empty"),
+                    onChange: z.string().min(1, t("memory.edit.sourceEmpty")),
                   }}
                 >
                   {(field) => (
@@ -218,7 +221,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 <form.Field name="agentText">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>agent (empty clears)</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("memory.edit.agent")}</FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -232,7 +235,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 <form.Field name="modelText">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>model (empty clears)</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("memory.edit.model")}</FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -246,7 +249,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 <form.Field name="projectText">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>project (empty = global)</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("memory.edit.project")}</FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -260,7 +263,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 <form.Field name="tagsText">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>tags (comma-separated)</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("memory.edit.tags")}</FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -275,7 +278,7 @@ function EditForm({ entry }: { entry: Entry }) {
               <form.Field name="metadataText">
                 {(field) => (
                   <Field>
-                    <FieldLabel htmlFor={field.name}>metadata (JSON)</FieldLabel>
+                    <FieldLabel htmlFor={field.name}>{t("memory.edit.metadata")}</FieldLabel>
                     <Textarea
                       id={field.name}
                       rows={6}
@@ -285,9 +288,7 @@ function EditForm({ entry }: { entry: Entry }) {
                       onChange={(e) => field.handleChange(e.target.value)}
                     />
                     <FieldDescription>
-                      Replaced as a whole on PATCH — if the entry had `source_content` (fact
-                      extraction), it is already pre-populated here. Delete it only if you really
-                      want to lose that provenance.
+                      {t("memory.edit.metadataHelp")}
                     </FieldDescription>
                   </Field>
                 )}
@@ -303,7 +304,7 @@ function EditForm({ entry }: { entry: Entry }) {
                     ) : (
                       <Save data-icon="inline-start" />
                     )}
-                    Save changes
+                    {t("memory.edit.save")}
                   </Button>
                 )}
               </form.Subscribe>

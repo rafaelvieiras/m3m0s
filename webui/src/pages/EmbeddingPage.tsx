@@ -30,6 +30,7 @@ import {
   useSaveEmbeddingConfig,
   useStartReembed,
 } from "@/hooks/useEmbeddingApi";
+import { useT } from "@/i18n";
 import { ApiError } from "@/lib/api";
 import { buildPayload, formatCost, formatEta, progressPercent, type EmbeddingFormState } from "@/lib/embedding";
 import type { EmbeddingConfig, EmbeddingConfigPayload, ReembedEstimate } from "@/lib/schemas";
@@ -43,21 +44,30 @@ interface PendingConfirmation {
 }
 
 function EstimateSummary({ est }: { est: ReembedEstimate }) {
+  const { t, tag } = useT();
+  const n = (v: number) => v.toLocaleString(tag);
   return (
     <ul className="list-disc pl-5 text-sm">
       <li>
-        {est.pending.toLocaleString()} memories to re-embed with <code>{est.model}</code>
+        {t("embedding.estimate.pending", { pending: n(est.pending), model: "\u0000" })
+          .split("\u0000")
+          .map((part, i, arr) => (
+            <span key={i}>
+              {part}
+              {i < arr.length - 1 ? <code>{est.model}</code> : null}
+            </span>
+          ))}
       </li>
       <li>
-        ~{est.estimated_tokens.toLocaleString()} tokens ({est.characters.toLocaleString()} characters / 4 — an
-        approximation, not what the provider will bill exactly)
+        {t("embedding.estimate.tokens", { tokens: n(est.estimated_tokens), characters: n(est.characters) })}
       </li>
-      <li>Cost: {formatCost(est)}</li>
+      <li>{t("embedding.estimate.cost", { cost: formatCost(est) })}</li>
     </ul>
   );
 }
 
 function ConfigForm({ config }: { config: EmbeddingConfig }) {
+  const { t, tag } = useT();
   const save = useSaveEmbeddingConfig();
   const estimate = useEstimateReembed();
   const [form, setForm] = useState<EmbeddingFormState>(() => ({
@@ -81,7 +91,7 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
       const res = await save.mutateAsync(payload);
       setPending(null);
       setForm((f) => ({ ...f, apiKey: "", clearKey: false }));
-      toast.success(res.reembed_started ? "Saved — re-embedding started" : "Embedding configuration saved");
+      toast.success(res.reembed_started ? t("embedding.toast.savedReembed") : t("embedding.toast.saved"));
     } catch (e) {
       if (e instanceof ApiError && e.status === 409 && e.code === "reembed_required") {
         // Stored vectors would become stale: show how many and what it costs,
@@ -114,15 +124,14 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
     void submit(p);
   }
 
-  const keyLabel = config.has_api_key ? `set (from ${config.key_source})` : "not set";
+  const keyLabel = config.has_api_key ? t("embedding.keyLabel.set", { source: config.key_source }) : t("embedding.keyLabel.notSet");
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Provider</CardTitle>
+        <CardTitle>{t("embedding.provider.title")}</CardTitle>
         <CardDescription>
-          Any OpenAI-compatible embeddings endpoint. Saving makes a real test call first; a rejected change leaves the
-          active configuration untouched.
+          {t("embedding.provider.description")}
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -136,47 +145,49 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
                 checked={form.enabled}
                 onChange={(e) => set("enabled", e.target.checked)}
               />
-              <FieldLabel htmlFor="emb-enabled">Vector search enabled</FieldLabel>
+              <FieldLabel htmlFor="emb-enabled">{t("embedding.form.enabled")}</FieldLabel>
             </Field>
             <Field>
-              <FieldLabel htmlFor="emb-base">Base URL</FieldLabel>
+              <FieldLabel htmlFor="emb-base">{t("embedding.form.baseUrl")}</FieldLabel>
               <Input
                 id="emb-base"
                 value={form.baseUrl}
-                placeholder="empty = server default (OpenAI)"
+                placeholder={t("embedding.form.baseUrlPlaceholder")}
                 onChange={(e) => set("baseUrl", e.target.value)}
               />
             </Field>
             <Field>
-              <FieldLabel htmlFor="emb-model">Model</FieldLabel>
+              <FieldLabel htmlFor="emb-model">{t("embedding.form.model")}</FieldLabel>
               <Input id="emb-model" value={form.model} onChange={(e) => set("model", e.target.value)} />
             </Field>
             <Field>
-              <FieldLabel htmlFor="emb-dims">Dimensions</FieldLabel>
+              <FieldLabel htmlFor="emb-dims">{t("embedding.form.dimensions")}</FieldLabel>
               <Input
                 id="emb-dims"
                 inputMode="numeric"
                 value={form.dimensions}
-                placeholder="empty = model default"
+                placeholder={t("embedding.form.dimensionsPlaceholder")}
                 onChange={(e) => set("dimensions", e.target.value)}
               />
               <FieldDescription>
-                Requested vector size{config.vector_dims > 0 ? ` (the provider currently returns ${config.vector_dims})` : ""}.
+                {config.vector_dims > 0
+                  ? t("embedding.form.dimensionsHelpCurrent", { dims: config.vector_dims })
+                  : t("embedding.form.dimensionsHelp")}
               </FieldDescription>
             </Field>
             <Field>
-              <FieldLabel htmlFor="emb-key">API key</FieldLabel>
+              <FieldLabel htmlFor="emb-key">{t("embedding.form.apiKey")}</FieldLabel>
               <Input
                 id="emb-key"
                 type="password"
                 autoComplete="new-password"
                 value={form.apiKey}
                 disabled={form.clearKey}
-                placeholder={config.has_api_key ? "leave empty to keep the current key" : "paste a key"}
+                placeholder={config.has_api_key ? t("embedding.form.apiKeyKeep") : t("embedding.form.apiKeyPaste")}
                 onChange={(e) => set("apiKey", e.target.value)}
               />
               <FieldDescription>
-                Current key: {keyLabel}. The key is write-only — it is never shown again after saving.
+                {t("embedding.form.apiKeyHelp", { key: keyLabel })}
               </FieldDescription>
               {config.key_source === "database" ? (
                 <label className="flex items-center gap-2 text-sm">
@@ -186,7 +197,7 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
                     checked={form.clearKey}
                     onChange={(e) => set("clearKey", e.target.checked)}
                   />
-                  Remove the saved key (the server environment key applies, if any)
+                  {t("embedding.form.clearKey")}
                 </label>
               ) : null}
             </Field>
@@ -194,7 +205,7 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
 
           {error ? (
             <Alert variant="destructive">
-              <AlertTitle>Not saved</AlertTitle>
+              <AlertTitle>{t("embedding.form.notSaved")}</AlertTitle>
               <AlertDescription>{error}</AlertDescription>
             </Alert>
           ) : null}
@@ -202,7 +213,7 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
           <div>
             <Button type="submit" disabled={save.isPending || estimate.isPending}>
               {save.isPending ? <Loader2 data-icon="inline-start" className="animate-spin" /> : <Save data-icon="inline-start" />}
-              Save
+              {t("embedding.form.save")}
             </Button>
           </div>
         </form>
@@ -211,16 +222,19 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
       <AlertDialog open={pending !== null} onOpenChange={(o) => (!o ? setPending(null) : undefined)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Re-embed stored memories?</AlertDialogTitle>
+            <AlertDialogTitle>{t("embedding.confirm.title")}</AlertDialogTitle>
             <AlertDialogDescription>
               {pending
-                ? `${pending.stale.toLocaleString()} of ${pending.total.toLocaleString()} memories would need a new vector for the new model or size. Until re-embedded they are found by keyword only.`
+                ? t("embedding.confirm.description", {
+                    stale: pending.stale.toLocaleString(tag),
+                    total: pending.total.toLocaleString(tag),
+                  })
                 : null}
             </AlertDialogDescription>
           </AlertDialogHeader>
           {pending ? <EstimateSummary est={pending.estimate} /> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("embedding.confirm.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={save.isPending}
               onClick={(e) => {
@@ -228,7 +242,7 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
                 if (pending) void submit({ ...pending.payload, confirm_reembed: true });
               }}
             >
-              {save.isPending ? "Saving…" : "Save and re-embed"}
+              {save.isPending ? t("embedding.confirm.saving") : t("embedding.confirm.saveAndReembed")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -238,6 +252,7 @@ function ConfigForm({ config }: { config: EmbeddingConfig }) {
 }
 
 function ReembedCard({ config }: { config: EmbeddingConfig }) {
+  const { t, tag } = useT();
   const start = useStartReembed();
   const cancel = useCancelReembed();
   const [confirmStart, setConfirmStart] = useState<ReembedEstimate | null>(null);
@@ -259,24 +274,26 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
         <div>
-          <CardTitle>Re-embedding</CardTitle>
+          <CardTitle>{t("embedding.reembed.title")}</CardTitle>
           <CardDescription>
-            {config.vectors.current.toLocaleString()} of {config.vectors.total.toLocaleString()} memories use the active
-            model and size.
+            {t("embedding.reembed.summary", {
+              current: config.vectors.current.toLocaleString(tag),
+              total: config.vectors.total.toLocaleString(tag),
+            })}
           </CardDescription>
         </div>
         {p.running ? (
           <Badge variant="secondary">
             <Loader2 data-icon="inline-start" className="animate-spin" />
-            Running
+            {t("embedding.reembed.running")}
           </Badge>
         ) : upToDate ? (
           <Badge variant="outline" className="text-green-600 dark:text-green-400">
             <CheckCircle2 data-icon="inline-start" />
-            Up to date
+            {t("embedding.reembed.upToDate")}
           </Badge>
         ) : (
-          <Badge variant="outline">{stale.toLocaleString()} pending</Badge>
+          <Badge variant="outline">{t("embedding.reembed.pendingBadge", { count: stale.toLocaleString(tag) })}</Badge>
         )}
       </CardHeader>
       <CardContent className="flex flex-col gap-4">
@@ -292,28 +309,26 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
               <div className="h-full bg-primary transition-all" style={{ width: `${pct}%` }} />
             </div>
             <p className="text-sm text-muted-foreground">
-              {(p.done + p.skipped).toLocaleString()} / {p.total.toLocaleString()} ({pct}%)
-              {p.skipped > 0 ? ` · ${p.skipped.toLocaleString()} already updated elsewhere` : ""}
-              {p.errors > 0 ? ` · ${p.errors} errors` : ""}
-              {p.running ? ` · ETA ${formatEta(p.eta_seconds)}` : ""}
+              {(p.done + p.skipped).toLocaleString(tag)} / {p.total.toLocaleString(tag)} ({pct}%)
+              {p.skipped > 0 ? ` · ${t("embedding.reembed.skipped", { count: p.skipped.toLocaleString(tag) })}` : ""}
+              {p.errors > 0 ? ` · ${t("embedding.reembed.errors", { count: p.errors })}` : ""}
+              {p.running ? ` · ${t("embedding.reembed.eta", { eta: formatEta(p.eta_seconds) })}` : ""}
             </p>
           </div>
         ) : null}
 
         {p.last_error ? (
           <Alert variant="destructive">
-            <AlertTitle>Last run stopped with an error</AlertTitle>
+            <AlertTitle>{t("embedding.reembed.lastError")}</AlertTitle>
             <AlertDescription>{p.last_error}</AlertDescription>
           </Alert>
         ) : null}
 
         {upToDate ? (
-          <p className="text-sm text-muted-foreground">Everything is up to date — there is nothing to re-embed.</p>
+          <p className="text-sm text-muted-foreground">{t("embedding.reembed.allUpToDate")}</p>
         ) : (
           <p className="text-sm text-muted-foreground">
-            Memories outside the active model/size are found by keyword only until re-embedded. Re-embedding spends
-            provider tokens, so it never starts by itself; cancelling or restarting the server loses nothing — start
-            again to continue.
+            {t("embedding.reembed.explain")}
           </p>
         )}
 
@@ -321,17 +336,17 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
           {p.running ? (
             <Button variant="destructive" size="sm" disabled={cancel.isPending} onClick={() => cancel.mutate()}>
               <Square data-icon="inline-start" />
-              Cancel
+              {t("embedding.reembed.cancel")}
             </Button>
           ) : (
             <Button size="sm" disabled={upToDate || !config.active || estimate.isPending || start.isPending} onClick={askStart}>
               <Play data-icon="inline-start" />
-              Start re-embedding
+              {t("embedding.reembed.start")}
             </Button>
           )}
         </div>
         {!config.active ? (
-          <p className="text-xs text-muted-foreground">Embeddings are disabled or have no API key, so re-embedding cannot run.</p>
+          <p className="text-xs text-muted-foreground">{t("embedding.reembed.inactive")}</p>
         ) : null}
         {start.isError ? <p className="text-sm text-destructive">{start.error.message}</p> : null}
         {cancel.isError ? <p className="text-sm text-destructive">{cancel.error.message}</p> : null}
@@ -340,19 +355,19 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
       <AlertDialog open={confirmStart !== null} onOpenChange={(o) => (!o ? setConfirmStart(null) : undefined)}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Start re-embedding?</AlertDialogTitle>
-            <AlertDialogDescription>This sends the stored text to the embedding provider.</AlertDialogDescription>
+            <AlertDialogTitle>{t("embedding.reembed.confirmTitle")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("embedding.reembed.confirmDescription")}</AlertDialogDescription>
           </AlertDialogHeader>
           {confirmStart ? <EstimateSummary est={confirmStart} /> : null}
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("embedding.confirm.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => {
                 setConfirmStart(null);
                 start.mutate();
               }}
             >
-              Start
+              {t("embedding.reembed.confirmStart")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -362,6 +377,7 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
 }
 
 export default function EmbeddingPage() {
+  const { t } = useT();
   const { data, isLoading, isError, error } = useEmbeddingConfig();
 
   if (isLoading) {
@@ -373,16 +389,18 @@ export default function EmbeddingPage() {
     );
   }
   if (isError || !data) {
-    return <p className="text-sm text-destructive">Failed to load embedding settings: {error?.message ?? "unexpected response"}</p>;
+    return <p className="text-sm text-destructive">{t("embedding.page.loadFailed", { message: error?.message ?? t("embedding.page.unexpected") })}</p>;
   }
 
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-lg font-semibold">Embedding</h1>
+        <h1 className="text-lg font-semibold">{t("embedding.page.title")}</h1>
         <p className="text-sm text-muted-foreground">
-          Model, endpoint, dimensions and key used for vector search (D36). Configured via {data.source}; vector search
-          is {data.active ? "active" : "inactive"}.
+          {t("embedding.page.description", {
+            source: data.source,
+            state: data.active ? t("embedding.page.active") : t("embedding.page.inactive"),
+          })}
         </p>
       </div>
       <ConfigForm key={`${data.updated_at ?? ""}-${data.model}-${data.dimensions}-${data.base_url}`} config={data} />

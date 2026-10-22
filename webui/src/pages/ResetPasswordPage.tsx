@@ -8,14 +8,17 @@ import { CheckCircle2, KeyRound, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { FieldError, FieldGroup } from "@/components/ui/field";
-import { MISMATCH, PasswordFields, passwordProblem } from "@/components/auth/PasswordFields";
+import { PasswordFields, passwordProblemCode, passwordProblemText } from "@/components/auth/PasswordFields";
+import { LanguageSwitcher } from "@/i18n/LanguageSwitcher";
+import { useT } from "@/i18n";
 import { useResetInfo, useResetPassword } from "@/hooks/useAuth";
 import { ApiError } from "@/lib/api";
 import { Route } from "@/routes/reset-password";
 
 function Shell({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
   return (
-    <div className="flex min-h-svh items-center justify-center bg-background px-4">
+    <div className="relative flex min-h-svh items-center justify-center bg-background px-4">
+      <LanguageSwitcher className="absolute top-4 right-4" />
       <Card className="w-full max-w-sm">
         <CardHeader>
           <CardTitle>{title}</CardTitle>
@@ -28,20 +31,21 @@ function Shell({ title, description, children }: { title: string; description?: 
 }
 
 export default function ResetPasswordPage() {
+  const { t } = useT();
   const { token } = Route.useSearch();
   const info = useResetInfo(token);
   const reset = useResetPassword();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState(false);
-  const problem = passwordProblem(password, confirm);
+  const problem = passwordProblemCode(password, confirm);
 
   if (reset.isSuccess) {
     return (
-      <Shell title="Password updated" description="You were signed out everywhere. Sign in with the new password.">
+      <Shell title={t("auth.reset.doneTitle")} description={t("auth.reset.doneDescription")}>
         <Button render={<Link to="/login" />} className="w-full">
           <CheckCircle2 data-icon="inline-start" />
-          Go to sign in
+          {t("auth.reset.goToSignIn")}
         </Button>
       </Shell>
     );
@@ -51,15 +55,11 @@ export default function ResetPasswordPage() {
     const gone = !token || (info.error instanceof ApiError && info.error.status === 404);
     return (
       <Shell
-        title={gone ? "This link is not valid" : "Could not check the link"}
-        description={
-          gone
-            ? "It is expired, already used or incomplete. Ask for a new one with `m3m0s user reset <username>`."
-            : "The server could not be reached. Try again in a moment."
-        }
+        title={gone ? t("auth.reset.invalidTitle") : t("auth.reset.checkFailedTitle")}
+        description={gone ? t("auth.reset.invalidDescription") : t("auth.reset.checkFailedDescription")}
       >
         <Button render={<Link to="/login" />} variant="outline" className="w-full">
-          Back to sign in
+          {t("auth.reset.backToSignIn")}
         </Button>
       </Shell>
     );
@@ -84,11 +84,11 @@ export default function ResetPasswordPage() {
 
   return (
     <Shell
-      title={invite ? "Choose your password" : "Set a new password"}
+      title={invite ? t("auth.reset.inviteTitle") : t("auth.reset.resetTitle")}
       description={
         invite
-          ? `Finish creating the account “${info.data.username}”.`
-          : `New password for “${info.data.username}”. Every session of this account will be signed out.`
+          ? t("auth.reset.inviteDescription", { username: info.data.username })
+          : t("auth.reset.resetDescription", { username: info.data.username })
       }
     >
       <form onSubmit={submit}>
@@ -100,10 +100,10 @@ export default function ResetPasswordPage() {
             onConfirm={setConfirm}
             touched={touched}
           />
-          {touched && problem && problem !== MISMATCH && <FieldError errors={[{ message: problem }]} />}
+          {touched && problem && problem !== "mismatch" && <FieldError errors={[{ message: passwordProblemText(problem) }]} />}
           {reset.isError && (
             <FieldError
-              errors={[{ message: reset.error instanceof ApiError ? reset.error.message : "Could not reach the server." }]}
+              errors={[{ message: reset.error instanceof ApiError ? reset.error.message : t("auth.unreachable") }]}
             />
           )}
           <Button type="submit" disabled={reset.isPending}>
@@ -112,7 +112,7 @@ export default function ResetPasswordPage() {
             ) : (
               <KeyRound data-icon="inline-start" />
             )}
-            {invite ? "Set password" : "Reset password"}
+            {invite ? t("auth.reset.setPassword") : t("auth.reset.resetPassword")}
           </Button>
         </FieldGroup>
       </form>
