@@ -1,5 +1,6 @@
 {
   "name": "m3m0s",
+  "description": "Plugins that connect Claude Code to m3m0s, a self-hosted long-term memory for LLM agents.",
   "owner": {
     "name": "Rafael Vieiras"
   },
