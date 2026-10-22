@@ -10,7 +10,7 @@ A [pi](https://github.com/earendil-works/pi) extension that gives pi the same me
 From npm (needs the `m3m0s` binary on `PATH` or at `~/go/bin/m3m0s`, plus `~/.m3m0s/hook.env`):
 
 ```sh
-pi install npm:@rafaelvieiras/m3m0s-pi
+pi install npm:m3m0s-pi
 ```
 
 Manual install:

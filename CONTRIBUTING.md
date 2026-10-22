@@ -125,8 +125,8 @@ changelog, derived from the conventional commits that touch its directory:
 | Component | Path | Tag | Published to |
 |---|---|---|---|
 | m3m0s (server, CLI, hooks) | `/` | `vX.Y.Z` | GitHub release (binaries), ghcr image |
-| pi extension | `integrations/pi` | `pi-vX.Y.Z` | npm `@rafaelvieiras/m3m0s-pi` |
-| opencode plugin | `integrations/opencode` | `opencode-vX.Y.Z` | npm `@rafaelvieiras/m3m0s-opencode` |
+| pi extension | `integrations/pi` | `pi-vX.Y.Z` | npm `m3m0s-pi` |
+| opencode plugin | `integrations/opencode` | `opencode-vX.Y.Z` | npm `m3m0s-opencode` |
 | Claude Code plugin | `integrations/claude-code` | `claude-code-vX.Y.Z` | marketplace in this repo (`.claude-plugin/marketplace.json`) |
 | Hermes plugin | `integrations/hermes` | `hermes-vX.Y.Z` | `hermes plugins install` from this repo |
 
@@ -143,7 +143,7 @@ so the first version is published by hand:
 cd integrations/pi            # or integrations/opencode
 npm login --auth-type=web
 npm publish --access public
-npm trust github @rafaelvieiras/m3m0s-pi \
+npm trust github m3m0s-pi \
   --repo rafaelvieiras/m3m0s --file release-please.yml --allow-stage-publish
 ```
 

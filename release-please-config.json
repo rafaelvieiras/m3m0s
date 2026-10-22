@@ -15,14 +15,14 @@
     "integrations/pi": {
       "release-type": "node",
       "component": "pi",
-      "package-name": "@rafaelvieiras/m3m0s-pi",
+      "package-name": "m3m0s-pi",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true
     },
     "integrations/opencode": {
       "release-type": "node",
       "component": "opencode",
-      "package-name": "@rafaelvieiras/m3m0s-opencode",
+      "package-name": "m3m0s-opencode",
       "changelog-path": "CHANGELOG.md",
       "bump-minor-pre-major": true
     },

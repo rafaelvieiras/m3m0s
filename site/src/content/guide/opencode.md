@@ -17,7 +17,7 @@ The opencode plugin gives [opencode](https://opencode.ai) the same memory loop a
 
 ```json
 {
-  "plugin": ["@rafaelvieiras/m3m0s-opencode"]
+  "plugin": ["m3m0s-opencode"]
 }
 ```
 
