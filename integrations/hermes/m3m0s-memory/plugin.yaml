@@ -1,4 +1,6 @@
 name: m3m0s-memory
-version: 2.0.0
-description: Long-term memory from m3m0s - recall before each turn, capture after each turn (memory provider).
+version: 2.1.0
+description: >-
+  Long-term memory from m3m0s - recall before each turn, capture after each turn
+  (memory provider).
 author: m3m0s
