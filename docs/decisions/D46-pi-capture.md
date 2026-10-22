@@ -9,6 +9,6 @@
 - `ParseLine` also accepts pi's `{"type":"message","message":{"role":...}}` lines, keeping only `user`/`assistant` text; pi's system prompt and injected custom messages are skipped, so recalled memories are not captured back.
 - `M3M0S_HOOK_SOURCE` overrides the `source` of captured memories (`pi`); default stays `claude-code`.
 
-**Verified:** a `pi -p` run wrote its checkpoint on shutdown, and a manual `SessionEnd` produced 3 extracted facts with `source=pi`, `model=cc/claude-sonnet-5`, domain `codigo:ai-workspace`.
+**Verified:** a `pi -p` run wrote its checkpoint on shutdown, and a manual `SessionEnd` produced 3 extracted facts with `source=pi`, a `code:<project>` domain and the session's model recorded.
 
 **Not done:** capture of pi sessions that end by a crash (only `Stop` gated by growth/text covers them), and a client contract document (to be written after the opencode and Hermes integrations).
