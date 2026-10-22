@@ -31,8 +31,8 @@ func TestRecentHookFailuresIgnoresInfoLines(t *testing.T) {
 }
 
 func TestHookDomainOverride(t *testing.T) {
-	t.Setenv("M3M0S_HOOK_DOMAIN", "personal:alfred")
-	if got := hookDomainFromCwd("/some/where"); got != "personal:alfred" {
+	t.Setenv("M3M0S_HOOK_DOMAIN", "personal:agent")
+	if got := hookDomainFromCwd("/some/where"); got != "personal:agent" {
 		t.Errorf("override = %q", got)
 	}
 	t.Setenv("M3M0S_HOOK_DOMAIN", "Not Valid")
