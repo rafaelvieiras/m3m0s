@@ -1,0 +1,27 @@
+import type { Messages } from "../../types";
+
+export const kinds: Messages<typeof import("../en/kinds").kinds> = {
+  "kinds.decision.label": "Decisión",
+  "kinds.decision.desc": "Una elección que se tomó, idealmente con su motivo.",
+  "kinds.rule.label": "Regla",
+  "kinds.rule.desc": "Una convención o instrucción permanente que siempre debe seguirse.",
+  "kinds.preference.label": "Preferencia",
+  "kinds.preference.desc": "Algo que te gusta o que quieres que se haga de cierta manera.",
+  "kinds.gotcha.label": "Trampa",
+  "kinds.gotcha.desc": "Una trampa o comportamiento poco obvio que conviene evitar la próxima vez.",
+  "kinds.procedure.label": "Procedimiento",
+  "kinds.procedure.desc": "Pasos o comandos para lograr algo.",
+  "kinds.state.label": "Estado",
+  "kinds.state.desc": "Algo cierto ahora que va a cambiar, como el avance o la rama actual.",
+  "kinds.noise.label": "Poco valor",
+  "kinds.noise.desc": "Relleno que no vale la pena guardar.",
+  "kinds.other.label": "Otro",
+  "kinds.other.desc": "Cualquier cosa que no encaje en los otros tipos, o que aún no se ha clasificado.",
+  "kinds.auto": "Dejar que M3m0s elija",
+  "kinds.autoDesc": "M3m0s deduce el tipo por ti.",
+  "kinds.source.llm": "IA",
+  "kinds.source.heuristic": "Regla automática",
+  "kinds.source.manual": "Tú",
+  "kinds.source.none": "Sin clasificar",
+  "kinds.label": "Tipo de memoria",
+};

@@ -5,6 +5,7 @@
 // `useEffect`+`fetch` in components.
 import { z } from "zod";
 import { clearApiKey, getApiKey } from "./auth";
+import { hasKey, translate } from "@/i18n";
 import {
   addResponseSchema,
   authStatusSchema,
@@ -66,15 +67,29 @@ import {
 const BASE_URL = (import.meta.env.VITE_M3M0S_URL ?? "").replace(/\/$/, "");
 const API_PREFIX = "/api/v1";
 
+// userMessage turns an API error into text for the person using the UI:
+// known codes are translated, anything else falls back to the server's own
+// message with its first letter capitalized.
+function userMessage(code: string, serverMessage: string): string {
+  const key = `error.${code}`;
+  if (hasKey(key)) return translate(key);
+  const trimmed = serverMessage.trim();
+  if (!trimmed || code === "unknown_error") return translate("error.unknown");
+  return trimmed.charAt(0).toUpperCase() + trimmed.slice(1);
+}
+
 export class ApiError extends Error {
   code: string;
   status: number;
+  /** The raw message from the server, kept for logs and debugging. */
+  serverMessage: string;
 
   constructor(status: number, code: string, message: string) {
-    super(message);
+    super(userMessage(code, message));
     this.name = "ApiError";
     this.status = status;
     this.code = code;
+    this.serverMessage = message;
   }
 }
 
@@ -199,8 +214,9 @@ export function resetPassword(token: string, password: string, confirm: string):
   return authRequest("/auth/reset", { method: "POST", body: JSON.stringify({ token, password, confirm }) }, null);
 }
 
-export function getStats(): Promise<StatsResponse> {
-  return request("/stats", { method: "GET" }, statsResponseSchema);
+export function getStats(opts: { excludeSource?: string } = {}): Promise<StatsResponse> {
+  const qs = opts.excludeSource ? `?excludeSource=${encodeURIComponent(opts.excludeSource)}` : "";
+  return request(`/stats${qs}`, { method: "GET" }, statsResponseSchema);
 }
 
 export interface SearchParams {
@@ -209,6 +225,7 @@ export interface SearchParams {
   domain?: string;
   domainCategory?: string;
   source?: string;
+  excludeSource?: string;
   agent?: string;
   model?: string;
   project?: string;
@@ -229,6 +246,7 @@ export interface RecentParams {
   domain?: string;
   domainCategory?: string;
   source?: string;
+  excludeSource?: string;
   agent?: string;
   model?: string;
   project?: string;
@@ -241,6 +259,7 @@ export function recent(params: RecentParams): Promise<RecentResponse> {
   if (params.domain) qs.set("domain", params.domain);
   if (params.domainCategory) qs.set("domainCategory", params.domainCategory);
   if (params.source) qs.set("source", params.source);
+  if (params.excludeSource) qs.set("excludeSource", params.excludeSource);
   if (params.agent) qs.set("agent", params.agent);
   if (params.model) qs.set("model", params.model);
   if (params.project) qs.set("project", params.project);
@@ -360,8 +379,9 @@ export function cancelReembed(): Promise<void> {
 
 // ── Memory health · /insights (D37) ──
 
+/** The built-in docs ("selfdocs") are left out of the user's numbers. */
 export function getInsightsOverview(): Promise<InsightsOverview> {
-  return request("/insights/overview", { method: "GET" }, insightsOverviewSchema);
+  return request("/insights/overview?excludeSource=selfdocs", { method: "GET" }, insightsOverviewSchema);
 }
 
 export function getHygiene(): Promise<HygieneResponse> {

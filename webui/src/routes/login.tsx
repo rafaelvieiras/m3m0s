@@ -7,7 +7,7 @@ export const Route = createRoute({
   path: "/login",
   beforeLoad: async () => {
     if (await isSignedIn()) {
-      throw redirect({ to: "/search" });
+      throw redirect({ to: "/home" });
     }
   },
   component: lazyRouteComponent(() => import("@/pages/LoginPage")),

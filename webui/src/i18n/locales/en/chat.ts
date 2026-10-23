@@ -11,7 +11,8 @@ export const chat = {
   "chat.collapse": "Collapse panel",
   "chat.expand": "Expand panel",
   "chat.close": "Close chat",
-  "chat.empty": "Ask something about your memories, or ask me to save new information. Type {slash} to see the available commands.",
+  "chat.empty":
+    "Ask about your memories, or ask me to save something new. I answer using what M3m0s remembers. Type {slash} to see the commands. If I say chat is not enabled, the server needs an AI provider key for chat.",
   "chat.typing": "typing…",
   "chat.placeholder": "Ask or request to save something… (/ for commands)",
   "chat.send": "Send message",

@@ -15,7 +15,7 @@ import (
 )
 
 func (s *Server) handleInsightsOverview(w http.ResponseWriter, r *http.Request) {
-	ov := s.store.InsightsOverview(time.Now())
+	ov := s.store.InsightsOverviewExcluding(time.Now(), r.URL.Query().Get("excludeSource"))
 	ov.Ingest = s.ingest.overview(r.Context())
 	writeJSON(w, http.StatusOK, ov)
 }

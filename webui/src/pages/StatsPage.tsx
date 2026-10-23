@@ -4,11 +4,13 @@
 // (`telemetry` field): process memory/disk, issued API keys and the token
 // savings that fact extraction provides.
 import { Clock, Coins, Database, KeyRound, MemoryStick, PiggyBank, Sparkles, SparklesIcon } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useT } from "@/i18n";
 import { useStats } from "@/hooks/useMemoryApi";
+import { useEmbeddingConfig } from "@/hooks/useEmbeddingApi";
 import type { StatsResponse } from "@/lib/schemas";
 
 function formatMB(mb: number, tag: string): string {
@@ -97,8 +99,10 @@ function TelemetrySection({ telemetry }: { telemetry: StatsResponse["telemetry"]
 }
 
 export default function StatsPage() {
-  const { t } = useT();
+  const { t, tag } = useT();
   const { data, isLoading, isError, error } = useStats();
+  const embedding = useEmbeddingConfig();
+  const semantic = embedding.data?.active === true;
 
   if (isLoading) {
     return (
@@ -119,13 +123,13 @@ export default function StatsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold">{t("stats.title")}</h1>
+      <PageHeader title={t("stats.title")} help="stats" />
 
       <div className="grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardDescription>{t("stats.total")}</CardDescription>
-            <CardTitle className="text-3xl">{data.count}</CardTitle>
+            <CardTitle className="text-3xl">{new Intl.NumberFormat(tag).format(data.count)}</CardTitle>
           </CardHeader>
         </Card>
 
@@ -157,10 +161,14 @@ export default function StatsPage() {
         <Card className="sm:col-span-2">
           <CardHeader>
             <CardDescription>{t("stats.backend")}</CardDescription>
-            <CardTitle className="text-base">{data.backend}</CardTitle>
+            <CardTitle className="text-base">
+              {semantic ? t("stats.backendSemantic") : t("stats.backendKeyword")}
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{t("stats.embeddingModel", { model: data.model })}</p>
+            <p className="text-sm text-muted-foreground">
+              {semantic ? t("stats.embeddingModel", { model: data.model }) : t("stats.embeddingsOff")}
+            </p>
           </CardContent>
         </Card>
       </div>
@@ -187,7 +195,7 @@ export default function StatsPage() {
                     />
                   </div>
                   <span className="w-10 shrink-0 text-right text-sm text-muted-foreground">
-                    {count}
+                    {new Intl.NumberFormat(tag).format(count)}
                   </span>
                 </div>
               ))}

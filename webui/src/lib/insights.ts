@@ -1,6 +1,7 @@
 // Pure helpers for the memory-health page (D37), kept out of the component so
 // they can be unit-tested.
 import { getLocale, LOCALE_TAGS, translate, type TKey } from "@/i18n";
+import { formatDecimal, formatPercentValue } from "./format";
 import type { CountItem } from "./schemas";
 
 export function formatCount(n: number, tag: string = LOCALE_TAGS[getLocale()]): string {
@@ -13,10 +14,10 @@ export function percent(part: number, total: number): number {
   return (part / total) * 100;
 }
 
-export function formatPercent(part: number, total: number): string {
+export function formatPercent(part: number, total: number, tag: string = LOCALE_TAGS[getLocale()]): string {
   const p = percent(part, total);
-  if (p > 0 && p < 0.1) return "<0.1%";
-  return `${p.toFixed(p >= 10 ? 0 : 1)}%`;
+  if (p > 0 && p < 0.1) return `<${formatDecimal(0.1, tag, 1)}%`;
+  return formatPercentValue(p, tag, p >= 10 ? 0 : 1);
 }
 
 // barWidths scales counts to 0-100 against the largest one, keeping a sliver

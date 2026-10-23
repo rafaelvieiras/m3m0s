@@ -17,11 +17,16 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { HelpTip } from "@/components/help/HelpTip";
+import { KindSelect } from "@/components/memory/KindSelect";
 import { useEntry, useUpdateMemory } from "@/hooks/useMemoryApi";
+import { isKind } from "@/lib/kinds";
+import { useAdvancedMode } from "@/lib/mode";
 import { domainSchema, metadataSchema, type Entry, type UpdatePayload } from "@/lib/schemas";
 
 interface EditFormShape {
   content: string;
+  kind: string;
   domain: string;
   source: string;
   agentText: string;
@@ -73,9 +78,11 @@ function EditForm({ entry }: { entry: Entry }) {
   const navigate = Route.useNavigate();
   const updateMemory = useUpdateMemory(id);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [advanced] = useAdvancedMode();
 
   const initial: EditFormShape = {
     content: entry.content,
+    kind: isKind(entry.kind) ? entry.kind : "other",
     domain: entry.domain,
     source: entry.source,
     agentText: entry.agent ?? "",
@@ -92,6 +99,7 @@ function EditForm({ entry }: { entry: Entry }) {
       const payload: UpdatePayload = {};
 
       if (value.content !== initial.content) payload.content = value.content;
+      if (value.kind !== initial.kind) payload.kind = value.kind;
       if (value.domain !== initial.domain) payload.domain = value.domain;
       if (value.source !== initial.source) payload.source = value.source;
 
@@ -149,7 +157,7 @@ function EditForm({ entry }: { entry: Entry }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base font-mono text-sm">{t("memory.edit.editing", { id: entry.id })}</CardTitle>
+          <CardTitle className="text-base">{t("memory.edit.editing")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form
@@ -181,10 +189,17 @@ function EditForm({ entry }: { entry: Entry }) {
               </form.Field>
 
               <div className="grid gap-4 sm:grid-cols-2">
+                <form.Field name="kind">
+                  {(field) => <KindSelect id={field.name} value={field.state.value} onChange={field.handleChange} />}
+                </form.Field>
+
                 <form.Field name="domain" validators={{ onChange: domainSchema }}>
                   {(field) => (
                     <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-                      <FieldLabel htmlFor={field.name}>domain</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        {t("common.field.domain")}
+                        <HelpTip term="domain" />
+                      </FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -197,6 +212,7 @@ function EditForm({ entry }: { entry: Entry }) {
                   )}
                 </form.Field>
 
+                {advanced && (
                 <form.Field
                   name="source"
                   validators={{
@@ -205,7 +221,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 >
                   {(field) => (
                     <Field data-invalid={field.state.meta.errors.length > 0 || undefined}>
-                      <FieldLabel htmlFor={field.name}>source</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>{t("common.field.source")}</FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -217,7 +233,9 @@ function EditForm({ entry }: { entry: Entry }) {
                     </Field>
                   )}
                 </form.Field>
+                )}
 
+                {advanced && (
                 <form.Field name="agentText">
                   {(field) => (
                     <Field>
@@ -232,6 +250,9 @@ function EditForm({ entry }: { entry: Entry }) {
                   )}
                 </form.Field>
 
+                )}
+
+                {advanced && (
                 <form.Field name="modelText">
                   {(field) => (
                     <Field>
@@ -245,11 +266,15 @@ function EditForm({ entry }: { entry: Entry }) {
                     </Field>
                   )}
                 </form.Field>
+                )}
 
                 <form.Field name="projectText">
                   {(field) => (
                     <Field>
-                      <FieldLabel htmlFor={field.name}>{t("memory.edit.project")}</FieldLabel>
+                      <FieldLabel htmlFor={field.name}>
+                        {t("memory.edit.project")}
+                        <HelpTip term="project" />
+                      </FieldLabel>
                       <Input
                         id={field.name}
                         value={field.state.value}
@@ -275,6 +300,7 @@ function EditForm({ entry }: { entry: Entry }) {
                 </form.Field>
               </div>
 
+              {advanced && (
               <form.Field name="metadataText">
                 {(field) => (
                   <Field>
@@ -293,6 +319,7 @@ function EditForm({ entry }: { entry: Entry }) {
                   </Field>
                 )}
               </form.Field>
+              )}
 
               {submitError && <p className="text-sm text-destructive">{submitError}</p>}
 

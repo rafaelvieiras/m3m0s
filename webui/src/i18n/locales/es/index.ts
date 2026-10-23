@@ -8,6 +8,11 @@ import { jobs } from "./jobs";
 import { embedding } from "./embedding";
 import { preview } from "./preview";
 import { chat } from "./chat";
+import { errors } from "./errors";
+import { kinds } from "./kinds";
+import { help } from "./help";
+import { connect } from "./connect";
+import { home } from "./home";
 
 export const es = {
   ...common,
@@ -20,4 +25,9 @@ export const es = {
   ...embedding,
   ...preview,
   ...chat,
+  ...errors,
+  ...kinds,
+  ...help,
+  ...connect,
+  ...home,
 };

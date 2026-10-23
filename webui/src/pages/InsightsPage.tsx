@@ -6,6 +6,7 @@
 // Charts are plain CSS bars: no chart library is needed for this.
 import { AlertTriangle, CheckCircle2, Loader2, Play, Square } from "lucide-react";
 import { toast } from "sonner";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,6 +15,8 @@ import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useT } from "@/i18n";
+import { ageBucketLabel, formatDateTime, formatDecimal, formatPercentValue } from "@/lib/format";
+import { kindLabel, kindSourceLabel } from "@/lib/kinds";
 import { useCancelHygiene, useHygiene, useInsightsOverview, useStartHygiene } from "@/hooks/useInsightsApi";
 import {
   barWidths,
@@ -38,8 +41,6 @@ import type {
   RetentionShadow,
 } from "@/lib/schemas";
 
-const formatDateTime = (iso: string, tag: string) =>
-  new Intl.DateTimeFormat(tag, { dateStyle: "medium", timeStyle: "short" }).format(new Date(iso));
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
@@ -51,7 +52,7 @@ function Tile({ label, value, hint }: { label: string; value: string; hint?: str
   );
 }
 
-function BarList({ items, empty }: { items: CountItem[]; empty?: string }) {
+function BarList({ items, empty, label }: { items: CountItem[]; empty?: string; label?: (key: string) => string }) {
   const { t } = useT();
   if (items.length === 0) return <p className="text-sm text-muted-foreground">{empty ?? t("insights.noData")}</p>;
   const widths = barWidths(items);
@@ -59,8 +60,8 @@ function BarList({ items, empty }: { items: CountItem[]; empty?: string }) {
     <ul className="flex flex-col gap-1.5">
       {items.map((item, i) => (
         <li key={item.key} className="grid grid-cols-[minmax(0,10rem)_1fr_auto] items-center gap-2 text-sm">
-          <span className="truncate" title={item.key}>
-            {item.key}
+          <span className="truncate" title={label ? label(item.key) : item.key}>
+            {label ? label(item.key) : item.key}
           </span>
           <div className="h-2 overflow-hidden rounded-full bg-muted">
             <div className="h-full rounded-full bg-primary" style={{ width: `${widths[i]}%` }} />
@@ -112,7 +113,7 @@ function Section({ title, description, children }: { title: string; description?
 // ── Overview ──
 
 function OverviewSection({ ov }: { ov: InsightsOverview }) {
-  const { t } = useT();
+  const { t, tag } = useT();
   const o = ov.totals;
   return (
     <>
@@ -129,7 +130,7 @@ function OverviewSection({ ov }: { ov: InsightsOverview }) {
         />
         <Tile
           label={t("insights.neverAccessed")}
-          value={`${o.never_accessed_pct.toFixed(1)}%`}
+          value={formatPercentValue(o.never_accessed_pct, tag)}
           hint={t("insights.ov.neverAccessedHint", { count: formatCount(o.never_accessed), active: formatCount(o.active) })}
         />
         <Tile
@@ -157,7 +158,7 @@ function OverviewSection({ ov }: { ov: InsightsOverview }) {
 
       <div className="grid gap-4 md:grid-cols-2">
         <Section title={t("insights.ov.byAge")} description={t("insights.ov.byAgeDesc")}>
-          <BarList items={ov.by_age} />
+          <BarList items={ov.by_age} label={ageBucketLabel} />
         </Section>
         <Section title={t("insights.ov.bySource")} description={t("insights.ov.bySourceDesc")}>
           <BarList items={ov.by_source} />
@@ -166,10 +167,10 @@ function OverviewSection({ ov }: { ov: InsightsOverview }) {
           title={t("insights.ov.byKind")}
           description={t("insights.ov.byKindDesc")}
         >
-          <BarList items={ov.by_kind ?? []} />
+          <BarList items={ov.by_kind ?? []} label={kindLabel} />
         </Section>
         <Section title={t("insights.ov.byKindSource")} description={t("insights.ov.byKindSourceDesc")}>
-          <BarList items={ov.by_kind_source ?? []} />
+          <BarList items={ov.by_kind_source ?? []} label={kindSourceLabel} />
         </Section>
         <Section title={t("insights.ov.byCategory")}>
           <BarList items={ov.by_category} />
@@ -472,7 +473,7 @@ function ExactSection({ report }: { report: HygieneReport }) {
 }
 
 function NearSection({ report }: { report: HygieneReport }) {
-  const { t } = useT();
+  const { t, tag } = useT();
   const n = report.near_duplicates;
   if (!n.available) {
     return (
@@ -510,7 +511,7 @@ function NearSection({ report }: { report: HygieneReport }) {
             <TableBody>
               {n.thresholds.map((th) => (
                 <TableRow key={th.threshold}>
-                  <TableCell>≥ {th.threshold.toFixed(2)}</TableCell>
+                  <TableCell>≥ {formatDecimal(th.threshold, tag, 2)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatCount(th.pairs)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatCount(th.clusters)}</TableCell>
                   <TableCell className="text-right tabular-nums">{formatCount(th.redundant)}</TableCell>
@@ -539,7 +540,7 @@ function NearSection({ report }: { report: HygieneReport }) {
               <ul className="flex flex-col gap-2">
                 {b.examples.map((p) => (
                   <li key={p.a.id + p.b.id} className="rounded border p-2 text-sm">
-                    <Badge variant="outline">{t("insights.nr.cosine", { value: p.similarity.toFixed(3) })}</Badge>
+                    <Badge variant="outline">{t("insights.nr.cosine", { value: formatDecimal(p.similarity, tag, 3) })}</Badge>
                     <p className="mt-1">{p.a.text}</p>
                     <p className="text-xs text-muted-foreground">
                       {p.a.id} · {p.a.domain} · {p.a.source}
@@ -657,13 +658,19 @@ export default function InsightsPage() {
   const { data, isLoading, error } = useInsightsOverview();
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t("insights.page.title")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("insights.page.subtitle")}
-          {data ? ` ${t("insights.page.updated", { date: formatDateTime(data.generated_at, tag) })}` : ""}
-        </p>
-      </div>
+      <PageHeader
+        title={t("insights.page.title")}
+        subtitle={`${t("insights.page.subtitle")}${data ? ` ${t("insights.page.updated", { date: formatDateTime(data.generated_at, tag) })}` : ""}`}
+        help="insights"
+        term="insights"
+      />
+      <nav aria-label={t("insights.jump.label")} className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        {(["overview", "forgetting", "filter", "hygiene"] as const).map((id) => (
+          <a key={id} href={`#${id}`} className="text-primary underline-offset-4 hover:underline">
+            {t(`insights.jump.${id}`)}
+          </a>
+        ))}
+      </nav>
       {isLoading ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {Array.from({ length: 8 }, (_, i) => (
@@ -677,12 +684,22 @@ export default function InsightsPage() {
         </Alert>
       ) : (
         <>
-          <OverviewSection ov={data} />
-          <ForgettingSection f={data.forgetting} />
-          {data.filter ? <FilterSection f={data.filter} /> : null}
+          <div id="overview" className="flex scroll-mt-4 flex-col gap-4">
+            <OverviewSection ov={data} />
+          </div>
+          <div id="forgetting" className="scroll-mt-4">
+            <ForgettingSection f={data.forgetting} />
+          </div>
+          {data.filter ? (
+            <div id="filter" className="scroll-mt-4">
+              <FilterSection f={data.filter} />
+            </div>
+          ) : null}
         </>
       )}
-      <HygieneSection />
+      <div id="hygiene" className="scroll-mt-4">
+        <HygieneSection />
+      </div>
     </div>
   );
 }

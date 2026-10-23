@@ -49,7 +49,8 @@ export const embedding = {
   "embedding.page.loadFailed": "Failed to load embedding settings: {message}",
   "embedding.page.unexpected": "unexpected response",
   "embedding.page.title": "Embedding",
-  "embedding.page.description": "Model, endpoint, dimensions and key used for vector search (D36). Configured via {source}; vector search is {state}.",
+  "embedding.page.description":
+    "The model, endpoint, dimensions and key used to search by meaning. Configured via {source}; search by meaning is {state}.",
   "embedding.page.active": "active",
   "embedding.page.inactive": "inactive",
   "embedding.lib.dimensionsInvalid": "Dimensions must be a whole number (0 or empty = model default).",

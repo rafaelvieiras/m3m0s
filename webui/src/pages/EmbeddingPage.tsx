@@ -17,6 +17,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -394,15 +395,15 @@ export default function EmbeddingPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">{t("embedding.page.title")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("embedding.page.description", {
-            source: data.source,
-            state: data.active ? t("embedding.page.active") : t("embedding.page.inactive"),
-          })}
-        </p>
-      </div>
+      <PageHeader
+        title={t("embedding.page.title")}
+        subtitle={t("embedding.page.description", {
+          source: data.source,
+          state: data.active ? t("embedding.page.active") : t("embedding.page.inactive"),
+        })}
+        help="embedding"
+        term="embedding"
+      />
       <ConfigForm key={`${data.updated_at ?? ""}-${data.model}-${data.dimensions}-${data.base_url}`} config={data} />
       <ReembedCard config={data} />
     </div>

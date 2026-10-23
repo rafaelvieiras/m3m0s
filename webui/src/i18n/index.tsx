@@ -67,6 +67,11 @@ function subscribe(fn: () => void) {
   return () => listeners.delete(fn);
 }
 
+/** True when `key` is a defined message key (for keys built at runtime). */
+export function hasKey(key: string): key is MessageKey {
+  return key in en;
+}
+
 /** Translate outside React (toasts built in hooks, helpers). Prefer useT() in components. */
 export function translate(key: TKey, vars?: Vars): string {
   const table = tables[current];

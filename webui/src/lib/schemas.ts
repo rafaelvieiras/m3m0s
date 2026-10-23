@@ -114,6 +114,8 @@ export const telemetryInfoSchema = z.object({
 export const statsResponseSchema = z.object({
   count: z.number(),
   countByDomainCategory: z.record(z.string(), z.number()),
+  // Memories per source; "selfdocs" is the built-in documentation. Absent on older servers.
+  countBySource: z.record(z.string(), z.number()).optional(),
   backend: z.string(),
   model: z.string(),
   extraction: extractionInfoSchema,
@@ -142,6 +144,8 @@ export interface UpdatePayload {
   project?: string | null;
   tags?: string[];
   metadata?: Record<string, string>;
+  // One of the factkind values; setting it records "manual" as the source.
+  kind?: string;
 }
 
 // ── WebUI floating chat · POST /chat (D23) ──

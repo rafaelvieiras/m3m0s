@@ -71,6 +71,13 @@ func topCounts(m map[string]int, n int) []apitypes.CountItem {
 // InsightsOverview computes the cheap, live part of the memory-health
 // dashboard: totals, distributions, and the forgetting outlook.
 func (s *MemoryStore) InsightsOverview(now time.Time) apitypes.InsightsOverviewResponse {
+	return s.InsightsOverviewExcluding(now, "")
+}
+
+// InsightsOverviewExcluding is InsightsOverview without the memories whose
+// source equals excludeSource (empty = everything). The forgetting forecast
+// still looks at the whole index.
+func (s *MemoryStore) InsightsOverviewExcluding(now time.Time, excludeSource string) apitypes.InsightsOverviewResponse {
 	var (
 		out        apitypes.InsightsOverviewResponse
 		byCategory = map[string]int{}
@@ -85,6 +92,9 @@ func (s *MemoryStore) InsightsOverview(now time.Time) apitypes.InsightsOverviewR
 
 	s.mu.RLock()
 	for _, e := range s.index {
+		if excludeSource != "" && e.Source == excludeSource {
+			continue
+		}
 		out.Totals.Total++
 		if isSoftDeleted(e) {
 			out.Totals.SoftDeleted++
