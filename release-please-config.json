@@ -3,7 +3,6 @@
   "packages": {
     ".": {
       "release-type": "go",
-      "package-name": "m3m0s",
       "changelog-path": "CHANGELOG.md",
       "include-component-in-tag": false,
       "bump-minor-pre-major": true,
