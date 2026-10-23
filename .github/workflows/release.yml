@@ -11,6 +11,12 @@ on:
         description: Tag to release (for example v0.3.0)
         required: true
         type: string
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to (re)release (for example v0.4.0)
+        required: true
+        type: string
 
 env:
   TAG: ${{ inputs.tag || github.ref_name }}
@@ -42,14 +48,15 @@ jobs:
             $0 ~ "^## \\[" v "\\]" {found=1; next}
             found && /^## \[/ {exit}
             found {print}
-          ' CHANGELOG.md > release-notes.md
-          if [ ! -s release-notes.md ]; then echo "Release $TAG" > release-notes.md; fi
+          ' CHANGELOG.md > "$RUNNER_TEMP/release-notes.md"
+          if [ ! -s "$RUNNER_TEMP/release-notes.md" ]; then echo "Release $TAG" > "$RUNNER_TEMP/release-notes.md"; fi
+      # The notes live outside the checkout so GoReleaser sees a clean git state.
       # Builds the WebUI (before hook), the linux binaries, the archives and
       # checksums.txt. See .goreleaser.yaml.
       - uses: goreleaser/goreleaser-action@v6
         with:
           version: "~> v2"
-          args: release --clean --release-notes=release-notes.md
+          args: release --clean --release-notes=${{ runner.temp }}/release-notes.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
