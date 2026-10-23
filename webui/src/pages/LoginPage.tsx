@@ -57,12 +57,20 @@ function OnboardingForm() {
     if (problem || userProblem || !username.trim()) return;
     onboard.mutate(
       { username: username.trim(), password, confirm },
-      { onSuccess: () => navigate({ to: "/search" }) },
+      { onSuccess: () => navigate({ to: "/home" }) },
     );
   }
 
   return (
     <Shell title={t("auth.onboard.title")} description={t("auth.onboard.description")}>
+      <div className="mb-4 rounded-md bg-muted/50 p-3 text-sm">
+        <p className="font-medium">{t("auth.onboard.about")}</p>
+        <ul className="mt-2 list-disc space-y-1 pl-4 text-muted-foreground">
+          <li>{t("auth.onboard.use1")}</li>
+          <li>{t("auth.onboard.use2")}</li>
+          <li>{t("auth.onboard.use3")}</li>
+        </ul>
+      </div>
       <form onSubmit={submit}>
         <FieldGroup>
           <Field data-invalid={userProblem || undefined}>
@@ -112,7 +120,7 @@ function PasswordLogin({ onUseKey }: { onUseKey: () => void }) {
     if (!username.trim() || !password) return;
     login.mutate(
       { username: username.trim(), password },
-      { onSuccess: () => navigate({ to: "/search" }) },
+      { onSuccess: () => navigate({ to: "/home" }) },
     );
   }
 
@@ -170,7 +178,7 @@ function ApiKeyLogin({ onBack }: { onBack: () => void }) {
       return;
     }
     setApiKey(key.trim());
-    navigate({ to: "/search" });
+    navigate({ to: "/home" });
   }
 
   return (
