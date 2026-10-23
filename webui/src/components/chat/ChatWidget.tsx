@@ -126,10 +126,10 @@ export function ChatWidget() {
     <>
       <Button
         type="button"
-        size="icon-lg"
+        size="icon"
         onClick={() => setIsOpen((v) => !v)}
         aria-label={isOpen ? t("chat.closeMemoryChat") : t("chat.openMemoryChat")}
-        className="fixed right-4 bottom-4 z-50 rounded-full shadow-lg"
+        className="fixed right-3 bottom-3 z-50 size-9 rounded-full opacity-90 shadow-lg sm:right-4 sm:bottom-4 sm:size-11 sm:opacity-100"
       >
         {isOpen ? <X /> : <MessageCircle />}
       </Button>
@@ -139,7 +139,7 @@ export function ChatWidget() {
           role="complementary"
           aria-label={t("chat.region")}
           className={cn(
-            "fixed top-4 right-4 bottom-20 z-40 flex flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-2xl ring-1 ring-foreground/10 transition-[width] duration-150",
+            "fixed top-4 right-3 bottom-16 z-40 flex sm:right-4 sm:bottom-20 flex-col overflow-hidden rounded-xl border bg-card text-card-foreground shadow-2xl ring-1 ring-foreground/10 transition-[width] duration-150",
             isExpanded ? "w-[min(40rem,calc(100vw-2rem))]" : "w-[min(22rem,calc(100vw-2rem))]",
           )}
         >
