@@ -33,6 +33,14 @@ func TestRecentExcludeSourceAndSourceCounts(t *testing.T) {
 		t.Fatalf("expected only the user's memory, got %v", got)
 	}
 
+	total, byCategory := s.StatsExcluding("selfdocs")
+	if total != 1 || byCategory["code"] != 1 {
+		t.Fatalf("StatsExcluding: total=%d byCategory=%v", total, byCategory)
+	}
+	if all, _ := s.Stats(); all != 2 {
+		t.Fatalf("Stats must keep counting everything, got %d", all)
+	}
+
 	counts := s.SourceCounts()
 	if counts["manual"] != 1 || counts["selfdocs"] != 1 {
 		t.Fatalf("unexpected source counts: %v", counts)

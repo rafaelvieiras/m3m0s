@@ -1531,14 +1531,25 @@ func (s *MemoryStore) Recent(limit int, filter Filter, now time.Time) []schema.E
 // countByDomainCategory field of docs/api-contract.md, made possible by
 // the domain_category derived in D9/memory-schema.md.
 func (s *MemoryStore) Stats() (count int, countByDomainCategory map[string]int) {
+	return s.StatsExcluding("")
+}
+
+// StatsExcluding is Stats without the memories whose source equals
+// excludeSource (empty = count everything); the WebUI uses it to leave the
+// built-in "selfdocs" out of the user's numbers.
+func (s *MemoryStore) StatsExcluding(excludeSource string) (count int, countByDomainCategory map[string]int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	countByDomainCategory = make(map[string]int)
 	for _, e := range s.index {
+		if excludeSource != "" && e.Source == excludeSource {
+			continue
+		}
 		countByDomainCategory[e.DomainCategory]++
+		count++
 	}
-	return len(s.index), countByDomainCategory
+	return count, countByDomainCategory
 }
 
 // Delete removes a memory by ID (D11/docs/api-contract.md, memory_delete

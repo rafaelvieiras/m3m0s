@@ -478,7 +478,7 @@ func writeStoreError(w http.ResponseWriter, err error) {
 // ── /stats ──
 
 func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
-	count, byCategory := s.store.Stats()
+	count, byCategory := s.store.StatsExcluding(r.URL.Query().Get("excludeSource"))
 	enabled, model := s.store.ExtractionInfo()
 	var modelPtr *string
 	if enabled {
