@@ -5,6 +5,13 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.4.0...v0.5.0) (2026-10-23)
+
+
+### Features
+
+* **webui:** simple mode, onboarding and UX fixes ([#102](https://github.com/rafaelvieiras/m3m0s/issues/102)) ([7d85747](https://github.com/rafaelvieiras/m3m0s/commit/7d857476959aae2b7863d24e4ccd695e0beb04b6)), closes [#101](https://github.com/rafaelvieiras/m3m0s/issues/101)
+
 ## [0.4.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.3.0...v0.4.0) (2026-10-22)
 
 
