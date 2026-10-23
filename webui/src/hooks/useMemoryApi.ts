@@ -7,10 +7,11 @@ import type { AddFormValues, Entry, UpdatePayload } from "@/lib/schemas";
 
 // ── stats ──
 
-export function useStats() {
+/** includeDocs: also count the built-in documentation memories ("selfdocs"). */
+export function useStats(includeDocs = false) {
   return useQuery({
-    queryKey: ["stats"],
-    queryFn: api.getStats,
+    queryKey: ["stats", { includeDocs }],
+    queryFn: () => api.getStats({ excludeSource: includeDocs ? undefined : "selfdocs" }),
   });
 }
 

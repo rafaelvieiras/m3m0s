@@ -8,6 +8,7 @@
 // restarting the server (D27, docs/decisions/).
 import { useState } from "react";
 import { CheckCircle2, Loader2, Play, Save, XCircle } from "lucide-react";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,12 +24,9 @@ import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useJobs, useSetJobInterval, useTriggerJob } from "@/hooks/useJobsApi";
-import { useT, type TKey } from "@/i18n";
+import { hasKey, useT, type TKey } from "@/i18n";
+import { formatDateTime, formatInterval } from "@/lib/format";
 import type { JobStatus } from "@/lib/schemas";
-
-function formatDateTime(iso: string, tag: string): string {
-  return new Intl.DateTimeFormat(tag, { dateStyle: "short", timeStyle: "medium" }).format(new Date(iso));
-}
 
 function formatDurationMs(ms: number): string {
   if (ms < 1000) return `${ms}ms`;
@@ -52,6 +50,13 @@ const UNIT_LABEL: Record<IntervalUnit, TKey> = {
   minutes: "jobs.unit.minutes",
   hours: "jobs.unit.hours",
 };
+
+// jobTitle shows a friendly name for the built-in jobs and falls back to the
+// raw name for any job registered in the future.
+function jobTitle(name: string, t: (k: TKey) => string): string {
+  const key = `jobs.name.${name}`;
+  return hasKey(key) ? t(key) : name;
+}
 
 // bestUnitFor picks the largest unit that divides totalSeconds evenly —
 // purely cosmetic, so "3600 seconds" is not shown when "1 hour" is more
@@ -153,13 +158,16 @@ function IntervalEditor({ job }: { job: JobStatus }) {
   // 5s refetchInterval), otherwise a user editing the field would have their
   // typing overwritten by the next poll mid-edit.
   const [unit, setUnit] = useState<IntervalUnit>(() => bestUnitFor(job.intervalSeconds));
+  // An interval of 0 means "manual only": the field starts empty instead of
+  // showing a 0 that looks like an error.
   const [amount, setAmount] = useState<string>(() =>
-    String(job.intervalSeconds / UNIT_FACTOR[bestUnitFor(job.intervalSeconds)]),
+    job.intervalSeconds > 0 ? String(job.intervalSeconds / UNIT_FACTOR[bestUnitFor(job.intervalSeconds)]) : "",
   );
   const setInterval = useSetJobInterval();
 
   const parsedAmount = Number(amount);
-  const canSave = Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const canSave = amount.trim() !== "" && Number.isFinite(parsedAmount) && parsedAmount > 0;
+  const showInvalid = amount.trim() !== "" && !canSave;
 
   function handleSave() {
     if (!canSave) return;
@@ -169,7 +177,9 @@ function IntervalEditor({ job }: { job: JobStatus }) {
   return (
     <div className="flex flex-wrap items-end gap-2">
       <div className="flex flex-col gap-1">
-        <span className="text-xs text-muted-foreground">{t("jobs.interval.label")}</span>
+        <span className="text-xs text-muted-foreground">
+          {job.intervalSeconds > 0 ? t("jobs.interval.label") : t("jobs.interval.manualHint")}
+        </span>
         <div className="flex items-center gap-1.5">
           <Input
             type="number"
@@ -178,11 +188,13 @@ function IntervalEditor({ job }: { job: JobStatus }) {
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className="w-20"
-            aria-invalid={!canSave || undefined}
+            aria-invalid={showInvalid || undefined}
+            aria-label={t("jobs.interval.label")}
+            placeholder=""
           />
           <Select value={unit} onValueChange={(value) => setUnit(value as IntervalUnit)}>
-            <SelectTrigger size="sm" className="w-28">
-              <SelectValue />
+            <SelectTrigger size="sm" className="w-32">
+              <SelectValue>{(value: IntervalUnit) => (value ? t(UNIT_LABEL[value]) : null)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
               {(Object.keys(UNIT_LABEL) as IntervalUnit[]).map((u) => (
@@ -207,6 +219,7 @@ function IntervalEditor({ job }: { job: JobStatus }) {
         )}
         {t("jobs.interval.save")}
       </Button>
+      {showInvalid ? <p className="w-full text-xs text-destructive">{t("jobs.interval.invalid")}</p> : null}
       {setInterval.isError ? (
         <p className="w-full text-xs text-destructive">{setInterval.error.message}</p>
       ) : null}
@@ -223,9 +236,11 @@ function JobCard({ job }: { job: JobStatus }) {
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
         <div>
-          <CardTitle className="font-mono text-base">{job.name}</CardTitle>
+          <CardTitle className="text-base">{jobTitle(job.name, t)}</CardTitle>
           <CardDescription>
-            {t("jobs.card.schedule", { seconds: job.intervalSeconds, next: formatDateTime(job.nextRunAt, tag) })}
+            {job.intervalSeconds > 0
+              ? t("jobs.card.schedule", { interval: formatInterval(job.intervalSeconds, tag), next: formatDateTime(job.nextRunAt, tag) })
+              : t("jobs.card.manual")}
           </CardDescription>
         </div>
         <div className="flex items-center gap-2">
@@ -292,12 +307,7 @@ export default function JobsPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">{t("jobs.page.title")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("jobs.page.description")}
-        </p>
-      </div>
+      <PageHeader title={t("jobs.page.title")} subtitle={t("jobs.page.description")} help="jobs" term="jobs" />
 
       {data.jobs.length === 0 ? (
         <Card>

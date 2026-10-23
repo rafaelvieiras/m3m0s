@@ -1,0 +1,32 @@
+// Keys are "home.*". English is the source of truth; pt/es must define the same keys.
+export const home = {
+  "home.title": "Welcome to M3m0s",
+  "home.subtitle": "Long-term memory for you and your AI agents.",
+  "home.count.one": "You have {count} memory saved.",
+  "home.count.other": "You have {count} memories saved.",
+  "home.docsNote":
+    "M3m0s also includes {count} built-in documentation pages. They are hidden from your lists.",
+  "home.checklist.title": "Getting started",
+  "home.checklist.progress": "{done} of {total} done",
+  "home.checklist.allDone": "You are all set. Your agents can now remember things between sessions.",
+  "home.step.account.title": "Create your account",
+  "home.step.account.body": "Done: you are signed in.",
+  "home.step.memory.title": "Save your first memory",
+  "home.step.memory.body": "Write down one thing worth remembering, like a decision or a preference.",
+  "home.step.memory.action": "Add a memory",
+  "home.step.agent.title": "Connect your AI agent",
+  "home.step.agent.body": "Give Claude Code or another tool the address of this server and a key.",
+  "home.step.agent.action": "Connect an agent",
+  "home.step.search.title": "Turn on search by meaning",
+  "home.step.search.body": "Optional. Without it, search only matches the exact words you type.",
+  "home.step.search.action": "Set up embeddings",
+  "home.done": "Done",
+  "home.quick.title": "What would you like to do?",
+  "home.quick.search": "Find something you saved",
+  "home.quick.add": "Save a new memory",
+  "home.quick.connect": "Connect an AI tool",
+  "home.empty.title": "Your memory is empty",
+  "home.empty.body":
+    "A memory is a short note, like \"We chose PostgreSQL for the database\". Save a few and your agents will start using them.",
+  "home.empty.example": "Example: \"I prefer short answers with the code first.\"",
+} as const;

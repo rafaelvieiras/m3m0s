@@ -1,0 +1,26 @@
+import type { Messages } from "../../types";
+
+export const errors: Messages<typeof import("../en/errors").errors> = {
+  "error.unknown": "Algo deu errado. Tente de novo.",
+  "error.invalid_credentials": "Usuário ou senha incorretos.",
+  "error.too_many_attempts": "Tentativas demais. Aguarde alguns minutos e tente de novo.",
+  "error.password_mismatch": "As duas senhas não coincidem.",
+  "error.username_taken": "Esse nome de usuário já está em uso.",
+  "error.account_exists": "Já existe uma conta. Entre com ela.",
+  "error.no_such_user": "Esse usuário não existe.",
+  "error.unauthorized": "Sua sessão expirou. Entre de novo.",
+  "error.csrf": "A requisição foi bloqueada por segurança. Recarregue a página e tente de novo.",
+  "error.not_found": "Esse item não foi encontrado.",
+  "error.job_not_found": "Essa tarefa não existe.",
+  "error.job_already_running": "Essa tarefa já está em execução.",
+  "error.invalid_interval": "O intervalo deve ser maior que zero.",
+  "error.content_required": "Escreva algo primeiro: o texto está vazio.",
+  "error.query_required": "Digite algo para buscar.",
+  "error.invalid_domain": "O tópico deve ter o formato área:nome, por exemplo code:meu-app.",
+  "error.invalid_filter": "Um dos filtros não é válido.",
+  "error.invalid_request": "A requisição não era válida.",
+  "error.embedding_inactive": "Os embeddings estão desligados. Configure-os primeiro.",
+  "error.chat_disabled": "O chat de memória não está ativado neste servidor.",
+  "error.chat_upstream_failed": "O provedor do chat não respondeu. Tente de novo em instantes.",
+  "error.queue_full": "O servidor está ocupado agora. Tente de novo em instantes.",
+};

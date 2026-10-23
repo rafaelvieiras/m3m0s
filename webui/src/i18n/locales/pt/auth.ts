@@ -6,7 +6,7 @@ export const auth: Messages<typeof import("../en/auth").auth> = {
   "auth.password": "Senha",
   "auth.usernameRule": "3 a 32 caracteres: letras minúsculas, dígitos, '.', '_' ou '-'.",
   "auth.onboard.title": "Boas-vindas ao M3m0s",
-  "auth.onboard.description": "Crie a primeira conta para concluir a configuração.",
+  "auth.onboard.description": "Crie a primeira conta para concluir a configuração. Leva um minuto.",
   "auth.onboard.submit": "Criar conta",
   "auth.login.title": "M3m0s",
   "auth.login.description": "Entre na sua memória.",
@@ -36,4 +36,9 @@ export const auth: Messages<typeof import("../en/auth").auth> = {
   "auth.pw.tooShort": "Use pelo menos {min} caracteres.",
   "auth.pw.tooLong": "Use no máximo {max} caracteres.",
   "auth.pw.mismatch": "As duas senhas não coincidem.",
+  "auth.onboard.about":
+    "O M3m0s é uma memória de longo prazo para você e seus agentes de IA. Três usos comuns:",
+  "auth.onboard.use1": "Lembrar decisões e preferências de uma sessão para a outra.",
+  "auth.onboard.use2": "Compartilhar uma só memória entre Claude Code, pi e outras ferramentas.",
+  "auth.onboard.use3": "Manter separadas as anotações de projetos e áreas da vida diferentes.",
 };

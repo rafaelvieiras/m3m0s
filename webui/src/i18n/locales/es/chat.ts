@@ -12,7 +12,8 @@ export const chat: Messages<typeof import("../en/chat").chat> = {
   "chat.collapse": "Contraer panel",
   "chat.expand": "Expandir panel",
   "chat.close": "Cerrar chat",
-  "chat.empty": "Pregunta algo sobre tus memorias o pídeme que guarde información nueva. Escribe {slash} para ver los comandos disponibles.",
+  "chat.empty":
+    "Pregunta sobre tus memorias o pídeme que guarde algo nuevo. Respondo con lo que M3m0s recuerda. Escribe {slash} para ver los comandos. Si digo que el chat no está activado, el servidor necesita una clave de proveedor de IA para el chat.",
   "chat.typing": "escribiendo…",
   "chat.placeholder": "Pregunta o pide guardar algo… (/ para comandos)",
   "chat.send": "Enviar mensaje",

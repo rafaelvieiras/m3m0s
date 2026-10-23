@@ -11,6 +11,7 @@
 import { useState } from "react";
 import { Check, Copy, Loader2 } from "lucide-react";
 import { Route } from "@/routes/preview";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -70,12 +71,7 @@ export default function PreviewPage() {
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{t("preview.title")}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("preview.description")}
-          </p>
-        </div>
+        <PageHeader title={t("preview.title")} subtitle={t("preview.description")} help="preview" term="preview" />
         {isFetching && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
       </div>
 

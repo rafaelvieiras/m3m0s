@@ -50,7 +50,8 @@ export const embedding: Messages<typeof import("../en/embedding").embedding> = {
   "embedding.page.loadFailed": "Falha ao carregar as configurações de embedding: {message}",
   "embedding.page.unexpected": "resposta inesperada",
   "embedding.page.title": "Embedding",
-  "embedding.page.description": "Modelo, endpoint, dimensões e chave usados na busca vetorial (D36). Configurado via {source}; a busca vetorial está {state}.",
+  "embedding.page.description":
+    "O modelo, o endpoint, as dimensões e a chave usados na busca por significado. Configurado via {source}; a busca por significado está {state}.",
   "embedding.page.active": "ativa",
   "embedding.page.inactive": "inativa",
   "embedding.lib.dimensionsInvalid": "As dimensões devem ser um número inteiro (0 ou vazio = padrão do modelo).",

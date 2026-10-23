@@ -5,7 +5,7 @@ export const auth = {
   "auth.password": "Password",
   "auth.usernameRule": "3-32 characters: lowercase letters, digits, '.', '_' or '-'.",
   "auth.onboard.title": "Welcome to M3m0s",
-  "auth.onboard.description": "Create the first account to finish the setup.",
+  "auth.onboard.description": "Create the first account to finish the setup. It takes a minute.",
   "auth.onboard.submit": "Create account",
   "auth.login.title": "M3m0s",
   "auth.login.description": "Sign in to your memory.",
@@ -35,4 +35,9 @@ export const auth = {
   "auth.pw.tooShort": "Use at least {min} characters.",
   "auth.pw.tooLong": "Use at most {max} characters.",
   "auth.pw.mismatch": "The two passwords do not match.",
+  "auth.onboard.about":
+    "M3m0s is a long-term memory for you and your AI agents. Three things people use it for:",
+  "auth.onboard.use1": "Remember decisions and preferences from one session to the next.",
+  "auth.onboard.use2": "Share one memory across Claude Code, pi and other tools.",
+  "auth.onboard.use3": "Keep notes for different projects and areas of life apart.",
 } as const;

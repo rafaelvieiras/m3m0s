@@ -1,0 +1,29 @@
+// Keys are "connect.*". English is the source of truth; pt/es must define the same keys.
+export const connect = {
+  "connect.title": "Connect your agent",
+  "connect.subtitle": "Point your AI tools at this server so they can read and save your memories.",
+  "connect.step1.title": "1. The address of this server",
+  "connect.step1.body": "Your tools talk to M3m0s at this address.",
+  "connect.step2.title": "2. An API key",
+  "connect.step2.body":
+    "A key is the password a tool uses to reach your memories. M3m0s printed your first key in the server log the first time it started.",
+  "connect.step2.howto":
+    "If you run M3m0s with Docker, this command finds it. Look for a line that starts with m3m0s_ and paste it where the snippets below say {placeholder}:",
+  "connect.step2.warn":
+    "Treat the key like a password: never share it or paste it anywhere public. Creating extra keys from this page is not available yet.",
+  "connect.step3.title": "3. Paste the setup in your tool",
+  "connect.step3.body": "Pick your tool and copy the snippet.",
+  "connect.tool.claude": "Claude Code",
+  "connect.tool.pi": "pi",
+  "connect.tool.opencode": "opencode",
+  "connect.snippet.claude": "Run this once in your terminal to add M3m0s as a memory tool:",
+  "connect.snippet.pi": "Add this to your pi MCP settings:",
+  "connect.snippet.opencode": "Add this to your opencode config (opencode.json):",
+  "connect.copy": "Copy",
+  "connect.copied": "Copied",
+  "connect.test.title": "4. Check what your agent will see",
+  "connect.test.body": "Once connected, preview the memories your agent receives for a topic.",
+  "connect.test.action": "Open the preview",
+  "connect.placeholder": "YOUR_API_KEY",
+  "connect.requires": "These setups need the m3m0s program installed on the same computer as your tool.",
+} as const;
