@@ -97,9 +97,11 @@ type SearchRequest struct {
 	Domain         string `json:"domain,omitempty"`
 	DomainCategory string `json:"domainCategory,omitempty"`
 	Source         string `json:"source,omitempty"`
-	Agent          string `json:"agent,omitempty"`
-	Model          string `json:"model,omitempty"`
-	Project        string `json:"project,omitempty"`
+	// ExcludeSource drops memories whose source equals it (e.g. "selfdocs").
+	ExcludeSource string `json:"excludeSource,omitempty"`
+	Agent         string `json:"agent,omitempty"`
+	Model         string `json:"model,omitempty"`
+	Project       string `json:"project,omitempty"`
 	// Scope is "global" or "project-only"; with a project and no scope the
 	// recall is global + that project (D34).
 	Scope string   `json:"scope,omitempty"`
@@ -132,6 +134,7 @@ type RecentParams struct {
 	Domain         string
 	DomainCategory string
 	Source         string
+	ExcludeSource  string
 	Agent          string
 	Model          string
 	Project        string
@@ -150,10 +153,13 @@ type StatsResponse struct {
 	CountByDomainCategory map[string]int `json:"countByDomainCategory"`
 	// CountByProject lists only projects; global entries are the remainder.
 	CountByProject map[string]int `json:"countByProject,omitempty"`
-	Backend        string         `json:"backend"`
-	Model          string         `json:"model"`
-	Extraction     ExtractionInfo `json:"extraction"`
-	Telemetry      TelemetryInfo  `json:"telemetry"`
+	// CountBySource counts memories per source (tool that wrote them), so a
+	// client can tell the user's memories from the built-in "selfdocs".
+	CountBySource map[string]int `json:"countBySource,omitempty"`
+	Backend       string         `json:"backend"`
+	Model         string         `json:"model"`
+	Extraction    ExtractionInfo `json:"extraction"`
+	Telemetry     TelemetryInfo  `json:"telemetry"`
 }
 
 // TelemetryInfo is the `telemetry` field of GET /stats — operational metrics

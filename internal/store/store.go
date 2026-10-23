@@ -1318,8 +1318,11 @@ type Filter struct {
 	Domain         string
 	DomainCategory string
 	Source         string
-	Agent          string
-	Model          string
+	// ExcludeSource, when set, drops entries whose source equals it (the
+	// WebUI hides the built-in "selfdocs" this way); empty applies no exclusion.
+	ExcludeSource string
+	Agent         string
+	Model         string
 	// Project, when set, keeps only entries of that project; empty applies no
 	// project filter. With a Project and no Scope the recall is layered:
 	// global entries plus that project's (D34).
@@ -1343,6 +1346,9 @@ func (f Filter) matchesIndexEntry(e schema.Entry) bool {
 		return false
 	}
 	if f.Source != "" && e.Source != f.Source {
+		return false
+	}
+	if f.ExcludeSource != "" && e.Source == f.ExcludeSource {
 		return false
 	}
 	if f.Agent != "" && e.AgentValue() != f.Agent {
@@ -1424,6 +1430,9 @@ func (s *MemoryStore) SearchCorrected(ctx context.Context, query string, limit i
 			return false
 		}
 		if filter.Source != "" && e.Source != filter.Source {
+			return false
+		}
+		if filter.ExcludeSource != "" && e.Source == filter.ExcludeSource {
 			return false
 		}
 		if filter.Agent != "" && e.AgentValue() != filter.Agent {
@@ -1783,6 +1792,17 @@ func withoutKey(base map[string]string, key string) map[string]string {
 
 // ProjectCounts returns how many entries each project holds (global entries
 // are not listed).
+// SourceCounts counts memories per source (the tool that wrote them).
+func (s *MemoryStore) SourceCounts() map[string]int {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	out := map[string]int{}
+	for _, e := range s.index {
+		out[e.Source]++
+	}
+	return out
+}
+
 func (s *MemoryStore) ProjectCounts() map[string]int {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

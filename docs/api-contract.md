@@ -183,7 +183,11 @@ Project scope (D34): `project=X` recalls the global entries plus X's (never
 another project's), `scope=project-only` only X's, `scope=global` only entries
 with no project; with neither, no project filter applies. An invalid
 combination is a `400` (`invalid_scope`). Related-entry expansion obeys the
-same rule. `GET /stats` adds `countByProject`.
+same rule. `GET /stats` adds `countByProject` and `countBySource`.
+
+`excludeSource` (`POST /search` body field, `GET /recent` query param) drops
+the memories whose `source` equals it; the WebUI passes `selfdocs` to hide the
+built-in documentation from the user's lists. Nothing is deleted or reindexed.
 
 Provenance (D33): `source` is the tool that wrote the entry, `model` the LLM
 that produced the content and `project` an optional scope (absent/`null` =

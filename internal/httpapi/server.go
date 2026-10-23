@@ -396,6 +396,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		Domain:         req.Domain,
 		DomainCategory: req.DomainCategory,
 		Source:         req.Source,
+		ExcludeSource:  req.ExcludeSource,
 		Agent:          req.Agent,
 		Model:          req.Model,
 		Project:        req.Project,
@@ -447,6 +448,7 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 		Domain:         q.Get("domain"),
 		DomainCategory: q.Get("domainCategory"),
 		Source:         q.Get("source"),
+		ExcludeSource:  q.Get("excludeSource"),
 		Agent:          q.Get("agent"),
 		Model:          q.Get("model"),
 		Project:        q.Get("project"),
@@ -499,6 +501,7 @@ func (s *Server) handleStats(w http.ResponseWriter, r *http.Request) {
 		Count:                 count,
 		CountByDomainCategory: byCategory,
 		CountByProject:        s.store.ProjectCounts(),
+		CountBySource:         s.store.SourceCounts(),
 		Backend:               Backend,
 		Model:                 s.store.EmbeddingModel(),
 		Extraction: apitypes.ExtractionInfo{
