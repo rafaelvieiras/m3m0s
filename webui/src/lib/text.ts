@@ -9,8 +9,10 @@ export function stripMarkdown(input: string): string {
     .replace(/^\s{0,3}#{1,6}\s+/gm, "") // headings
     .replace(/^\s{0,3}>\s?/gm, "") // block quotes
     .replace(/^\s*[-*+]\s+/gm, "") // bullets
-    .replace(/(\*\*|__)(.*?)\1/g, "$2") // bold
-    .replace(/(\*|_)(.*?)\1/g, "$2") // italics
+    .replace(/\*\*(.*?)\*\*/g, "$1") // bold
+    .replace(/(^|[^\w])__(.+?)__(?=[^\w]|$)/g, "$1$2") // bold (underscores only at word edges, so snake_case survives)
+    .replace(/\*(.*?)\*/g, "$1") // italics
+    .replace(/(^|[^\w])_(.+?)_(?=[^\w]|$)/g, "$1$2") // italics (same word-edge rule)
     .replace(/`([^`]*)`/g, "$1") // inline code
     .replace(/\s+/g, " ")
     .trim();

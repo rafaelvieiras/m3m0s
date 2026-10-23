@@ -40,4 +40,10 @@ describe("markdown stripping", () => {
     );
     expect(snippet("a ".repeat(200), 10)).toBe("a a a a a…");
   });
+
+  it("keeps underscores inside identifiers", () => {
+    expect(stripMarkdown("use my_config_var and snake__case__name, not _this_ or __that__")).toBe(
+      "use my_config_var and snake__case__name, not this or that",
+    );
+  });
 });
