@@ -1,10 +1,14 @@
-// GET /recent — same filters as search (except tags/query, D11/contract).
+// GET /recent — the newest memories, with the same filters as search (except
+// tags/query, D11/contract).
 import { useState } from "react";
 import { useT } from "@/i18n";
 import { Route } from "@/routes/recent";
-import { Loader2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Loader2, Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { FilterBar, type FilterValues } from "@/components/memory/FilterBar";
+import { PageHeader } from "@/components/layout/PageHeader";
+import { FilterBar, filtersToParams, type FilterValues } from "@/components/memory/FilterBar";
 import { EntryList } from "@/components/memory/EntryList";
 import { useRecent } from "@/hooks/useMemoryApi";
 
@@ -22,6 +26,7 @@ export default function RecentPage() {
     project: search.project,
     scope: search.scope,
     tags: "",
+    includeDocs: search.docs,
   });
 
   function applyFilters() {
@@ -34,32 +39,34 @@ export default function RecentPage() {
         model: filters.model,
         project: filters.project,
         scope: filters.scope,
+        docs: filters.includeDocs,
       },
     });
   }
 
   const { data, isLoading, isError, error } = useRecent({
     limit: 50,
-    domain: search.domain || undefined,
-    domainCategory: search.domainCategory || undefined,
-    source: search.source || undefined,
-    agent: search.agent || undefined,
-    model: search.model || undefined,
-    project: search.project || undefined,
-    scope: search.scope || undefined,
+    ...filtersToParams({
+      domain: search.domain,
+      domainCategory: search.domainCategory,
+      source: search.source,
+      agent: search.agent,
+      model: search.model,
+      project: search.project,
+      scope: search.scope,
+      tags: "",
+      includeDocs: search.docs,
+    }),
   });
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold">{t("memory.recent.title")}</h1>
-          <p className="text-sm text-muted-foreground">
-            {t("memory.recent.subtitle")}
-          </p>
-        </div>
-        {isLoading && <Loader2 className="size-4 animate-spin text-muted-foreground" />}
-      </div>
+      <PageHeader
+        title={t("memory.recent.title")}
+        subtitle={t("memory.recent.subtitle")}
+        help="recent"
+        actions={isLoading ? <Loader2 className="size-4 animate-spin text-muted-foreground" /> : undefined}
+      />
 
       <FilterBar value={filters} onChange={setFilters} onApply={applyFilters} />
 
@@ -73,7 +80,19 @@ export default function RecentPage() {
 
       {isError && <p className="text-sm text-destructive">{t("memory.recent.failed", { message: error.message })}</p>}
 
-      {data && <EntryList entries={data.results} emptyLabel={t("memory.recent.empty")} />}
+      {data && (
+        <EntryList
+          entries={data.results}
+          emptyTitle={t("memory.recent.emptyTitle")}
+          emptyLabel={t("memory.recent.empty")}
+          emptyAction={
+            <Button variant="outline" size="sm" render={<Link to="/add" />}>
+              <Plus data-icon="inline-start" />
+              {t("memory.search.emptyAction")}
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }

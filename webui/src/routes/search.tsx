@@ -14,6 +14,7 @@ export const searchSearchSchema = z.object({
   model: z.string().catch("").default(""),
   project: z.string().catch("").default(""),
   scope: z.enum(["", "global", "project-only"]).catch("").default(""),
+  docs: z.boolean().catch(false).default(false),
   tags: z.string().catch("").default(""),
 });
 

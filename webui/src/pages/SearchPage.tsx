@@ -1,22 +1,32 @@
-// Semantic search (POST /search) — query + filters on the 4 axes, all
-// reflected in the URL (route search params, see src/routes/search.tsx) so
-// the screen is back-navigable/shareable.
+// Search (POST /search) — query + filters, all reflected in the URL (route
+// search params, see src/routes/search.tsx) so the screen is back-navigable
+// and shareable. Without embeddings the server matches keywords only, and the
+// page says so instead of promising a search by meaning.
 import { useState } from "react";
 import { useT } from "@/i18n";
 import { Route } from "@/routes/search";
-import { Search as SearchIcon, Loader2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { Info, Plus, Search as SearchIcon, Loader2 } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/layout/PageHeader";
 import { FilterBar, filtersToParams, tagsStringToArray, type FilterValues } from "@/components/memory/FilterBar";
 import { EntryList } from "@/components/memory/EntryList";
 import { useSearchMemories } from "@/hooks/useMemoryApi";
+import { useEmbeddingConfig } from "@/hooks/useEmbeddingApi";
+
+const EXAMPLE_QUERIES = ["memory.search.example1", "memory.search.example2", "memory.search.example3"] as const;
 
 export default function SearchPage() {
   const { t } = useT();
   const search = Route.useSearch();
   const navigate = Route.useNavigate();
+  const embedding = useEmbeddingConfig();
+  // Only claim keyword-only once the config has loaded and says so.
+  const keywordOnly = embedding.data !== undefined && !embedding.data.active;
 
   const [queryInput, setQueryInput] = useState(search.q);
   const [filters, setFilters] = useState<FilterValues>({
@@ -28,6 +38,7 @@ export default function SearchPage() {
     project: search.project,
     scope: search.scope,
     tags: search.tags,
+    includeDocs: search.docs,
   });
 
   function applyFilters(nextQuery = queryInput, nextFilters: FilterValues = filters) {
@@ -42,6 +53,7 @@ export default function SearchPage() {
         project: nextFilters.project,
         scope: nextFilters.scope,
         tags: nextFilters.tags,
+        docs: nextFilters.includeDocs,
       },
     });
   }
@@ -59,6 +71,7 @@ export default function SearchPage() {
             project: search.project,
             scope: search.scope,
             tags: search.tags,
+            includeDocs: search.docs,
           }),
           tags: tagsStringToArray(search.tags),
           limit: 30,
@@ -69,12 +82,23 @@ export default function SearchPage() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-lg font-semibold">{t("memory.search.title")}</h1>
-        <p className="text-sm text-muted-foreground">
-          {t("memory.search.subtitle")}
-        </p>
-      </div>
+      <PageHeader
+        title={t("memory.search.title")}
+        subtitle={keywordOnly ? t("memory.search.subtitleKeyword") : t("memory.search.subtitleSemantic")}
+        help="search"
+      />
+
+      {keywordOnly && (
+        <Alert>
+          <Info aria-hidden />
+          <AlertDescription>
+            {t("memory.search.keywordBanner")}{" "}
+            <Link to="/embedding" className="font-medium text-primary underline underline-offset-2">
+              {t("memory.search.keywordBannerLink")}
+            </Link>
+          </AlertDescription>
+        </Alert>
+      )}
 
       <form
         className="flex gap-2"
@@ -115,7 +139,25 @@ export default function SearchPage() {
       />
 
       {params === null && (
-        <p className="text-sm text-muted-foreground">{t("memory.search.prompt")}</p>
+        <div className="flex flex-col gap-2">
+          <p className="text-sm text-muted-foreground">{t("memory.search.prompt")}</p>
+          <div className="flex flex-wrap gap-2">
+            {EXAMPLE_QUERIES.map((key) => (
+              <Button
+                key={key}
+                type="button"
+                size="sm"
+                variant="outline"
+                onClick={() => {
+                  setQueryInput(t(key));
+                  applyFilters(t(key), filters);
+                }}
+              >
+                {t(key)}
+              </Button>
+            ))}
+          </div>
+        </div>
       )}
 
       {params !== null && isLoading && (
@@ -130,7 +172,19 @@ export default function SearchPage() {
         <p className="text-sm text-destructive">{t("memory.search.failed", { message: error.message })}</p>
       )}
 
-      {data && <EntryList entries={data.results} emptyLabel={t("memory.search.empty")} />}
+      {data && (
+        <EntryList
+          entries={data.results}
+          emptyTitle={t("memory.search.emptyTitle")}
+          emptyLabel={t("memory.search.empty")}
+          emptyAction={
+            <Button variant="outline" size="sm" render={<Link to="/add" />}>
+              <Plus data-icon="inline-start" />
+              {t("memory.search.emptyAction")}
+            </Button>
+          }
+        />
+      )}
     </div>
   );
 }

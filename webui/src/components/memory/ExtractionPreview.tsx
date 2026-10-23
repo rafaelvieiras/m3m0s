@@ -7,6 +7,8 @@ import { CheckCircle2, Copy, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { KindBadge } from "@/components/memory/KindBadge";
+import { useAdvancedMode } from "@/lib/mode";
 import { useT } from "@/i18n";
 import type { AddResponse } from "@/lib/schemas";
 
@@ -22,6 +24,7 @@ export function ExtractionPreview({
   onAddAnother,
 }: ExtractionPreviewProps) {
   const { t } = useT();
+  const [advanced] = useAdvancedMode();
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-4 py-3">
@@ -66,14 +69,15 @@ export function ExtractionPreview({
                 </div>
               </CardHeader>
               <CardContent className="flex flex-col gap-2">
-                <p className="whitespace-pre-wrap text-sm">{entry.content}</p>
+                <p className="text-sm whitespace-pre-wrap [overflow-wrap:anywhere]">{entry.content}</p>
                 <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                  <Badge variant="secondary">{entry.domain}</Badge>
-                  <Badge variant="outline">{entry.source}</Badge>
-                  {entry.agent && <Badge variant="outline">@{entry.agent}</Badge>}
-                  {entry.project && <Badge variant="outline">project:{entry.project}</Badge>}
-                  {entry.model && <Badge variant="outline">{entry.model}</Badge>}
-                  <span className="font-mono">{entry.id}</span>
+                  <KindBadge kind={entry.kind} kindSource={entry.kindSource} />
+                  {entry.project && <Badge variant="secondary">{entry.project}</Badge>}
+                  <Badge variant="outline">{entry.domain}</Badge>
+                  {advanced && <Badge variant="outline">{entry.source}</Badge>}
+                  {advanced && entry.agent && <Badge variant="outline">@{entry.agent}</Badge>}
+                  {advanced && entry.model && <Badge variant="outline">{entry.model}</Badge>}
+                  {advanced && <span className="font-mono break-all">{entry.id}</span>}
                 </div>
               </CardContent>
             </Card>
