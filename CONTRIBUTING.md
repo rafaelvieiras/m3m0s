@@ -131,8 +131,8 @@ changelog, derived from the conventional commits that touch its directory:
 | Hermes plugin | `integrations/hermes` | `hermes-vX.Y.Z` | `hermes plugins install` from this repo |
 
 Merge the open "release" PR to cut a release. npm publishing uses trusted
-publishing (OIDC, no stored token) and `npm stage publish`: after the
-workflow runs, approve the staged version on npmjs.com (2FA).
+publishing (OIDC, no stored token) and `npm publish`: the workflow
+publishes directly, with no manual approval step.
 
 ### First npm publish of a package (one time)
 
