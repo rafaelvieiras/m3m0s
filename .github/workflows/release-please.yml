@@ -43,7 +43,7 @@ jobs:
   # npm trusted publishing (OIDC): no token is stored. The trusted publisher
   # of each package is bound to THIS workflow file name (release-please.yml),
   # so the publish jobs live here instead of in a reusable workflow. Releases
-  # are staged: a maintainer approves them on npmjs.com with 2FA.
+  # are published directly through OIDC trusted publishing, no token needed.
   publish-pi:
     needs: release-please
     if: ${{ needs.release-please.outputs.pi_released == 'true' }}
@@ -58,7 +58,7 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@latest
-      - run: npm stage publish
+      - run: npm publish
         working-directory: integrations/pi
 
   publish-opencode:
@@ -75,5 +75,5 @@ jobs:
           node-version: 24
           registry-url: https://registry.npmjs.org
       - run: npm install -g npm@latest
-      - run: npm stage publish
+      - run: npm publish
         working-directory: integrations/opencode
