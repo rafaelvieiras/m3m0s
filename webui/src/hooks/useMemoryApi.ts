@@ -88,8 +88,52 @@ export function useDeleteMemory() {
     mutationFn: (id: string) => api.deleteMemory(id),
     onSuccess: (_data, id) => {
       qc.removeQueries({ queryKey: ["entry", id] });
-      qc.invalidateQueries({ queryKey: ["recent"] });
-      qc.invalidateQueries({ queryKey: ["search"] });
+      invalidateMemoryLists(qc);
+    },
+  });
+}
+
+// ── trash (D53): restore, list, delete forever, empty ──
+
+function invalidateMemoryLists(qc: ReturnType<typeof useQueryClient>) {
+  qc.invalidateQueries({ queryKey: ["recent"] });
+  qc.invalidateQueries({ queryKey: ["search"] });
+  qc.invalidateQueries({ queryKey: ["stats"] });
+  qc.invalidateQueries({ queryKey: ["trash"] });
+}
+
+export function useRestoreMemory() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.restoreMemory(id),
+    onSuccess: (entry) => {
+      qc.setQueryData(["entry", entry.id], entry);
+      invalidateMemoryLists(qc);
+    },
+  });
+}
+
+export function useTrash() {
+  return useQuery({ queryKey: ["trash"], queryFn: api.listTrash });
+}
+
+export function usePurgeTrashed() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => api.purgeTrashed(id),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trash"] });
+      qc.invalidateQueries({ queryKey: ["stats"] });
+    },
+  });
+}
+
+export function useEmptyTrash() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => api.emptyTrash(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["trash"] });
       qc.invalidateQueries({ queryKey: ["stats"] });
     },
   });

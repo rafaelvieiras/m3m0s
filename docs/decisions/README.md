@@ -66,6 +66,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D50 | Hermes integration reuses the hook pipeline | Accepted | [D50-hermes-integration.md](D50-hermes-integration.md) |
 | D51 | Query-term correction (typo-tolerant search) | Accepted | [D51-query-term-correction.md](D51-query-term-correction.md) |
 | D52 | Onboarding without an API key | Accepted | [D52-keyless-onboarding.md](D52-keyless-onboarding.md) |
+| D53 | Reversible manual delete: trash and undo | Accepted | [D53-reversible-manual-delete-trash.md](D53-reversible-manual-delete-trash.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |
 | A8 | Phase 7 (light KG + temporal fact) | Closed (16 Jul 2026), see [D15](D15-light-kg-temporal-fact.md) | [A8-light-kg-temporal-fact.md](A8-light-kg-temporal-fact.md) |

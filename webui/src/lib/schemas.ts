@@ -539,3 +539,32 @@ export type HygieneResponse = z.infer<typeof hygieneResponseSchema>;
 
 export const hygieneStartSchema = z.object({ started: z.boolean() });
 export const hygieneCancelSchema = z.object({ cancelled: z.boolean() });
+
+// ── trash (D53): DELETE /memories/:id, GET|DELETE /memories/trash ──
+
+export const deleteResponseSchema = z.object({
+  id: z.string(),
+  purged: z.boolean(),
+  deletedAt: z.string().optional(),
+  purgeAt: z.string().optional(),
+});
+export type DeleteResponse = z.infer<typeof deleteResponseSchema>;
+
+export const trashItemSchema = z.object({
+  id: z.string(),
+  snippet: z.string(),
+  kind: z.string().optional(),
+  domain: z.string(),
+  deletedAt: z.string().optional(),
+  purgeAt: z.string().optional(),
+});
+export type TrashItem = z.infer<typeof trashItemSchema>;
+
+export const trashResponseSchema = z.object({
+  items: z.array(trashItemSchema),
+  graceDays: z.number(),
+});
+export type TrashResponse = z.infer<typeof trashResponseSchema>;
+
+export const emptyTrashResponseSchema = z.object({ purgedCount: z.number() });
+export type EmptyTrashResponse = z.infer<typeof emptyTrashResponseSchema>;

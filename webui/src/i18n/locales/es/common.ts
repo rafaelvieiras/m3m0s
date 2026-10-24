@@ -12,6 +12,7 @@ export const common: Messages<typeof import("../en/common").common> = {
   "common.nav.jobs": "Tareas",
   "common.nav.embedding": "Embedding",
   "common.nav.preview": "Vista previa",
+  "common.nav.trash": "Papelera",
   "common.loading": "Cargando…",
   "common.cancel": "Cancelar",
   "common.save": "Guardar",

@@ -13,6 +13,7 @@ import {
   Plug,
   Plus,
   Search as SearchIcon,
+  Trash2,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,7 @@ const advancedItems: readonly NavItem[] = [
   { to: "/jobs", label: "common.nav.jobs", icon: ListChecks },
   { to: "/embedding", label: "common.nav.embedding", icon: Cpu },
   { to: "/preview", label: "common.nav.preview", icon: Eye },
+  { to: "/trash", label: "common.nav.trash", icon: Trash2 },
 ];
 
 function isActive(pathname: string, to: string) {

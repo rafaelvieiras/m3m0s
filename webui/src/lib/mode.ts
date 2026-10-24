@@ -1,6 +1,6 @@
 // Simple / Advanced mode. Simple (the default) shows only Home, Search, Add and
-// Connect agent; Advanced adds Recent, Stats, Insights, Jobs, Embedding and
-// Preview plus the raw filters. The choice is remembered in localStorage, and
+// Connect agent; Advanced adds Recent, Stats, Insights, Jobs, Embedding,
+// Preview and Trash plus the raw filters. The choice is remembered in localStorage, and
 // deep links to advanced screens keep working in either mode.
 import { useSyncExternalStore } from "react";
 
@@ -44,4 +44,4 @@ export function useAdvancedMode(): [boolean, (on: boolean) => void] {
 }
 
 /** Routes that only appear in the Advanced nav. */
-export const ADVANCED_ROUTES = ["/recent", "/stats", "/insights", "/jobs", "/embedding", "/preview"] as const;
+export const ADVANCED_ROUTES = ["/recent", "/stats", "/insights", "/jobs", "/embedding", "/preview", "/trash"] as const;

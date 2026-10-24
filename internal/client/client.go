@@ -352,20 +352,25 @@ func (c *Client) Health(ctx context.Context) error {
 	return c.do(ctx, http.MethodGet, "/health", nil, nil, nil)
 }
 
-// DeleteByID calls DELETE /api/v1/memories/:id (D11, minimal scope for the
-// cascading purge of m3m0s watch). It returns found=false (no error) if the
-// ID does not exist — a 404 from serve is not treated as a transport failure
-// here, because "already gone" is a valid result for whoever calls delete.
-func (c *Client) DeleteByID(ctx context.Context, id string) (found bool, err error) {
-	err = c.do(ctx, http.MethodDelete, apiPrefix+"/memories/"+url.PathEscape(id), nil, nil, nil)
+// DeleteByID calls DELETE /api/v1/memories/:id (D53). By default the memory
+// goes to the trash and can be restored; purge=true removes it for good. It
+// returns found=false (no error) if the ID does not exist: a 404 from serve is
+// not a transport failure here, because "already gone" is a valid result for
+// whoever calls delete.
+func (c *Client) DeleteByID(ctx context.Context, id string, purge bool) (resp apitypes.DeleteByIDResponse, found bool, err error) {
+	var q url.Values
+	if purge {
+		q = url.Values{"purge": {"true"}}
+	}
+	err = c.do(ctx, http.MethodDelete, apiPrefix+"/memories/"+url.PathEscape(id), q, nil, &resp)
 	if err != nil {
 		var errBody apitypes.ErrorBody
 		if errors.As(err, &errBody) && errBody.ErrorInfo.Code == "not_found" {
-			return false, nil
+			return resp, false, nil
 		}
-		return false, err
+		return resp, false, err
 	}
-	return true, nil
+	return resp, true, nil
 }
 
 // DeleteByFilePath calls DELETE /api/v1/memories?domain=X&filePath=Y.

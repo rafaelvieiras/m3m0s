@@ -108,6 +108,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/stats", s.withAuth(s.handleStats))
 	mux.HandleFunc("GET /api/v1/memories/{id}", s.withAuth(s.handleGet))
 	mux.HandleFunc("PATCH /api/v1/memories/{id}", s.withAuth(s.handleUpdate))
+	mux.HandleFunc("GET /api/v1/memories/trash", s.withAuth(s.handleTrashList))
+	mux.HandleFunc("DELETE /api/v1/memories/trash", s.withAuth(s.handleTrashEmpty))
+	mux.HandleFunc("DELETE /api/v1/memories/trash/{id}", s.withAuth(s.handleTrashPurge))
 	mux.HandleFunc("DELETE /api/v1/memories/{id}", s.withAuth(s.handleDeleteByID))
 	mux.HandleFunc("DELETE /api/v1/memories", s.withAuth(s.handleDeleteByFilePath))
 	mux.HandleFunc("POST /api/v1/memories/forget-sweep", s.withAuth(s.handleForgetSweep))
@@ -712,9 +715,36 @@ func decodeUpdatePatch(req apitypes.UpdateRequest) (store.UpdatePatch, error) {
 
 // ── DELETE /memories (D11, minimal scope for the watch cascade purge) ──
 
+// handleDeleteByID is the manual delete (D53): a soft delete by default, so
+// the memory can be restored from the trash; ?purge=true removes it for good.
 func (s *Server) handleDeleteByID(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
-	found, err := s.store.Delete(r.Context(), id)
+	purge := false
+	if raw := r.URL.Query().Get("purge"); raw != "" {
+		v, err := strconv.ParseBool(raw)
+		if err != nil {
+			writeError(w, http.StatusBadRequest, "invalid_purge", "purge must be true or false")
+			return
+		}
+		purge = v
+	}
+
+	if purge {
+		found, err := s.store.Delete(r.Context(), id)
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "delete_failed", err.Error())
+			return
+		}
+		if !found {
+			writeError(w, http.StatusNotFound, "not_found", "memory not found: "+id)
+			return
+		}
+		writeJSON(w, http.StatusOK, apitypes.DeleteByIDResponse{ID: id, Purged: true})
+		return
+	}
+
+	now := time.Now()
+	found, err := s.store.SoftDelete(r.Context(), id, now)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "delete_failed", err.Error())
 		return
@@ -723,7 +753,50 @@ func (s *Server) handleDeleteByID(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusNotFound, "not_found", "memory not found: "+id)
 		return
 	}
-	w.WriteHeader(http.StatusNoContent)
+	writeJSON(w, http.StatusOK, apitypes.DeleteByIDResponse{
+		ID:        id,
+		DeletedAt: now.UTC().Format(time.RFC3339),
+		PurgeAt:   now.UTC().Add(store.SoftDeleteGraceDays * 24 * time.Hour).Format(time.RFC3339),
+	})
+}
+
+// ── /memories/trash (D53) ──
+
+func (s *Server) handleTrashList(w http.ResponseWriter, r *http.Request) {
+	items := s.store.Trash()
+	out := apitypes.TrashResponse{Items: make([]apitypes.TrashItem, 0, len(items)), GraceDays: store.SoftDeleteGraceDays}
+	for _, it := range items {
+		ti := apitypes.TrashItem{ID: it.ID, Snippet: it.Snippet, Kind: it.Kind, Domain: it.Domain}
+		if !it.DeletedAt.IsZero() {
+			ti.DeletedAt = it.DeletedAt.UTC().Format(time.RFC3339)
+			ti.PurgeAt = it.PurgeAt.UTC().Format(time.RFC3339)
+		}
+		out.Items = append(out.Items, ti)
+	}
+	writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) handleTrashPurge(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	found, err := s.store.PurgeTrashed(r.Context(), id)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "delete_failed", err.Error())
+		return
+	}
+	if !found {
+		writeError(w, http.StatusNotFound, "not_found", "memory not found in the trash: "+id)
+		return
+	}
+	writeJSON(w, http.StatusOK, apitypes.DeleteByIDResponse{ID: id, Purged: true})
+}
+
+func (s *Server) handleTrashEmpty(w http.ResponseWriter, r *http.Request) {
+	n, err := s.store.EmptyTrash(r.Context())
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "delete_failed", err.Error())
+		return
+	}
+	writeJSON(w, http.StatusOK, apitypes.EmptyTrashResponse{PurgedCount: n})
 }
 
 func (s *Server) handleDeleteByFilePath(w http.ResponseWriter, r *http.Request) {

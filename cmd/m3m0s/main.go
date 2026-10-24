@@ -62,6 +62,8 @@ func main() {
 		err = runForgetSweep(ctx, os.Args[2:])
 	case "restore":
 		err = runRestore(ctx, os.Args[2:])
+	case "delete":
+		err = runDelete(ctx, os.Args[2:])
 	case "-h", "--help", "help":
 		usage()
 		return
@@ -102,9 +104,10 @@ commands:
   get           fetches 1 existing memory by id (records an access reinforcement)
   forget-sweep  memory layers: evaluates/soft-deletes cold facts, hard-deletes expired soft-deletes
   restore       reverts the soft-delete of a memory by id
+  delete        moves a memory to the trash (restorable); --purge removes it for good
 
 "watch", "hook", "add", "search", "recent", "stats", "update", "get",
-"forget-sweep", "restore", "embedding", "insights" and "kind" talk to an already running "serve" via M3M0S_URL
+"forget-sweep", "restore", "delete", "embedding", "insights" and "kind" talk to an already running "serve" via M3M0S_URL
 (default http://localhost:19234) and M3M0S_API_KEY. "maintenance" opens the data directory
 (--data / M3M0S_DATA_DIR) directly instead.
 
