@@ -11,8 +11,7 @@ export const connect: Messages<typeof import("../en/connect").connect> = {
     "Uma chave é a senha que uma ferramenta usa para chegar às suas memórias. O M3m0s imprimiu a sua primeira chave no log do servidor na primeira vez que iniciou.",
   "connect.step2.howto":
     "Se você roda o M3m0s com Docker, este comando a encontra. Procure uma linha que comece com m3m0s_ e cole-a onde os trechos abaixo dizem {placeholder}:",
-  "connect.step2.warn":
-    "Trate a chave como uma senha: nunca a compartilhe nem a cole em lugar público. Criar chaves extras por esta página ainda não é possível.",
+  "connect.step2.warn": "Trate a chave como uma senha: nunca a compartilhe nem a cole em lugar público.",
   "connect.step3.title": "3. Cole a configuração na sua ferramenta",
   "connect.step3.body": "Escolha a sua ferramenta e copie o trecho.",
   "connect.tool.claude": "Claude Code",
@@ -30,4 +29,9 @@ export const connect: Messages<typeof import("../en/connect").connect> = {
   "connect.placeholder": "SUA_CHAVE_DE_API",
   "connect.requires":
     "Estas configurações precisam do programa m3m0s instalado no mesmo computador da sua ferramenta.",
+  "connect.key.create": "Criar uma chave de API",
+  "connect.key.created": "Sua nova chave",
+  "connect.key.once": "Copie agora: ela aparece só desta vez e não pode ser recuperada. As configurações abaixo já usam essa chave.",
+  "connect.key.failed": "Não foi possível criar a chave: {message}",
+  "connect.key.existing": "Ou use a chave do log do servidor",
 };

@@ -5,6 +5,7 @@
 // the page shows when it was computed and never recomputes on its own.
 // Charts are plain CSS bars: no chart library is needed for this.
 import { AlertTriangle, CheckCircle2, Loader2, Play, Square } from "lucide-react";
+import { Link } from "@tanstack/react-router";
 import { toast } from "sonner";
 import { PageHeader } from "@/components/layout/PageHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -25,6 +26,7 @@ import {
   formatDuration,
   formatPercent,
   horizonLabel,
+  memoryHealth,
   progressPercent,
   shadowDelta,
   tierLabel,
@@ -106,6 +108,54 @@ function Section({ title, description, children }: { title: string; description?
         {description ? <CardDescription>{description}</CardDescription> : null}
       </CardHeader>
       <CardContent>{children}</CardContent>
+    </Card>
+  );
+}
+
+// ── Health summary ──
+
+// A plain verdict for people who do not read charts: all good, or up to three
+// things worth doing, each linking to where it can be dealt with.
+function HealthSummary({ ov }: { ov: InsightsOverview }) {
+  const { t } = useT();
+  const hygiene = useHygiene();
+  // Wait for the last analysis so "run an analysis" is not shown by mistake.
+  if (hygiene.isLoading) return <Skeleton className="h-20 w-full" />;
+  const health = memoryHealth(ov, hygiene.data?.report);
+  const ok = health.status === "ok";
+  return (
+    <Card id="health" className="scroll-mt-4">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          {ok ? (
+            <CheckCircle2 className="size-5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+          ) : (
+            <AlertTriangle className="size-5 text-amber-600 dark:text-amber-400" aria-hidden />
+          )}
+          {ok ? t("insights.health.ok") : t("insights.health.attention")}
+        </CardTitle>
+        <CardDescription>{ok ? t("insights.health.okDesc") : t("insights.health.attentionDesc")}</CardDescription>
+      </CardHeader>
+      {ok ? null : (
+        <CardContent>
+          <ul className="flex flex-col gap-2">
+            {health.issues.map((issue) => (
+              <li key={issue.id} className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 text-sm">
+                <span>{t(`insights.health.issue.${issue.id}`, { count: formatCount(issue.count) })}</span>
+                {"route" in issue.to ? (
+                  <Link to={issue.to.route} className="text-primary underline-offset-4 hover:underline">
+                    {t(`insights.health.action.${issue.id}`)}
+                  </Link>
+                ) : (
+                  <a href={`#${issue.to.anchor}`} className="text-primary underline-offset-4 hover:underline">
+                    {t(`insights.health.action.${issue.id}`)}
+                  </a>
+                )}
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      )}
     </Card>
   );
 }
@@ -684,6 +734,7 @@ export default function InsightsPage() {
         </Alert>
       ) : (
         <>
+          <HealthSummary ov={data} />
           <div id="overview" className="flex scroll-mt-4 flex-col gap-4">
             <OverviewSection ov={data} />
           </div>

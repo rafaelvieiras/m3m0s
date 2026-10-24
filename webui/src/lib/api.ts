@@ -9,6 +9,8 @@ import { hasKey, translate } from "@/i18n";
 import {
   addResponseSchema,
   authStatusSchema,
+  createKeyResponseSchema,
+  type CreateKeyResponse,
   meSchema,
   resetInfoSchema,
   chatResponseSchema,
@@ -206,6 +208,11 @@ export function onboard(username: string, password: string, confirm: string): Pr
   return authRequest("/auth/onboard", { method: "POST", body: JSON.stringify({ username, password, confirm }) }, null);
 }
 
+// Mints a new API key for agents. The raw key is returned once and never again.
+export function createApiKey(label: string): Promise<CreateKeyResponse> {
+  return authRequest("/keys", { method: "POST", body: JSON.stringify({ label }) }, createKeyResponseSchema);
+}
+
 export function getResetInfo(token: string): Promise<ResetInfo> {
   return authRequest(`/auth/reset?token=${encodeURIComponent(token)}`, { method: "GET" }, resetInfoSchema);
 }
@@ -231,6 +238,7 @@ export interface SearchParams {
   project?: string;
   scope?: "global" | "project-only";
   tags?: string[];
+  kind?: string;
 }
 
 export function search(params: SearchParams): Promise<SearchResponse> {

@@ -15,6 +15,8 @@ export const searchSearchSchema = z.object({
   project: z.string().catch("").default(""),
   scope: z.enum(["", "global", "project-only"]).catch("").default(""),
   docs: z.boolean().catch(false).default(false),
+  // One of the memory kinds (src/lib/kinds.ts); empty = any.
+  kind: z.string().catch("").default(""),
   tags: z.string().catch("").default(""),
 });
 

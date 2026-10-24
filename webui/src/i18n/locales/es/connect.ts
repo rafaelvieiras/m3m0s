@@ -10,8 +10,7 @@ export const connect: Messages<typeof import("../en/connect").connect> = {
     "Una clave es la contraseña que una herramienta usa para llegar a tus memorias. M3m0s imprimió tu primera clave en el registro del servidor la primera vez que arrancó.",
   "connect.step2.howto":
     "Si ejecutas M3m0s con Docker, este comando la encuentra. Busca una línea que empiece por m3m0s_ y pégala donde los fragmentos de abajo dicen {placeholder}:",
-  "connect.step2.warn":
-    "Trata la clave como una contraseña: nunca la compartas ni la pegues en un lugar público. Crear claves adicionales desde esta página aún no es posible.",
+  "connect.step2.warn": "Trata la clave como una contraseña: nunca la compartas ni la pegues en un lugar público.",
   "connect.step3.title": "3. Pega la configuración en tu herramienta",
   "connect.step3.body": "Elige tu herramienta y copia el fragmento.",
   "connect.tool.claude": "Claude Code",
@@ -29,4 +28,9 @@ export const connect: Messages<typeof import("../en/connect").connect> = {
   "connect.placeholder": "TU_CLAVE_DE_API",
   "connect.requires":
     "Estas configuraciones necesitan el programa m3m0s instalado en el mismo equipo que tu herramienta.",
+  "connect.key.create": "Crear una clave de API",
+  "connect.key.created": "Tu nueva clave",
+  "connect.key.once": "Cópiala ahora: solo se muestra esta vez y no se puede recuperar. Las configuraciones de abajo ya la usan.",
+  "connect.key.failed": "No se pudo crear la clave: {message}",
+  "connect.key.existing": "O usa la clave del registro del servidor",
 };
