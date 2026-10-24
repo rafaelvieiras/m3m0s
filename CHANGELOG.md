@@ -5,6 +5,15 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.5.0...v0.6.0) (2026-10-24)
+
+
+### Features
+
+* reversible manual delete with trash and undo ([#110](https://github.com/rafaelvieiras/m3m0s/issues/110)) ([f2ffd64](https://github.com/rafaelvieiras/m3m0s/commit/f2ffd64041835fe34f5d4bb9c4fc686ad7589e26))
+* **webui:** confirm dialogs for running jobs and changing intervals ([#107](https://github.com/rafaelvieiras/m3m0s/issues/107)) ([cb67bd4](https://github.com/rafaelvieiras/m3m0s/commit/cb67bd4cd41e970432d78381f5e7a9a8b8534f67))
+* **webui:** create API key from the UI, kind filter, memory health ([#108](https://github.com/rafaelvieiras/m3m0s/issues/108)) ([dd91749](https://github.com/rafaelvieiras/m3m0s/commit/dd91749b47990b6b5de44d3cf3d146a0339dcf91))
+
 ## [0.5.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.4.0...v0.5.0) (2026-10-23)
 
 
