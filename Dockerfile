@@ -14,7 +14,7 @@
 # on small ARM boards: adding --platform=$BUILDPLATFORM/TARGETARCH for
 # cross-builds is trivial if needed.
 
-ARG GO_VERSION=1.25
+ARG GO_VERSION=1.26
 
 # ---------------------------------------------------------------------------
 # Stage 1 — builder-web: generates the production WebUI build with Vite.
