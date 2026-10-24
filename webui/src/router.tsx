@@ -20,6 +20,7 @@ import { Route as PreviewRoute } from "./routes/preview";
 import { Route as InsightsRoute } from "./routes/insights";
 import { Route as HomeRoute } from "./routes/home";
 import { Route as ConnectRoute } from "./routes/connect";
+import { Route as TrashRoute } from "./routes/trash";
 
 const routeTree = RootRoute.addChildren([
   LoginRoute,
@@ -38,6 +39,7 @@ const routeTree = RootRoute.addChildren([
     InsightsRoute,
     HomeRoute,
     ConnectRoute,
+    TrashRoute,
   ]),
 ]);
 

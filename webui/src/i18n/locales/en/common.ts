@@ -11,6 +11,7 @@ export const common = {
   "common.nav.jobs": "Jobs",
   "common.nav.embedding": "Embedding",
   "common.nav.preview": "Preview",
+  "common.nav.trash": "Trash",
   "common.loading": "Loading…",
   "common.cancel": "Cancel",
   "common.save": "Save",

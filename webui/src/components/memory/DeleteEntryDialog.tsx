@@ -11,9 +11,13 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { useDeleteMemory } from "@/hooks/useMemoryApi";
+import { useDeleteMemory, useRestoreMemory } from "@/hooks/useMemoryApi";
 import { toast } from "sonner";
 import { useT } from "@/i18n";
+
+// How long the trash keeps a deleted memory (SoftDeleteGraceDays on the server).
+const TRASH_GRACE_DAYS = 30;
+const UNDO_TOAST_MS = 10_000;
 
 interface DeleteEntryDialogProps {
   id: string;
@@ -24,6 +28,7 @@ interface DeleteEntryDialogProps {
 export function DeleteEntryDialog({ id, onDeleted, trigger }: DeleteEntryDialogProps) {
   const { t } = useT();
   const deleteMemory = useDeleteMemory();
+  const restoreMemory = useRestoreMemory();
   const triggerElement = trigger ?? (
     <Button variant="destructive" size="sm">
       <Trash2 data-icon="inline-start" />
@@ -38,7 +43,7 @@ export function DeleteEntryDialog({ id, onDeleted, trigger }: DeleteEntryDialogP
         <AlertDialogHeader>
           <AlertDialogTitle>{t("memory.delete.title")}</AlertDialogTitle>
           <AlertDialogDescription>
-            {t("memory.delete.descriptionBefore")}<code className="font-mono">{id}</code>{t("memory.delete.descriptionAfter")}
+            {t("memory.delete.descriptionBefore")}<code className="font-mono">{id}</code>{t("memory.delete.descriptionAfter", { days: TRASH_GRACE_DAYS })}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -48,7 +53,17 @@ export function DeleteEntryDialog({ id, onDeleted, trigger }: DeleteEntryDialogP
             onClick={() => {
               deleteMemory.mutate(id, {
                 onSuccess: () => {
-                  toast.success(t("memory.delete.success"));
+                  toast.success(t("memory.delete.success"), {
+                    duration: UNDO_TOAST_MS,
+                    action: {
+                      label: t("memory.delete.undo"),
+                      onClick: () =>
+                        restoreMemory.mutate(id, {
+                          onSuccess: () => toast.success(t("memory.delete.undone")),
+                          onError: (err) => toast.error(t("memory.delete.undoFailed", { message: err.message })),
+                        }),
+                    },
+                  });
                   onDeleted?.();
                 },
                 onError: (err) => {

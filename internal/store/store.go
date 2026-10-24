@@ -1536,14 +1536,15 @@ func (s *MemoryStore) Stats() (count int, countByDomainCategory map[string]int) 
 
 // StatsExcluding is Stats without the memories whose source equals
 // excludeSource (empty = count everything); the WebUI uses it to leave the
-// built-in "selfdocs" out of the user's numbers.
+// built-in "selfdocs" out of the user's numbers. Soft-deleted entries (the
+// trash, D53) are never counted.
 func (s *MemoryStore) StatsExcluding(excludeSource string) (count int, countByDomainCategory map[string]int) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
 	countByDomainCategory = make(map[string]int)
 	for _, e := range s.index {
-		if excludeSource != "" && e.Source == excludeSource {
+		if isSoftDeleted(e) || (excludeSource != "" && e.Source == excludeSource) {
 			continue
 		}
 		countByDomainCategory[e.DomainCategory]++
@@ -1809,6 +1810,9 @@ func (s *MemoryStore) SourceCounts() map[string]int {
 	defer s.mu.RUnlock()
 	out := map[string]int{}
 	for _, e := range s.index {
+		if isSoftDeleted(e) {
+			continue
+		}
 		out[e.Source]++
 	}
 	return out
@@ -1819,6 +1823,9 @@ func (s *MemoryStore) ProjectCounts() map[string]int {
 	defer s.mu.RUnlock()
 	out := map[string]int{}
 	for _, e := range s.index {
+		if isSoftDeleted(e) {
+			continue
+		}
 		if p := e.ProjectValue(); p != "" {
 			out[p]++
 		}

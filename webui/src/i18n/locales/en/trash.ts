@@ -1,0 +1,22 @@
+// Keys are "trash.*": the Trash page (D53).
+export const trash = {
+  "trash.title": "Trash",
+  "trash.subtitle": "Deleted memories wait here for {days} days, then are removed for good. They do not show up in search.",
+  "trash.deletedAt": "Deleted {date}",
+  "trash.purgeAt": "Removed for good after {date}",
+  "trash.restore": "Restore",
+  "trash.restored": "Memory restored",
+  "trash.restoreFailed": "Failed to restore: {message}",
+  "trash.deleteForever": "Delete forever",
+  "trash.deleteForever.title": "Delete this memory forever?",
+  "trash.deleteForever.description": "This cannot be undone. The memory is removed right away and cannot be restored.",
+  "trash.deletedForever": "Memory deleted forever",
+  "trash.deleteFailed": "Failed to delete: {message}",
+  "trash.empty": "Empty trash",
+  "trash.empty.title": "Empty the trash?",
+  "trash.empty.description": "This permanently deletes {count} memories. This cannot be undone.",
+  "trash.emptied": "Trash emptied ({count} removed)",
+  "trash.loadFailed": "Failed to load the trash: {message}",
+  "trash.emptyTitle": "The trash is empty",
+  "trash.emptyDescription": "Memories you delete will appear here so you can restore them.",
+};

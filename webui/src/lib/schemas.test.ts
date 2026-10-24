@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   addFormSchema,
+  deleteResponseSchema,
+  emptyTrashResponseSchema,
   domainRegex,
   entrySchema,
   errorBodySchema,
   statsResponseSchema,
+  trashResponseSchema,
 } from "./schemas";
 
 describe("domainRegex (mirrors internal/schema.ValidateDomain)", () => {
@@ -159,5 +162,29 @@ describe("entrySchema provenance", () => {
     expect(entrySchema.safeParse({ ...base, model: null, project: null }).success).toBe(true);
     expect(entrySchema.safeParse({ ...base, model: "gpt-5", project: "m3m0s" }).success).toBe(true);
     expect(entrySchema.safeParse(base).success).toBe(true);
+  });
+});
+
+describe("trash schemas (D53)", () => {
+  it("parses a soft delete and a purge response", () => {
+    const soft = { id: "mem_1", purged: false, deletedAt: "2026-01-01T00:00:00Z", purgeAt: "2026-01-31T00:00:00Z" };
+    expect(deleteResponseSchema.parse(soft)).toEqual(soft);
+    expect(deleteResponseSchema.parse({ id: "mem_1", purged: true }).purged).toBe(true);
+  });
+
+  it("parses the trash listing, with or without dates", () => {
+    const res = trashResponseSchema.safeParse({
+      items: [
+        { id: "a", snippet: "x", kind: "rule", domain: "code:m3m0s", deletedAt: "2026-01-01T00:00:00Z", purgeAt: "2026-01-31T00:00:00Z" },
+        { id: "b", snippet: "y", domain: "code:m3m0s" },
+      ],
+      graceDays: 30,
+    });
+    expect(res.success).toBe(true);
+    expect(trashResponseSchema.safeParse({ items: [] }).success).toBe(false);
+  });
+
+  it("parses the empty-trash response", () => {
+    expect(emptyTrashResponseSchema.parse({ purgedCount: 2 }).purgedCount).toBe(2);
   });
 });

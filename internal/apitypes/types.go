@@ -324,9 +324,43 @@ type ChatResponse struct {
 
 // DeleteByFilePathResponse is the 200 response of
 // DELETE /memories?domain=X&filePath=Y (D11/docs/api-contract.md, memory_delete
-// section). Delete by ID has no success body (204).
+// section). This form is always a hard delete.
 type DeleteByFilePathResponse struct {
 	DeletedCount int `json:"deletedCount"`
+}
+
+// DeleteByIDResponse is the 200 response of DELETE /memories/:id (D53).
+// Purged=false means the memory went to the trash (soft delete) and can be
+// restored until PurgeAt; Purged=true means it was removed for good
+// (?purge=true) and DeletedAt/PurgeAt are empty.
+type DeleteByIDResponse struct {
+	ID        string `json:"id"`
+	Purged    bool   `json:"purged"`
+	DeletedAt string `json:"deletedAt,omitempty"`
+	PurgeAt   string `json:"purgeAt,omitempty"`
+}
+
+// TrashItem is one entry of GET /memories/trash (D53).
+type TrashItem struct {
+	ID        string `json:"id"`
+	Snippet   string `json:"snippet"`
+	Kind      string `json:"kind"`
+	Domain    string `json:"domain"`
+	DeletedAt string `json:"deletedAt,omitempty"`
+	PurgeAt   string `json:"purgeAt,omitempty"`
+}
+
+// TrashResponse is the 200 response of GET /memories/trash (D53), most
+// recently deleted first. GraceDays is the retention window before the
+// forget-sweep hard-deletes a trashed entry.
+type TrashResponse struct {
+	Items     []TrashItem `json:"items"`
+	GraceDays int         `json:"graceDays"`
+}
+
+// EmptyTrashResponse is the 200 response of DELETE /memories/trash (D53).
+type EmptyTrashResponse struct {
+	PurgedCount int `json:"purgedCount"`
 }
 
 // ── Jobs (D27, docs/decisions/) — visibility/control of internal/jobs.Scheduler ──

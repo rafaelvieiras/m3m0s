@@ -14,6 +14,9 @@ import {
   meSchema,
   resetInfoSchema,
   chatResponseSchema,
+  deleteResponseSchema,
+  emptyTrashResponseSchema,
+  trashResponseSchema,
   embeddingConfigSchema,
   hygieneCancelSchema,
   hygieneResponseSchema,
@@ -40,6 +43,9 @@ import {
   type ResetInfo,
   type ChatMessagePayload,
   type ChatResponse,
+  type DeleteResponse,
+  type EmptyTrashResponse,
+  type TrashResponse,
   type EmbeddingConfig,
   type EmbeddingConfigPayload,
   type HygieneResponse,
@@ -297,8 +303,28 @@ export function updateMemory(id: string, payload: UpdatePayload): Promise<Entry>
   );
 }
 
-export function deleteMemory(id: string): Promise<void> {
-  return request(`/memories/${encodeURIComponent(id)}`, { method: "DELETE" }, z.void());
+// deleteMemory is a soft delete (D53): the memory goes to the trash and
+// restoreMemory undoes it. purge=true removes it for good.
+export function deleteMemory(id: string, purge = false): Promise<DeleteResponse> {
+  const suffix = purge ? "?purge=true" : "";
+  return request(`/memories/${encodeURIComponent(id)}${suffix}`, { method: "DELETE" }, deleteResponseSchema);
+}
+
+export function restoreMemory(id: string): Promise<Entry> {
+  return request(`/memories/${encodeURIComponent(id)}/restore`, { method: "POST" }, entrySchema);
+}
+
+export function listTrash(): Promise<TrashResponse> {
+  return request("/memories/trash", { method: "GET" }, trashResponseSchema);
+}
+
+/** Hard-deletes one entry that is in the trash. */
+export function purgeTrashed(id: string): Promise<DeleteResponse> {
+  return request(`/memories/trash/${encodeURIComponent(id)}`, { method: "DELETE" }, deleteResponseSchema);
+}
+
+export function emptyTrash(): Promise<EmptyTrashResponse> {
+  return request("/memories/trash", { method: "DELETE" }, emptyTrashResponseSchema);
 }
 
 // getEntry calls GET /memories/:id (memory_get, later elaboration of Phase

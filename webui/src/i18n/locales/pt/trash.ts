@@ -1,0 +1,22 @@
+// Keys are "trash.*": the Trash page (D53).
+export const trash = {
+  "trash.title": "Lixeira",
+  "trash.subtitle": "As memórias excluídas ficam aqui por {days} dias e depois são removidas em definitivo. Elas não aparecem na busca.",
+  "trash.deletedAt": "Excluída em {date}",
+  "trash.purgeAt": "Removida em definitivo após {date}",
+  "trash.restore": "Restaurar",
+  "trash.restored": "Memória restaurada",
+  "trash.restoreFailed": "Falha ao restaurar: {message}",
+  "trash.deleteForever": "Excluir para sempre",
+  "trash.deleteForever.title": "Excluir esta memória para sempre?",
+  "trash.deleteForever.description": "Isto não pode ser desfeito. A memória é removida na hora e não poderá ser restaurada.",
+  "trash.deletedForever": "Memória excluída para sempre",
+  "trash.deleteFailed": "Falha ao excluir: {message}",
+  "trash.empty": "Esvaziar lixeira",
+  "trash.empty.title": "Esvaziar a lixeira?",
+  "trash.empty.description": "Isto exclui {count} memórias em definitivo. Não pode ser desfeito.",
+  "trash.emptied": "Lixeira esvaziada ({count} removidas)",
+  "trash.loadFailed": "Falha ao carregar a lixeira: {message}",
+  "trash.emptyTitle": "A lixeira está vazia",
+  "trash.emptyDescription": "As memórias que você excluir aparecerão aqui, para poder restaurá-las.",
+};

@@ -160,7 +160,7 @@ func withDeletedAt(base map[string]string, now time.Time) map[string]string {
 func withoutDeletedAt(base map[string]string) map[string]string {
 	md := make(map[string]string, len(base))
 	for k, v := range base {
-		if k == metadataKeyDeletedAt {
+		if k == metadataKeyDeletedAt || k == metadataKeyDeletedBy {
 			continue
 		}
 		md[k] = v
@@ -288,7 +288,7 @@ func (s *MemoryStore) sweepCandidates(now time.Time, model RetentionModel, p Ret
 				continue
 			}
 			if now.Sub(deletedAt) >= SoftDeleteGraceDays*24*time.Hour {
-				if model == RetentionPerKind && (!ev.eligible(e) || !ev.cold(e, now)) {
+				if model == RetentionPerKind && !deletedByUser(e) && (!ev.eligible(e) || !ev.cold(e, now)) {
 					spared++
 					continue
 				}

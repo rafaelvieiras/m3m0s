@@ -592,27 +592,50 @@ stays outside `/api/v1` on purpose — infrastructure/orchestrator probes expect
 a fixed path with no embedded API version (the "Architecture correction"
 elaboration in D13, `docs/decisions/`).
 
-### `memory_delete` · `DELETE /api/v1/memories/:id` · `DELETE /api/v1/memories?domain=X&filePath=Y`
+### `memory_delete` · `DELETE /api/v1/memories/:id` · `DELETE /api/v1/memories?domain=X&filePath=Y` · `m3m0s delete <id> [--purge]`
 
-Added in Phase 2 (D11), with minimal scope: just enough for `m3m0s watch`'s
-cascade purge — it is not an arbitrary manual-delete tool exposed like the
-other 4 (hence no `m3m0s delete` CLI verb nor `memory_delete` MCP tool — the
-caller is `watch` itself, via direct HTTP against `serve`, authenticated with
-the same `M3M0S_API_KEY`).
+Two forms with different semantics ([D53](decisions/D53-reversible-manual-delete-trash.md)):
 
-Two forms:
-- **By ID:** `DELETE /api/v1/memories/:id` → removes one specific memory.
-  `204` if removed, `404` if the ID does not exist.
-- **By domain + file_path:** `DELETE /api/v1/memories?domain=<domain>&filePath=<path>`
+- **By ID (manual delete, reversible):** `DELETE /api/v1/memories/:id` is a
+  **soft delete**: it sets `metadata.deleted_at` (the same mechanism as the
+  forget-sweep, D22) and the memory moves to the trash. It is hidden from
+  get/search/recent, `POST /memories/:id/restore` brings it back, and the
+  `forget-sweep` hard-deletes it after 30 days. Response `200`:
+  `{ "id": "...", "purged": false, "deletedAt": "<RFC 3339>", "purgeAt": "<RFC 3339>" }`.
+  `?purge=true` hard-deletes immediately (`{ "id": "...", "purged": true }`).
+  `404 not_found` if the ID does not exist or is already in the trash;
+  `400 invalid_purge` if `purge` is not a boolean. (Before D53 this returned
+  `204` and always removed the row.)
+- **By domain + file_path (hard delete, unchanged):**
+  `DELETE /api/v1/memories?domain=<domain>&filePath=<path>`
   → removes **all** chunks whose `metadata.file_path` exactly matches
-  `filePath` within that `domain` (the real use case: a file was reindexed —
-  delete the old chunks before inserting the new ones — or a file was deleted
-  — delete everything that came from it). Response:
-  `{ "deletedCount": N }`, `200` even if `N == 0`.
+  `filePath` within that `domain` (the real use case for `m3m0s watch`: a file
+  was reindexed — delete the old chunks before inserting the new ones — or a
+  file was deleted — delete everything that came from it). Response:
+  `{ "deletedCount": N }`, `200` even if `N == 0`. Never goes to the trash.
 
-Server pipeline: removes the row from SQLite (`sqlstore.DeleteEntry`/
-`DeleteEntries`, D28) and from the in-memory index (`internal/store`) in the
-same critical section — the same consistency discipline `Add` already follows.
+The CLI verb is `m3m0s delete <id> [--purge] [--json]`; undoing is
+`m3m0s restore <id>`. There is no `memory_delete` MCP tool.
+
+Server pipeline of a hard delete: removes the row from SQLite
+(`sqlstore.DeleteEntry`/`DeleteEntries`, D28) and from the in-memory index
+(`internal/store`) in the same critical section — the same consistency
+discipline `Add` already follows.
+
+#### Trash · `GET|DELETE /api/v1/memories/trash`
+
+- `GET /api/v1/memories/trash` → `200`
+  `{ "items": [{ "id", "snippet", "kind", "domain", "deletedAt", "purgeAt" }], "graceDays": 30 }`,
+  newest deletion first. `snippet` is the content collapsed to one line and cut
+  at 200 characters. `purgeAt` is when the sweep may hard-delete the entry (the
+  sweep runs on an interval, so the real removal can be a little later).
+- `DELETE /api/v1/memories/trash/:id` → hard-deletes one entry **only if it is
+  in the trash** (`200` `{ "id", "purged": true }`, else `404 not_found`).
+- `DELETE /api/v1/memories/trash` → empties the trash, `200`
+  `{ "purgedCount": N }`.
+
+Same auth and CSRF rules as the other `/api/v1` routes. Restore stays
+`POST /api/v1/memories/:id/restore`.
 
 ## Watch (Phase 2, D11)
 

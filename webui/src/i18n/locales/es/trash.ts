@@ -1,0 +1,22 @@
+// Keys are "trash.*": the Trash page (D53).
+export const trash = {
+  "trash.title": "Papelera",
+  "trash.subtitle": "Las memorias eliminadas esperan aquí {days} días y luego se borran de forma permanente. No aparecen en la búsqueda.",
+  "trash.deletedAt": "Eliminada el {date}",
+  "trash.purgeAt": "Se borra definitivamente después del {date}",
+  "trash.restore": "Restaurar",
+  "trash.restored": "Memoria restaurada",
+  "trash.restoreFailed": "Error al restaurar: {message}",
+  "trash.deleteForever": "Eliminar para siempre",
+  "trash.deleteForever.title": "¿Eliminar esta memoria para siempre?",
+  "trash.deleteForever.description": "No se puede deshacer. La memoria se borra de inmediato y no podrá restaurarse.",
+  "trash.deletedForever": "Memoria eliminada para siempre",
+  "trash.deleteFailed": "Error al eliminar: {message}",
+  "trash.empty": "Vaciar papelera",
+  "trash.empty.title": "¿Vaciar la papelera?",
+  "trash.empty.description": "Esto elimina {count} memorias de forma permanente. No se puede deshacer.",
+  "trash.emptied": "Papelera vaciada ({count} eliminadas)",
+  "trash.loadFailed": "Error al cargar la papelera: {message}",
+  "trash.emptyTitle": "La papelera está vacía",
+  "trash.emptyDescription": "Las memorias que elimines aparecerán aquí para que puedas restaurarlas.",
+};

@@ -13,6 +13,7 @@ import { kinds } from "./kinds";
 import { help } from "./help";
 import { connect } from "./connect";
 import { home } from "./home";
+import { trash } from "./trash";
 
 export const en = {
   ...common,
@@ -30,4 +31,5 @@ export const en = {
   ...help,
   ...connect,
   ...home,
+  ...trash,
 };

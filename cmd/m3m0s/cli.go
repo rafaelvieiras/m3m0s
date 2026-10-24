@@ -435,6 +435,40 @@ func runRestore(ctx context.Context, args []string) error {
 	return nil
 }
 
+// runDelete implements `m3m0s delete <id> [--purge] [--json]` (D53): by
+// default the memory goes to the trash and `m3m0s restore <id>` brings it
+// back; --purge removes it immediately and for good.
+func runDelete(ctx context.Context, args []string) error {
+	fs := flag.NewFlagSet("delete", flag.ExitOnError)
+	purge := fs.Bool("purge", false, "delete immediately and permanently instead of moving to the trash")
+	jsonOut := fs.Bool("json", false, "print the raw response as JSON")
+	if err := fs.Parse(reorderFlagsFirst(args, "purge", "json")); err != nil {
+		return err
+	}
+	if fs.NArg() < 1 {
+		return errors.New(`usage: m3m0s delete <id> [--purge] [--json]`)
+	}
+	id := fs.Arg(0)
+
+	resp, found, err := client.NewFromEnv().DeleteByID(ctx, id, *purge)
+	if err != nil {
+		return err
+	}
+	if !found {
+		return fmt.Errorf("memory not found: %s", id)
+	}
+
+	if *jsonOut {
+		return printJSON(resp)
+	}
+	if resp.Purged {
+		fmt.Printf("deleted permanently: id=%s\n", resp.ID)
+	} else {
+		fmt.Printf("moved to the trash: id=%s (restore with `m3m0s restore %s` until %s)\n", resp.ID, resp.ID, resp.PurgeAt)
+	}
+	return nil
+}
+
 func printJSON(v any) error {
 	b, err := json.MarshalIndent(v, "", "  ")
 	if err != nil {

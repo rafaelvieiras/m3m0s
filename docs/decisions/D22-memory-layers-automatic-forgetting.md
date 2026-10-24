@@ -1,6 +1,6 @@
 # D22 — Memory layers / automatic forgetting, inspired by ai-memory (closes A9)
 
-**Status:** Accepted. The retention score below (single 30-day half-life) is revised by [D39](D39-per-kind-retention.md), a half-life by kind that is opt-in (`M3M0S_RETENTION_MODEL=per-kind`); this formula remains the default.
+**Status:** Accepted. The retention score below (single 30-day half-life) is revised by [D39](D39-per-kind-retention.md), a half-life by kind that is opt-in (`M3M0S_RETENTION_MODEL=per-kind`); this formula remains the default. The manual delete reuses this soft delete and its grace window, see [D53](D53-reversible-manual-delete-trash.md).
 
 **Context:** the maintainer asked, on 17 Jul 2026, to implement "memory layers" following the model of `akitaonrails/ai-memory` (analyzed on the same day in a comparative benchmark) — which has 4 explicit tiers (working/episodic/semantic/procedural) with a decay formula (`salience · exp(−λΔt) + σ · log(1+access_count) · exp(−μ · days_since_access)`) and a scheduled `forget-sweep` (soft-delete → hard-delete after a window). This is exactly what [A9](A9-old-memory-compression.md) had left open since the foundation ("compression of old low-value memories") without ever becoming a decision — the same caution as [A7](A7-source-content-duplication.md)/[D21](D21-deduplicated-source-blob-store.md) (it touches mass deletion), so before coding, the 2 questions that [A9](A9-old-memory-compression.md) already recorded as blockers were closed with the maintainer via structured questions:
 
