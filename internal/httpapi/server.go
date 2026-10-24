@@ -138,6 +138,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/me", s.handleMe)
 	mux.HandleFunc("GET /api/v1/auth/reset", s.handleResetInfo)
 	mux.HandleFunc("POST /api/v1/auth/reset", s.handleResetPassword)
+	mux.HandleFunc("POST /api/v1/keys", s.withAuth(s.handleKeyCreate))
 	mux.HandleFunc("GET /api/v1/users", s.withAPIKey(s.handleUsersList))
 	mux.HandleFunc("POST /api/v1/users", s.withAPIKey(s.handleUserCreate))
 	mux.HandleFunc("POST /api/v1/users/{username}/reset", s.withAPIKey(s.handleUserReset))

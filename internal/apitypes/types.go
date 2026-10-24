@@ -615,6 +615,20 @@ type ResetLinkResponse struct {
 	ExpiresAt time.Time   `json:"expiresAt"`
 }
 
+// CreateKeyRequest is the body of POST /keys; Label is optional.
+type CreateKeyRequest struct {
+	Label string `json:"label,omitempty"`
+}
+
+// CreateKeyResponse is the 201 body of POST /keys. Key is the raw API key and
+// is returned only here: the server keeps just its hash.
+type CreateKeyResponse struct {
+	Key       string    `json:"key"`
+	Prefix    string    `json:"prefix"`
+	Label     string    `json:"label"`
+	CreatedAt time.Time `json:"createdAt"`
+}
+
 // UsersResponse is the 200 body of GET /users.
 type UsersResponse struct {
 	Users []AccountUser `json:"users"`

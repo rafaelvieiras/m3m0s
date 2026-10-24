@@ -284,3 +284,29 @@ func (s *Server) handleUserDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	w.WriteHeader(http.StatusNoContent)
 }
+
+// maxKeyLabel bounds the free-text label of a minted API key.
+const maxKeyLabel = 64
+
+// handleKeyCreate mints a new API key for the caller (a signed-in WebUI
+// session or an existing key). The raw key is in this response only.
+func (s *Server) handleKeyCreate(w http.ResponseWriter, r *http.Request) {
+	var req apitypes.CreateKeyRequest
+	if r.ContentLength != 0 && !decodeBody(w, r, &req) {
+		return
+	}
+	label := strings.TrimSpace(req.Label)
+	if label == "" {
+		label = "webui"
+	}
+	if len([]rune(label)) > maxKeyLabel {
+		writeError(w, http.StatusBadRequest, "label_too_long", "label must be at most "+strconv.Itoa(maxKeyLabel)+" characters")
+		return
+	}
+	raw, key, err := s.keys.Create(label)
+	if err != nil {
+		writeError(w, http.StatusInternalServerError, "key_create_failed", "could not create the API key")
+		return
+	}
+	writeJSON(w, http.StatusCreated, apitypes.CreateKeyResponse{Key: raw, Prefix: key.Prefix, Label: key.Label, CreatedAt: key.CreatedAt})
+}
