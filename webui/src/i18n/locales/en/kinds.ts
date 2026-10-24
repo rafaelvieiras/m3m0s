@@ -23,4 +23,5 @@ export const kinds = {
   "kinds.source.manual": "You",
   "kinds.source.none": "Not classified",
   "kinds.label": "Type of memory",
+  "kinds.any": "Any type",
 } as const;

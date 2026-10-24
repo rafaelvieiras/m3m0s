@@ -1,10 +1,11 @@
-// "Connect your agent": the server URL, where the API key comes from, and
-// ready-to-paste setups for Claude Code, pi and opencode. The server has no
-// endpoint to create API keys, so the page explains where the first key is
-// printed instead of pretending to mint one.
+// "Connect your agent": the server URL, an API key (minted here via POST /keys,
+// shown once, or the first one from the server log) and ready-to-paste setups
+// for Claude Code, pi and opencode.
 import { useState } from "react";
 import { Link } from "@tanstack/react-router";
-import { Eye } from "lucide-react";
+import { useMutation } from "@tanstack/react-query";
+import { Eye, KeyRound, Loader2 } from "lucide-react";
+import { createApiKey } from "@/lib/api";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { CopyButton } from "@/components/ui/copy-button";
@@ -52,7 +53,13 @@ export default function ConnectPage() {
   const [tool, setTool] = useState<Tool>("claude");
   const url = typeof window !== "undefined" ? window.location.origin : "";
   const placeholder = t("connect.placeholder");
-  const code = snippets(url, placeholder);
+  // The raw key lives in component state only: it is shown once and never stored.
+  const [newKey, setNewKey] = useState<string | null>(null);
+  const createKey = useMutation({
+    mutationFn: () => createApiKey("webui"),
+    onSuccess: (res) => setNewKey(res.key),
+  });
+  const code = snippets(url, newKey ?? placeholder);
 
   return (
     <div className="flex flex-col gap-4">
@@ -80,8 +87,36 @@ export default function ConnectPage() {
           <CardDescription>{t("connect.step2.body")}</CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col gap-3 text-sm">
-          <p>{t("connect.step2.howto", { placeholder })}</p>
-          <CodeBlock code="docker compose logs | grep m3m0s_" />
+          {newKey ? (
+            <div className="flex flex-col gap-2" role="status">
+              <p className="font-medium">{t("connect.key.created")}</p>
+              <CodeBlock code={newKey} />
+              <p className="text-muted-foreground">{t("connect.key.once")}</p>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              <div>
+                <Button type="button" size="sm" onClick={() => createKey.mutate()} disabled={createKey.isPending}>
+                  {createKey.isPending ? (
+                    <Loader2 data-icon="inline-start" className="animate-spin" />
+                  ) : (
+                    <KeyRound data-icon="inline-start" />
+                  )}
+                  {t("connect.key.create")}
+                </Button>
+              </div>
+              {createKey.isError && (
+                <p className="text-destructive">{t("connect.key.failed", { message: createKey.error.message })}</p>
+              )}
+            </div>
+          )}
+          <details>
+            <summary className="cursor-pointer text-muted-foreground">{t("connect.key.existing")}</summary>
+            <div className="mt-2 flex flex-col gap-2">
+              <p>{t("connect.step2.howto", { placeholder })}</p>
+              <CodeBlock code="docker compose logs | grep m3m0s_" />
+            </div>
+          </details>
           <p className="text-muted-foreground">{t("connect.step2.warn")}</p>
         </CardContent>
       </Card>

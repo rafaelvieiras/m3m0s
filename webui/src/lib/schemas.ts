@@ -248,6 +248,15 @@ export const resetInfoSchema = z.object({
 });
 export type ResetInfo = z.infer<typeof resetInfoSchema>;
 
+// POST /keys: the raw key appears in this response only.
+export const createKeyResponseSchema = z.object({
+  key: z.string(),
+  prefix: z.string(),
+  label: z.string(),
+  createdAt: z.string(),
+});
+export type CreateKeyResponse = z.infer<typeof createKeyResponseSchema>;
+
 // Mirrors internal/auth: length-only policy.
 export const MIN_PASSWORD_LENGTH = 10;
 export const MAX_PASSWORD_LENGTH = 128;

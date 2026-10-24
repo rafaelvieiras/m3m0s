@@ -9,8 +9,7 @@ export const connect = {
     "A key is the password a tool uses to reach your memories. M3m0s printed your first key in the server log the first time it started.",
   "connect.step2.howto":
     "If you run M3m0s with Docker, this command finds it. Look for a line that starts with m3m0s_ and paste it where the snippets below say {placeholder}:",
-  "connect.step2.warn":
-    "Treat the key like a password: never share it or paste it anywhere public. Creating extra keys from this page is not available yet.",
+  "connect.step2.warn": "Treat the key like a password: never share it or paste it anywhere public.",
   "connect.step3.title": "3. Paste the setup in your tool",
   "connect.step3.body": "Pick your tool and copy the snippet.",
   "connect.tool.claude": "Claude Code",
@@ -26,4 +25,9 @@ export const connect = {
   "connect.test.action": "Open the preview",
   "connect.placeholder": "YOUR_API_KEY",
   "connect.requires": "These setups need the m3m0s program installed on the same computer as your tool.",
+  "connect.key.create": "Create an API key",
+  "connect.key.created": "Your new key",
+  "connect.key.once": "Copy it now: it is shown only once and cannot be recovered. The setups below already use it.",
+  "connect.key.failed": "Could not create the key: {message}",
+  "connect.key.existing": "Or use the key from the server log",
 } as const;

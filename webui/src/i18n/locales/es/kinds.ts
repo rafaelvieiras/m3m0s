@@ -24,4 +24,5 @@ export const kinds: Messages<typeof import("../en/kinds").kinds> = {
   "kinds.source.manual": "Tú",
   "kinds.source.none": "Sin clasificar",
   "kinds.label": "Tipo de memoria",
+  "kinds.any": "Cualquier tipo",
 };

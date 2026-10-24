@@ -180,3 +180,42 @@ func TestAccountsInviteAndCLIResetFlow(t *testing.T) {
 	e.expect(204, "key", "DELETE", "/api/v1/users/alice", "")
 	e.expect(404, "key", "DELETE", "/api/v1/users/alice", "")
 }
+
+func TestKeyCreate(t *testing.T) {
+	e := newAcctEnv(t)
+	e.expect(401, "", "POST", "/api/v1/keys", `{}`)
+
+	// an API key can mint another one, and the new key works
+	var out apitypes.CreateKeyResponse
+	_ = json.Unmarshal(e.expect(201, "key", "POST", "/api/v1/keys", `{"label":"laptop"}`), &out)
+	if !strings.HasPrefix(out.Key, "m3m0s_") || out.Label != "laptop" || !strings.HasPrefix(out.Key, out.Prefix) {
+		t.Fatalf("response = %+v", out)
+	}
+	if out.Key == e.apiKey {
+		t.Fatal("minted key equals the existing one")
+	}
+	req, _ := http.NewRequest("GET", e.url+"/api/v1/stats", nil)
+	req.Header.Set("Authorization", "Bearer "+out.Key)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_ = resp.Body.Close()
+	if resp.StatusCode != 200 {
+		t.Fatalf("minted key rejected: %d", resp.StatusCode)
+	}
+
+	// default label, label length limit
+	_ = json.Unmarshal(e.expect(201, "key", "POST", "/api/v1/keys", ``), &out)
+	if out.Label != "webui" {
+		t.Errorf("default label = %q", out.Label)
+	}
+	e.expect(400, "key", "POST", "/api/v1/keys", `{"label":"`+strings.Repeat("x", 65)+`"}`)
+	e.expect(400, "key", "POST", "/api/v1/keys", `not json`)
+
+	// a signed-in session can mint one, but only with the CSRF header
+	onboard := `{"username":"admin","password":"` + pw + `","confirm":"` + pw + `"}`
+	e.expect(201, "browser", "POST", "/api/v1/auth/onboard", onboard, csrf, "1")
+	e.expect(403, "browser", "POST", "/api/v1/keys", `{}`)
+	e.expect(201, "browser", "POST", "/api/v1/keys", `{}`, csrf, "1")
+}

@@ -2,7 +2,7 @@
 // they can be unit-tested.
 import { getLocale, LOCALE_TAGS, translate, type TKey } from "@/i18n";
 import { formatDecimal, formatPercentValue } from "./format";
-import type { CountItem } from "./schemas";
+import type { CountItem, HygieneReport, InsightsOverview } from "./schemas";
 
 export function formatCount(n: number, tag: string = LOCALE_TAGS[getLocale()]): string {
   return n.toLocaleString(tag);
@@ -62,4 +62,51 @@ export function shadowDelta(legacy: number, perKind: number, t: (key: TKey) => s
   const d = perKind - legacy;
   if (d === 0) return t("insights.delta.same");
   return `${d > 0 ? "+" : "-"}${formatCount(Math.abs(d))}`;
+}
+
+// ── Memory health summary (Simple mode) ──
+
+export type HealthIssueId = "noEmbeddings" | "expired" | "duplicates" | "forgetting" | "neverRecalled" | "noAnalysis";
+
+export interface HealthIssue {
+  id: HealthIssueId;
+  /** Number the message mentions (0 when the message has none). */
+  count: number;
+  /** Where the fix lives: an in-page anchor or an app route. */
+  to: { anchor: string } | { route: "/embedding" };
+}
+
+export interface MemoryHealth {
+  status: "ok" | "attention";
+  /** At most MAX_HEALTH_ISSUES, most important first. */
+  issues: HealthIssue[];
+}
+
+export const MAX_HEALTH_ISSUES = 3;
+// Below this many memories, "never recalled" just means a young collection.
+const NEVER_RECALLED_MIN_ACTIVE = 20;
+const NEVER_RECALLED_PCT = 70;
+
+// memoryHealth turns the overview (and the last hygiene report, when there is
+// one; null if never run, undefined if unknown) into a verdict plus a few things worth doing. It only reads data the
+// Insights page already has.
+export function memoryHealth(ov: InsightsOverview, report: HygieneReport | null | undefined): MemoryHealth {
+  const found: HealthIssue[] = [];
+  const t = ov.totals;
+  if (t.active > 0 && ov.vectors_indexed === 0) {
+    found.push({ id: "noEmbeddings", count: 0, to: { route: "/embedding" } });
+  }
+  if (t.expired > 0) found.push({ id: "expired", count: t.expired, to: { anchor: "overview" } });
+  if (report && report.exact_duplicates.redundant > 0) {
+    found.push({ id: "duplicates", count: report.exact_duplicates.redundant, to: { anchor: "hygiene" } });
+  }
+  if (ov.forgetting.cold_now > 0) {
+    found.push({ id: "forgetting", count: ov.forgetting.cold_now, to: { anchor: "forgetting" } });
+  }
+  if (t.active >= NEVER_RECALLED_MIN_ACTIVE && t.never_accessed_pct >= NEVER_RECALLED_PCT) {
+    found.push({ id: "neverRecalled", count: t.never_accessed, to: { anchor: "overview" } });
+  }
+  // null = never analysed; undefined = unknown (not loaded), so say nothing.
+  if (report === null && t.active > 0) found.push({ id: "noAnalysis", count: 0, to: { anchor: "hygiene" } });
+  return { status: found.length === 0 ? "ok" : "attention", issues: found.slice(0, MAX_HEALTH_ISSUES) };
 }

@@ -16,6 +16,7 @@ import { PageHeader } from "@/components/layout/PageHeader";
 import { FilterBar, filtersToParams, tagsStringToArray, type FilterValues } from "@/components/memory/FilterBar";
 import { EntryList } from "@/components/memory/EntryList";
 import { useSearchMemories } from "@/hooks/useMemoryApi";
+import { KINDS, isKind, kindLabelKey } from "@/lib/kinds";
 import { useEmbeddingConfig } from "@/hooks/useEmbeddingApi";
 
 const EXAMPLE_QUERIES = ["memory.search.example1", "memory.search.example2", "memory.search.example3"] as const;
@@ -41,10 +42,11 @@ export default function SearchPage() {
     includeDocs: search.docs,
   });
 
-  function applyFilters(nextQuery = queryInput, nextFilters: FilterValues = filters) {
+  function applyFilters(nextQuery = queryInput, nextFilters: FilterValues = filters, nextKind = search.kind) {
     navigate({
       search: {
         q: nextQuery,
+        kind: nextKind,
         domain: nextFilters.domain,
         domainCategory: nextFilters.domainCategory,
         source: nextFilters.source,
@@ -74,6 +76,7 @@ export default function SearchPage() {
             includeDocs: search.docs,
           }),
           tags: tagsStringToArray(search.tags),
+          kind: isKind(search.kind) ? search.kind : undefined,
           limit: 30,
         }
       : null;
@@ -130,6 +133,25 @@ export default function SearchPage() {
           {t("memory.search.button")}
         </Button>
       </form>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label htmlFor="search-kind" className="text-sm font-medium">
+          {t("kinds.label")}
+        </label>
+        <select
+          id="search-kind"
+          className="h-8 min-w-0 rounded-lg border border-input bg-transparent px-2.5 text-sm"
+          value={isKind(search.kind) ? search.kind : ""}
+          onChange={(e) => applyFilters(queryInput, filters, e.target.value)}
+        >
+          <option value="">{t("kinds.any")}</option>
+          {KINDS.map((k) => (
+            <option key={k} value={k}>
+              {t(kindLabelKey(k))}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <FilterBar
         value={filters}

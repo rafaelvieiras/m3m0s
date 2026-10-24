@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { barWidths, domainInstance, formatDuration, formatPercent, horizonLabel, percent, progressPercent, shadowDelta, tierLabel } from "./insights";
-import { hygieneResponseSchema, insightsOverviewSchema } from "./schemas";
+import { barWidths, domainInstance, formatDuration, formatPercent, horizonLabel, memoryHealth, percent, progressPercent, shadowDelta, tierLabel } from "./insights";
+import { hygieneResponseSchema, insightsOverviewSchema, type HygieneReport, type InsightsOverview } from "./schemas";
 
 describe("insights helpers", () => {
   it("computes percentages safely", () => {
@@ -97,6 +97,47 @@ describe("insights schemas", () => {
     const parsed = hygieneResponseSchema.parse({ status: { running: false, done: 0, total: 0 }, report: null });
     expect(parsed.report).toBeNull();
     expect(parsed.status.running).toBe(false);
+  });
+});
+
+describe("memory health", () => {
+  const forgetting = {
+    eligible: 10, exempt: 1, cold_now: 0, soft_deleted: 0, hard_delete_due: 0,
+    threshold: 0.15, age_half_life_days: 30, grace_days: 30, retention_histogram: [],
+  };
+  const overview = (totals: Partial<InsightsOverview["totals"]>, extra: Partial<InsightsOverview> = {}): InsightsOverview =>
+    insightsOverviewSchema.parse({
+      generated_at: "2026-10-08T12:00:00Z",
+      totals: { total: 30, active: 30, soft_deleted: 0, with_valid_until: 0, expired: 0, pinned: 0, extracted: 30, raw: 0, never_accessed: 3, never_accessed_pct: 10, ...totals },
+      text: { avg_chars: 0, median_chars: 0, p90_chars: 0, max_chars: 0 },
+      soft_deleted_by_day: [], by_category: [], by_source: [], by_age: [], domain_count: 0, top_domains: [],
+      vectors_indexed: 30, forgetting, ...extra,
+    });
+  const report = (redundant: number): HygieneReport =>
+    ({ exact_duplicates: { redundant } }) as unknown as HygieneReport;
+
+  it("is ok when nothing needs attention", () => {
+    expect(memoryHealth(overview({}), report(0))).toEqual({ status: "ok", issues: [] });
+    expect(memoryHealth(overview({ active: 0, total: 0 }, { vectors_indexed: 0 }), null).status).toBe("ok"); // empty store
+  });
+
+  it("lists what needs attention, most important first, at most three", () => {
+    const ov = overview(
+      { expired: 4, never_accessed_pct: 90, never_accessed: 27 },
+      { vectors_indexed: 0, forgetting: { ...forgetting, cold_now: 2 } },
+    );
+    const h = memoryHealth(ov, report(5));
+    expect(h.status).toBe("attention");
+    expect(h.issues.map((i) => i.id)).toEqual(["noEmbeddings", "expired", "duplicates"]);
+    expect(h.issues[1].count).toBe(4);
+  });
+
+  it("asks for a first analysis only when none exists", () => {
+    expect(memoryHealth(overview({}), null).issues.map((i) => i.id)).toEqual(["noAnalysis"]);
+  });
+
+  it("does not flag never-recalled memories in a small collection", () => {
+    expect(memoryHealth(overview({ active: 5, total: 5, never_accessed: 5, never_accessed_pct: 100 }), report(0)).status).toBe("ok");
   });
 });
 

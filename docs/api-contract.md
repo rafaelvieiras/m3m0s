@@ -95,6 +95,7 @@ an account is a login, not a separate memory.
 | `GET /auth/me` | key or cookie | `{ "via": "session" | "apikey", "username"? }`, else `401` |
 | `GET /auth/reset?token=` | none | `{ "username", "kind": "reset" | "invite" }` for a valid link, else `404 invalid_link` |
 | `POST /auth/reset` | none (the token is the credential) | `{token, password, confirm}` sets the password, consumes the link and **revokes every session** of the account (`204`). A password that fails validation does not consume the link |
+| `POST /keys` | key or cookie + CSRF header | `{label?}` (default `webui`, max 64 characters) mints an API key and returns `201 {key, prefix, label, createdAt}`. The raw `key` is shown only in this response |
 | `GET /users` | API key | list accounts |
 | `POST /users` | API key | `{username}` creates an account with no password and returns a link (`kind: "invite"`) |
 | `POST /users/{username}/reset` | API key | issues a link (`kind: "reset"`); the current password keeps working until it is used |

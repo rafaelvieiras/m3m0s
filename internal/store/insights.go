@@ -68,6 +68,13 @@ func topCounts(m map[string]int, n int) []apitypes.CountItem {
 	return out
 }
 
+// builtinDocsSource is the source of the documentation m3m0s indexes about
+// itself (selfdocs). It is not the user's memory, so the hygiene analysis and
+// the forgetting outlook never count it.
+const builtinDocsSource = "selfdocs"
+
+func isBuiltinDocs(e schema.Entry) bool { return e.Source == builtinDocsSource }
+
 // InsightsOverview computes the cheap, live part of the memory-health
 // dashboard: totals, distributions, and the forgetting outlook.
 func (s *MemoryStore) InsightsOverview(now time.Time) apitypes.InsightsOverviewResponse {
@@ -75,8 +82,8 @@ func (s *MemoryStore) InsightsOverview(now time.Time) apitypes.InsightsOverviewR
 }
 
 // InsightsOverviewExcluding is InsightsOverview without the memories whose
-// source equals excludeSource (empty = everything). The forgetting forecast
-// still looks at the whole index.
+// source equals excludeSource (empty = everything). The forgetting outlook
+// always leaves the built-in docs out.
 func (s *MemoryStore) InsightsOverviewExcluding(now time.Time, excludeSource string) apitypes.InsightsOverviewResponse {
 	var (
 		out        apitypes.InsightsOverviewResponse
@@ -169,7 +176,7 @@ func (s *MemoryStore) InsightsOverviewExcluding(now time.Time, excludeSource str
 		out.ByAge[i] = apitypes.CountItem{Key: b.label, Count: byAge[i]}
 	}
 
-	out.ByKind, out.ByKindSource = s.KindDistribution()
+	out.ByKind, out.ByKindSource = s.KindDistributionExcluding(excludeSource)
 
 	out.DomainCount = len(byDomain)
 	doms := make([]apitypes.DomainStat, 0, len(byDomain))
@@ -253,6 +260,9 @@ func (s *MemoryStore) ForgettingStats(now time.Time) apitypes.ForgettingStats {
 	}
 	shadow := newShadowAccumulator(params)
 	for _, e := range s.index {
+		if isBuiltinDocs(e) {
+			continue
+		}
 		if isSoftDeleted(e) {
 			out.SoftDeleted++
 			if deletedAt, err := time.Parse(time.RFC3339, e.Metadata[metadataKeyDeletedAt]); err == nil &&
