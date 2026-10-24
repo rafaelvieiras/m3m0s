@@ -9,6 +9,16 @@
 import { useState } from "react";
 import { CheckCircle2, Loader2, Play, Save, XCircle } from "lucide-react";
 import { PageHeader } from "@/components/layout/PageHeader";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -65,6 +75,13 @@ function bestUnitFor(totalSeconds: number): IntervalUnit {
   if (totalSeconds > 0 && totalSeconds % UNIT_FACTOR.hours === 0) return "hours";
   if (totalSeconds > 0 && totalSeconds % UNIT_FACTOR.minutes === 0) return "minutes";
   return "seconds";
+}
+
+// jobEffect explains what running the job does (and what it may cost); the
+// built-in jobs have their own text, any future job gets a generic one.
+function jobEffect(name: string, t: (k: TKey) => string): string {
+  const key = `jobs.effect.${name}`;
+  return hasKey(key) ? t(key) : t("jobs.effect.generic");
 }
 
 function StatusBadge({ running }: { running: boolean }) {
@@ -152,7 +169,7 @@ function HistoryTable({ job }: { job: JobStatus }) {
 }
 
 function IntervalEditor({ job }: { job: JobStatus }) {
-  const { t } = useT();
+  const { t, tag } = useT();
   // Local state initialized once (lazy useState) from the job's current
   // value — it does not re-initialize on every polling refetch (useJobs,
   // 5s refetchInterval), otherwise a user editing the field would have their
@@ -164,14 +181,17 @@ function IntervalEditor({ job }: { job: JobStatus }) {
     job.intervalSeconds > 0 ? String(job.intervalSeconds / UNIT_FACTOR[bestUnitFor(job.intervalSeconds)]) : "",
   );
   const setInterval = useSetJobInterval();
+  const [confirmSeconds, setConfirmSeconds] = useState<number | null>(null);
 
   const parsedAmount = Number(amount);
   const canSave = amount.trim() !== "" && Number.isFinite(parsedAmount) && parsedAmount > 0;
   const showInvalid = amount.trim() !== "" && !canSave;
 
+  // Saving asks for confirmation first: the change takes effect right away
+  // and the next run is recalculated from now.
   function handleSave() {
     if (!canSave) return;
-    setInterval.mutate({ name: job.name, seconds: Math.round(parsedAmount * UNIT_FACTOR[unit]) });
+    setConfirmSeconds(Math.round(parsedAmount * UNIT_FACTOR[unit]));
   }
 
   return (
@@ -223,6 +243,35 @@ function IntervalEditor({ job }: { job: JobStatus }) {
       {setInterval.isError ? (
         <p className="w-full text-xs text-destructive">{setInterval.error.message}</p>
       ) : null}
+
+      <AlertDialog open={confirmSeconds !== null} onOpenChange={(o) => (!o ? setConfirmSeconds(null) : undefined)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>{t("jobs.confirmInterval.title")}</AlertDialogTitle>
+            <AlertDialogDescription>
+              {confirmSeconds !== null
+                ? t("jobs.confirmInterval.description", {
+                    job: jobTitle(job.name, t),
+                    from: job.intervalSeconds > 0 ? formatInterval(job.intervalSeconds, tag) : t("jobs.interval.manual"),
+                    to: formatInterval(confirmSeconds, tag),
+                  })
+                : null}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <p className="text-sm text-muted-foreground">{jobEffect(job.name, t)}</p>
+          <AlertDialogFooter>
+            <AlertDialogCancel>{t("jobs.confirm.cancel")}</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (confirmSeconds !== null) setInterval.mutate({ name: job.name, seconds: confirmSeconds });
+                setConfirmSeconds(null);
+              }}
+            >
+              {t("jobs.confirmInterval.confirm")}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -231,6 +280,7 @@ function JobCard({ job }: { job: JobStatus }) {
   const { t, tag } = useT();
   const triggerJob = useTriggerJob();
   const isTriggeringThis = triggerJob.isPending && triggerJob.variables === job.name;
+  const [confirmRun, setConfirmRun] = useState(false);
 
   return (
     <Card>
@@ -248,7 +298,7 @@ function JobCard({ job }: { job: JobStatus }) {
           <Button
             size="sm"
             disabled={job.running || isTriggeringThis}
-            onClick={() => triggerJob.mutate(job.name)}
+            onClick={() => setConfirmRun(true)}
           >
             {isTriggeringThis ? (
               <Loader2 data-icon="inline-start" className="animate-spin" />
@@ -265,6 +315,31 @@ function JobCard({ job }: { job: JobStatus }) {
         ) : null}
 
         <IntervalEditor job={job} />
+
+        <AlertDialog open={confirmRun} onOpenChange={setConfirmRun}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>{t("jobs.confirmRun.title", { job: jobTitle(job.name, t) })}</AlertDialogTitle>
+              <AlertDialogDescription>{jobEffect(job.name, t)}</AlertDialogDescription>
+            </AlertDialogHeader>
+            <p className="text-sm text-muted-foreground">
+              {job.lastRunAt
+                ? t("jobs.confirmRun.lastDuration", { duration: formatDurationMs(job.lastDurationMs ?? 0) })
+                : t("jobs.confirmRun.noDuration")}
+            </p>
+            <AlertDialogFooter>
+              <AlertDialogCancel>{t("jobs.confirm.cancel")}</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  setConfirmRun(false);
+                  triggerJob.mutate(job.name);
+                }}
+              >
+                {t("jobs.confirmRun.confirm")}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <Separator />
 
