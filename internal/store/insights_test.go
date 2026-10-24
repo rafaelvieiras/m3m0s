@@ -153,7 +153,7 @@ func TestInsightsOverviewCountsAndForgettingMatchesSweep(t *testing.T) {
 	if f.ColdNow != len(sweep.SoftDeleteCandidates) || f.HardDeleteDue != len(sweep.HardDeleteCandidates) || f.Eligible != sweep.Evaluated {
 		t.Errorf("forgetting %+v disagrees with dry-run sweep %+v", f, sweep)
 	}
-	if f.ColdNow != 1 || f.HardDeleteDue != 1 || f.SoftDeleted != 2 || f.Exempt != 2 {
+	if f.ColdNow != 1 || f.HardDeleteDue != 1 || f.SoftDeleted != 2 || f.Exempt != 1 {
 		t.Errorf("forgetting = %+v", f)
 	}
 	var hist int
@@ -162,6 +162,41 @@ func TestInsightsOverviewCountsAndForgettingMatchesSweep(t *testing.T) {
 	}
 	if hist != f.Eligible {
 		t.Errorf("retention histogram adds up to %d, want %d", hist, f.Eligible)
+	}
+}
+
+// The built-in docs (source "selfdocs") are not the user's memories: no part
+// of Insights counts them.
+func TestInsightsIgnoreBuiltinDocs(t *testing.T) {
+	s := insightsStore(t)
+	text := "The deploy pipeline signs the release checksums after the tests pass."
+	seedEntry(t, s, seed{id: "u1", content: text, md: extractedMD()})
+	for i := 0; i < 5; i++ {
+		// same text as the user memory, so a leak would show up as duplicates
+		seedEntry(t, s, seed{id: fmt.Sprintf("doc%d", i), content: text, source: "selfdocs"})
+	}
+
+	ov := s.InsightsOverviewExcluding(time.Now(), "selfdocs")
+	if ov.Totals.Total != 1 || ov.Totals.Active != 1 {
+		t.Errorf("totals = %+v, want 1 user memory", ov.Totals)
+	}
+	kinds := 0
+	for _, k := range ov.ByKind {
+		kinds += k.Count
+	}
+	if kinds != 1 {
+		t.Errorf("by kind adds up to %d, want 1", kinds)
+	}
+	if f := ov.Forgetting; f.Exempt != 0 || f.Eligible != 1 {
+		t.Errorf("forgetting = %+v, built-in docs must not be counted", f)
+	}
+
+	rep, err := runAnalysis(t, s, InsightsOptions{CPUPercent: 100})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rep.Scanned != 1 || rep.Exact.Groups != 0 {
+		t.Errorf("hygiene scanned %d, exact groups %d; want 1 and 0", rep.Scanned, rep.Exact.Groups)
 	}
 }
 
@@ -231,8 +266,8 @@ func TestHygieneExactDuplicatesAndNoise(t *testing.T) {
 	if rep.Noise.ConservativeUnion != 5 || rep.Noise.ConservativeEligible != 4 || rep.Noise.ReviewUnion != 4 {
 		t.Errorf("unions = %+v", rep.Noise)
 	}
-	if rep.Noise.Scanned != 17 {
-		t.Errorf("noise scanned = %d, want 17 (code only)", rep.Noise.Scanned)
+	if rep.Noise.Scanned != 16 {
+		t.Errorf("noise scanned = %d, want 16 (code only, built-in docs excluded)", rep.Noise.Scanned)
 	}
 
 	raw, _ := json.Marshal(rep)

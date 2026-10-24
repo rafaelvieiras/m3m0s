@@ -441,11 +441,17 @@ func (s *MemoryStore) applyBackfillKind(ctx context.Context, c kindCandidate, ki
 // KindDistribution counts active entries by kind (in enum order, untagged ones
 // as "other") and by tag source ("none" for untagged).
 func (s *MemoryStore) KindDistribution() (byKind, bySource []apitypes.CountItem) {
+	return s.KindDistributionExcluding("")
+}
+
+// KindDistributionExcluding is KindDistribution without the memories whose
+// source equals excludeSource (empty = everything).
+func (s *MemoryStore) KindDistributionExcluding(excludeSource string) (byKind, bySource []apitypes.CountItem) {
 	kinds := map[string]int{}
 	srcs := map[string]int{}
 	s.mu.RLock()
 	for _, e := range s.index {
-		if isSoftDeleted(e) {
+		if isSoftDeleted(e) || (excludeSource != "" && e.Source == excludeSource) {
 			continue
 		}
 		kinds[e.KindValue()]++

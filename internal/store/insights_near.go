@@ -95,7 +95,7 @@ func (s *MemoryStore) findNearPairs(ctx context.Context, p nearParams, pc *pacer
 		if id == "" {
 			continue
 		}
-		if e, ok := s.index[id]; ok && !isSoftDeleted(e) {
+		if e, ok := s.index[id]; ok && !isSoftDeleted(e) && !isBuiltinDocs(e) {
 			rows = append(rows, int32(row))
 		}
 	}

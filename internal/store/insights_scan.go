@@ -296,7 +296,7 @@ func (s *MemoryStore) scanText(ctx context.Context, pc *pacer, progress nearProg
 		chunk = chunk[:0]
 		s.mu.RLock()
 		for _, id := range ids[start:end] {
-			if e, ok := s.index[id]; ok && !isSoftDeleted(e) {
+			if e, ok := s.index[id]; ok && !isSoftDeleted(e) && !isBuiltinDocs(e) {
 				chunk = append(chunk, e)
 			}
 		}
