@@ -59,7 +59,7 @@ check enforces it. Releases and the changelog are generated from these titles.
   a release PR with the next version and the changelog; merging it tags and
   publishes the release.
 - Scopes name the area: `hook`, `search`, `mcp`, `ingest`, `webui`, `pi`,
-  `opencode`, `hermes`, `claude-code`.
+  `opencode`, `hermes`, `claude-code`, `openwebui`.
 
 ## Checks before opening a PR
 
