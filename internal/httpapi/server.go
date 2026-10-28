@@ -26,6 +26,7 @@ import (
 	"github.com/rafaelvieiras/m3m0s/internal/chat"
 	"github.com/rafaelvieiras/m3m0s/internal/idgen"
 	"github.com/rafaelvieiras/m3m0s/internal/jobs"
+	"github.com/rafaelvieiras/m3m0s/internal/mcpserver"
 	"github.com/rafaelvieiras/m3m0s/internal/redact"
 	"github.com/rafaelvieiras/m3m0s/internal/schema"
 	"github.com/rafaelvieiras/m3m0s/internal/sqlstore"
@@ -64,7 +65,14 @@ type Server struct {
 	// no longer a separate jobs-config.json path.
 	jobsSched *jobs.Scheduler
 	db        *sqlstore.DB
+
+	// mcp configures the native MCP endpoint at POST /mcp (D54).
+	mcp mcpserver.HTTPOptions
 }
+
+// SetMCPOptions configures the native MCP Streamable HTTP endpoint (D54):
+// read-only mode and extra allowed browser origins.
+func (s *Server) SetMCPOptions(o mcpserver.HTTPOptions) { s.mcp = o }
 
 // New creates the Server. webUIAssets is the dist/ filesystem (already
 // "stripped" via fs.Sub by the caller, see cmd/m3m0s/serve.go) used to serve
@@ -146,6 +154,10 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/users", s.withAPIKey(s.handleUserCreate))
 	mux.HandleFunc("POST /api/v1/users/{username}/reset", s.withAPIKey(s.handleUserReset))
 	mux.HandleFunc("DELETE /api/v1/users/{username}", s.withAPIKey(s.handleUserDelete))
+	// Native MCP Streamable HTTP endpoint (D54). API keys only: it is a
+	// machine interface, so browser sessions and CSRF do not apply. The tools
+	// call the mux above in-process with the caller's own token.
+	mux.Handle("/mcp", s.withAPIKey(mcpserver.NewHTTPHandler(mux, s.mcp).ServeHTTP))
 	if s.webUIAssets != nil {
 		// No withAuth: the static assets (HTML/JS/CSS) are public; auth
 		// happens client-side via Authorization: Bearer against /api/v1/*
@@ -225,7 +237,7 @@ func withCORS(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type")
+		w.Header().Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Mcp-Session-Id, Mcp-Protocol-Version")
 		if r.Method == http.MethodOptions {
 			w.WriteHeader(http.StatusNoContent)
 			return

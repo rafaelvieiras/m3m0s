@@ -67,6 +67,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D51 | Query-term correction (typo-tolerant search) | Accepted | [D51-query-term-correction.md](D51-query-term-correction.md) |
 | D52 | Onboarding without an API key | Accepted | [D52-keyless-onboarding.md](D52-keyless-onboarding.md) |
 | D53 | Reversible manual delete: trash and undo | Accepted | [D53-reversible-manual-delete-trash.md](D53-reversible-manual-delete-trash.md) |
+| D54 | Native MCP Streamable HTTP endpoint | Accepted | [D54-mcp-streamable-http.md](D54-mcp-streamable-http.md) |
 | D55 | Open WebUI integration as a Filter Function | Accepted | [D55-openwebui-filter.md](D55-openwebui-filter.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |

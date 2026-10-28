@@ -479,7 +479,7 @@ internal/
   httpapi/                HTTP server (m3m0s serve)
   apitypes/               request/response types shared between HTTP and client
   client/                 HTTP client used by CLI/mcp/watch
-  mcpserver/              stdio↔HTTP bridge (m3m0s mcp)
+  mcpserver/              MCP: stdio↔HTTP bridge (m3m0s mcp) + native Streamable HTTP endpoint (POST /mcp, D54), one shared tool set
   idgen/                  short prefixed IDs (mem_...)
   jobs/                   in-process routine scheduler (no OS cron, item 17
                           above) — 1st consumer: retroactive extraction in
