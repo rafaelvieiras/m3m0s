@@ -33,6 +33,9 @@ machine again). Therefore:
   calls into HTTP requests against `serve`. It is the piece D10 assumed to
   exist: what an MCP client configuration registers is this bridge
   (`command: m3m0s, args: [mcp]`), not `serve` directly.
+- **`POST /mcp` on `serve`** (D54) — native MCP Streamable HTTP endpoint, for
+  remote clients that cannot spawn a process. It runs the same tool set as
+  `m3m0s mcp` (`internal/mcpserver`) and calls the API in-process.
 - **`m3m0s add|search|recent|stats`** — one-shot CLI commands, also HTTP
   clients of `serve`.
 
@@ -72,6 +75,11 @@ depend on `VITE_M3M0S_URL` in the common case.
   cookie must carry the header `X-M3m0s-Csrf` (any non-empty value), otherwise
   `403 csrf`. Account administration (`/users`) accepts **only** an API key.
   API keys are unchanged and remain the credential for machines.
+- **MCP over HTTP (`POST /mcp`, D54):** `Authorization: Bearer <api_key>`
+  only, with the same keys as `/api/v1`. Browser sessions and the CSRF header
+  do not apply (machine interface). No valid key → `401`. A request carrying an
+  `Origin` header is rejected with `403` unless the origin matches the request
+  `Host` or is listed in `M3M0S_MCP_ALLOWED_ORIGINS` (DNS-rebinding guard).
 - **MCP (stdio) and CLI:** no auth of their own — they run as a local process
   of the user (same trust boundary as whoever invoked them), and use the
   configured `M3M0S_API_KEY` to authenticate against `serve` under the hood.
@@ -1335,3 +1343,43 @@ non-zero code.
   recorded here so as not to confuse readers of the old plan.
 - **Pagination/rate limiting** on `/recent` and `/search` beyond a simple
   `limit` — no real need at the current scale (small self-hosted deployments).
+
+## MCP Streamable HTTP endpoint — `POST /mcp` (D54)
+
+Native alternative to the stdio bridge, served by `m3m0s serve` on the same
+port. Spec: MCP Streamable HTTP transport, revision 2025-03-26 and later. The
+server speaks `2024-11-05`, `2025-03-26`, `2025-06-18` and `2025-11-25`: it
+echoes the version the client sends in `initialize` when it knows it, otherwise
+answers `2024-11-05`.
+
+- **Request:** `POST /mcp`, body = one JSON-RPC 2.0 message (or a batch array),
+  `Authorization: Bearer <api_key>`. `Content-Type: application/json`;
+  the `Accept` header is not enforced.
+- **Response:** `200` with `application/json` and the JSON-RPC response; `202`
+  with an empty body for notifications (`notifications/initialized`) and for
+  client responses. The server never answers with `text/event-stream`.
+- **Methods:** `initialize`, `notifications/initialized`, `ping`, `tools/list`,
+  `tools/call`; anything else is JSON-RPC error `-32601`. The tools are the
+  ones in this document, defined once in `internal/mcpserver` and shared with
+  the stdio bridge, including the `instructions` returned by `initialize`.
+- **Errors:** malformed JSON → `400` + JSON-RPC `-32700`; wrong `jsonrpc`
+  version, missing `method` or an empty batch → `400` + `-32600`; bad
+  `tools/call` params → `200` + `-32602`. Tool failures are results with
+  `isError: true`, as on stdio.
+- **No stream, no sessions:** `GET` and `DELETE` answer `405` with
+  `Allow: POST`. `Mcp-Session-Id` is never issued and is ignored when sent. An
+  `Mcp-Protocol-Version` header with an unknown value → `400`.
+- **Read-only (D45):** `M3M0S_MCP_READ_ONLY=1` / `m3m0s serve -mcp-read-only`
+  hides `memory_add`, `memory_update`, `memory_forget_sweep` and
+  `memory_restore` from `tools/list` and rejects them in `tools/call`, exactly
+  like `m3m0s mcp --read-only`. A client can also opt in on its own URL with
+  `/mcp?read_only=1`; a URL can only narrow, never widen, the server setting.
+- **Default project:** there is no working directory on a remote connection, so
+  `memory_search`/`memory_recent` default to global memory only; pass `project`
+  to widen.
+- **Public exposure:** `serve` listens on all routes, but a reverse proxy in
+  front of it must route `/mcp` explicitly (a proxy that forwards only
+  `/api/v1*` and `/health` does not expose it). Terminate TLS there: the key
+  travels in a header.
+
+Client setup (URL form, header) is in [mcp-http-clients.md](mcp-http-clients.md).

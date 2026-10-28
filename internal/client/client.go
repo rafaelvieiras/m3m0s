@@ -54,6 +54,13 @@ func NewWithTimeout(baseURL, apiKey string, timeout time.Duration) *Client {
 	}
 }
 
+// NewWithHTTPClient creates a Client that sends its requests through hc. It
+// lets the native MCP endpoint (D54) call the API in-process, with a
+// transport that hands requests straight to the server's own handler.
+func NewWithHTTPClient(baseURL, apiKey string, hc *http.Client) *Client {
+	return &Client{baseURL: baseURL, apiKey: apiKey, http: hc}
+}
+
 // NewFromEnv reads M3M0S_URL (default DefaultURL) and M3M0S_API_KEY, as
 // specified in docs/api-contract.md.
 func NewFromEnv() *Client {
