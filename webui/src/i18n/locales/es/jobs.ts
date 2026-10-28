@@ -52,4 +52,5 @@ export const jobs: Messages<typeof import("../en/jobs").jobs> = {
   "jobs.effect.embedding-reembed": "Envía el texto almacenado al proveedor de embeddings para rehacer los vectores. Gasta tokens del proveedor; consulta la estimación en la página Embedding.",
   "jobs.effect.kind-backfill": "Pide al modelo de lenguaje que clasifique las memorias que aún no tienen tipo. Gasta tokens del modelo; solo cambia la etiqueta del tipo, no el contenido.",
   "jobs.effect.insights-hygiene": "Revisa las memorias en busca de problemas de salud, como duplicados. Puede tardar en colecciones grandes, solo lee e informa, y no cambia nada.",
+  "jobs.interval.unit": "Unidad del intervalo",
 };

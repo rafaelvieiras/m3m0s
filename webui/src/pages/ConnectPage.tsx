@@ -19,7 +19,7 @@ type Tool = "claude" | "pi" | "opencode";
 function CodeBlock({ code }: { code: string }) {
   return (
     <div className="flex flex-col gap-2">
-      <pre className="overflow-x-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed">{code}</pre>
+      <pre tabIndex={0} className="overflow-x-auto rounded-md bg-muted p-3 outline-none focus-visible:ring-[3px] focus-visible:ring-ring/50 font-mono text-xs leading-relaxed">{code}</pre>
       <div>
         <CopyButton text={code} />
       </div>

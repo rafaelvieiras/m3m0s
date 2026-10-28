@@ -64,7 +64,7 @@ export const insights: Messages<typeof import("../en/insights").insights> = {
   "insights.sh.protected": "{count} memórias ficam isentas apenas no modelo por kind (tag durable manual).",
   "insights.sh.capOn": "Uma validade vencida limita a meia-vida a {days} dias.",
   "insights.sh.capOff": "O limite para validade vencida está desativado.",
-  "insights.sh.colKind": "Kind",
+  "insights.sh.colKind": "Tipo",
   "insights.sh.colHalfLife": "Meia-vida",
   "insights.sh.colEligible": "Elegíveis",
   "insights.sh.all": "Todas",

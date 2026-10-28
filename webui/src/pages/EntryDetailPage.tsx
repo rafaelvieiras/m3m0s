@@ -83,6 +83,7 @@ export default function EntryDetailPage() {
 
       <Card>
         <CardHeader>
+          <h1 className="sr-only">{t("memory.detail.title")}</h1>
           <div className="flex flex-wrap items-center gap-1.5">
             <KindBadge kind={entry.kind} kindSource={entry.kindSource} />
             {entry.project && <Badge variant="secondary">{t("memory.detail.project", { project: entry.project })}</Badge>}

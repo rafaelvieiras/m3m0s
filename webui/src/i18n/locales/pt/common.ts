@@ -42,4 +42,7 @@ export const common: Messages<typeof import("../en/common").common> = {
   "common.mode.advanced": "Modo avançado",
   "common.mode.notice": "Esta é uma tela avançada. Ela não aparece no menu simples.",
   "common.mode.switchOn": "Ativar o modo avançado",
+  "common.notFound.title": "Página não encontrada",
+  "common.notFound.hint": "A página que você procura não existe ou foi movida.",
+  "common.notFound.home": "Ir para a página inicial",
 };

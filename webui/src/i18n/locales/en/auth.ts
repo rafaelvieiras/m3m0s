@@ -19,7 +19,7 @@ export const auth = {
   "auth.reset.doneDescription": "You were signed out everywhere. Sign in with the new password.",
   "auth.reset.goToSignIn": "Go to sign in",
   "auth.reset.invalidTitle": "This link is not valid",
-  "auth.reset.invalidDescription": "It is expired, already used or incomplete. Ask for a new one with `m3m0s user reset <username>`.",
+  "auth.reset.invalidDescription": "It is expired, already used or incomplete. Ask for a new one with “m3m0s user reset <username>”.",
   "auth.reset.checkFailedTitle": "Could not check the link",
   "auth.reset.checkFailedDescription": "The server could not be reached. Try again in a moment.",
   "auth.reset.backToSignIn": "Back to sign in",

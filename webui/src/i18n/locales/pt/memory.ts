@@ -76,6 +76,7 @@ export const memory: Messages<typeof import("../en/memory").memory> = {
   "memory.filter.includeDocsHint":
     "As cerca de 100 páginas de documentação que acompanham o M3m0s ficam ocultas por padrão.",
   "memory.detail.id": "ID",
+  "memory.detail.title": "Memória",
   "memory.detail.accessCount": "Vezes usada",
   "memory.detail.kindSource": "Tipo definido por",
   "memory.detail.project": "Projeto: {project}",
