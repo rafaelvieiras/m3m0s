@@ -289,7 +289,7 @@ function ReembedCard({ config }: { config: EmbeddingConfig }) {
             {t("embedding.reembed.running")}
           </Badge>
         ) : upToDate ? (
-          <Badge variant="outline" className="text-green-600 dark:text-green-400">
+          <Badge variant="outline" className="text-green-700 dark:text-green-400">
             <CheckCircle2 data-icon="inline-start" />
             {t("embedding.reembed.upToDate")}
           </Badge>

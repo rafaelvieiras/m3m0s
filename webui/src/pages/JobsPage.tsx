@@ -109,7 +109,7 @@ function LastRunSummary({ job }: { job: JobStatus }) {
           ({formatDurationMs(job.lastDurationMs ?? 0)})
         </span>
         {job.lastSuccess ? (
-          <Badge variant="outline" className="text-green-600 dark:text-green-400">
+          <Badge variant="outline" className="text-green-700 dark:text-green-400">
             <CheckCircle2 data-icon="inline-start" />
             {t("jobs.lastRun.success")}
           </Badge>
@@ -151,7 +151,7 @@ function HistoryTable({ job }: { job: JobStatus }) {
             <TableCell className="whitespace-nowrap">{formatDurationMs(run.durationMs)}</TableCell>
             <TableCell>
               {run.success ? (
-                <Badge variant="outline" className="text-green-600 dark:text-green-400">
+                <Badge variant="outline" className="text-green-700 dark:text-green-400">
                   {t("jobs.history.ok")}
                 </Badge>
               ) : (
@@ -213,7 +213,7 @@ function IntervalEditor({ job }: { job: JobStatus }) {
             placeholder=""
           />
           <Select value={unit} onValueChange={(value) => setUnit(value as IntervalUnit)}>
-            <SelectTrigger size="sm" className="w-32">
+            <SelectTrigger size="sm" className="w-32" aria-label={t("jobs.interval.unit")}>
               <SelectValue>{(value: IntervalUnit) => (value ? t(UNIT_LABEL[value]) : null)}</SelectValue>
             </SelectTrigger>
             <SelectContent>
@@ -286,7 +286,7 @@ function JobCard({ job }: { job: JobStatus }) {
     <Card>
       <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
         <div>
-          <CardTitle className="text-base">{jobTitle(job.name, t)}</CardTitle>
+          <CardTitle as="h2" className="text-base">{jobTitle(job.name, t)}</CardTitle>
           <CardDescription>
             {job.intervalSeconds > 0
               ? t("jobs.card.schedule", { interval: formatInterval(job.intervalSeconds, tag), next: formatDateTime(job.nextRunAt, tag) })

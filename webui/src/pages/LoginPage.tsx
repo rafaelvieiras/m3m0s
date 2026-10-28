@@ -18,16 +18,16 @@ import { usernameRegex } from "@/lib/schemas";
 
 function Shell({ title, description, children }: { title: string; description: string; children: React.ReactNode }) {
   return (
-    <div className="relative flex min-h-svh items-center justify-center bg-background px-4">
+    <main className="relative flex min-h-svh items-center justify-center bg-background px-4">
       <LanguageSwitcher className="absolute top-4 right-4" />
       <Card className="w-full max-w-sm">
         <CardHeader>
-          <CardTitle>{title}</CardTitle>
+          <CardTitle as="h1">{title}</CardTitle>
           <CardDescription>{description}</CardDescription>
         </CardHeader>
         <CardContent>{children}</CardContent>
       </Card>
-    </div>
+    </main>
   );
 }
 

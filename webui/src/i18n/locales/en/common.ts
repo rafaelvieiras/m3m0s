@@ -41,4 +41,7 @@ export const common = {
   "common.mode.advanced": "Advanced mode",
   "common.mode.notice": "This is an advanced screen. It is not in the simple menu.",
   "common.mode.switchOn": "Turn on advanced mode",
+  "common.notFound.title": "Page not found",
+  "common.notFound.hint": "The page you are looking for does not exist or was moved.",
+  "common.notFound.home": "Go to the start page",
 } as const;

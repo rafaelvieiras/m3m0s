@@ -20,7 +20,7 @@ export const auth: Messages<typeof import("../en/auth").auth> = {
   "auth.reset.doneDescription": "Você foi desconectado de todos os lugares. Entre com a nova senha.",
   "auth.reset.goToSignIn": "Ir para o login",
   "auth.reset.invalidTitle": "Este link não é válido",
-  "auth.reset.invalidDescription": "Ele expirou, já foi usado ou está incompleto. Peça um novo com `m3m0s user reset <username>`.",
+  "auth.reset.invalidDescription": "Ele expirou, já foi usado ou está incompleto. Peça um novo com “m3m0s user reset <username>”.",
   "auth.reset.checkFailedTitle": "Não foi possível verificar o link",
   "auth.reset.checkFailedDescription": "Não foi possível acessar o servidor. Tente de novo em instantes.",
   "auth.reset.backToSignIn": "Voltar ao login",

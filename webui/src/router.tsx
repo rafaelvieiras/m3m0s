@@ -21,6 +21,7 @@ import { Route as InsightsRoute } from "./routes/insights";
 import { Route as HomeRoute } from "./routes/home";
 import { Route as ConnectRoute } from "./routes/connect";
 import { Route as TrashRoute } from "./routes/trash";
+import { NotFound } from "@/components/layout/NotFound";
 
 const routeTree = RootRoute.addChildren([
   LoginRoute,
@@ -43,7 +44,7 @@ const routeTree = RootRoute.addChildren([
   ]),
 ]);
 
-export const router = createRouter({ routeTree, defaultPreload: "intent" });
+export const router = createRouter({ routeTree, defaultPreload: "intent", defaultNotFoundComponent: NotFound });
 
 declare module "@tanstack/react-router" {
   interface Register {

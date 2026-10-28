@@ -64,7 +64,7 @@ export const insights: Messages<typeof import("../en/insights").insights> = {
   "insights.sh.protected": "{count} memorias quedan exentas solo en el modelo por kind (etiqueta durable manual).",
   "insights.sh.capOn": "Una fecha de caducidad vencida limita la vida media a {days} días.",
   "insights.sh.capOff": "El límite para una fecha de caducidad vencida está desactivado.",
-  "insights.sh.colKind": "Kind",
+  "insights.sh.colKind": "Tipo",
   "insights.sh.colHalfLife": "Vida media",
   "insights.sh.colEligible": "Elegibles",
   "insights.sh.all": "Todas",

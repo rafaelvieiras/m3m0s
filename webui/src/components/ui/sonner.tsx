@@ -6,10 +6,13 @@ import { CircleCheckIcon, InfoIcon, TriangleAlertIcon, OctagonXIcon, Loader2Icon
 
 const Toaster = ({ ...props }: ToasterProps) => {
   const { theme = "system" } = useTheme()
+  // The app themes via the .dark class, not the OS preference, so "system"
+  // would paint dark toasts on a light page.
+  const isDark = typeof document !== "undefined" && document.documentElement.classList.contains("dark")
 
   return (
     <Sonner
-      theme={theme as ToasterProps["theme"]}
+      theme={theme === "system" ? (isDark ? "dark" : "light") : (theme as ToasterProps["theme"])}
       className="toaster group"
       icons={{
         success: (

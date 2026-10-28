@@ -157,7 +157,7 @@ function EditForm({ entry }: { entry: Entry }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">{t("memory.edit.editing")}</CardTitle>
+          <CardTitle as="h1" className="text-base">{t("memory.edit.editing")}</CardTitle>
         </CardHeader>
         <CardContent>
           <form

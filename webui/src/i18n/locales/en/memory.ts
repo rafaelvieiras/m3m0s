@@ -74,6 +74,7 @@ export const memory = {
   "memory.filter.includeDocsHint":
     "The ~100 documentation pages that ship with M3m0s are hidden by default.",
   "memory.detail.id": "ID",
+  "memory.detail.title": "Memory",
   "memory.detail.accessCount": "Times used",
   "memory.detail.kindSource": "Type set by",
   "memory.detail.project": "Project: {project}",

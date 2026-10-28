@@ -51,4 +51,5 @@ export const jobs = {
   "jobs.effect.embedding-reembed": "Sends stored text to the embedding provider to rebuild vectors. This spends provider tokens; see the Embedding page for an estimate.",
   "jobs.effect.kind-backfill": "Asks the language model to classify memories that have no type yet. This spends language-model tokens; it changes only the type label, not the content.",
   "jobs.effect.insights-hygiene": "Scans memories for health issues such as duplicates. It can take a while on large collections, only reads and reports, and changes nothing.",
+  "jobs.interval.unit": "Interval unit",
 } as const;
