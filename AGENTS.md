@@ -457,6 +457,8 @@ docs/
   market-benchmark.md     comparison vs. Claude-Mem/Mem0/Cognee/Zep
                           (feature matrix, known gaps and non-goals)
 cmd/m3m0s/               single binary: dispatcher serve/mcp/watch/hook/add/search/...
+integrations/            per-tool clients: claude-code, pi, opencode, hermes, openwebui
+                          (Python filter function over HTTP, D55)
 webui/                   admin WebUI (Phase 5, D13) — Vite/React/TS, talks to the
                           `m3m0s serve` API under /api/v1; separate Node build
                           (`npm run build`), but the output (`webui/dist`) is

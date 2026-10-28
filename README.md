@@ -74,6 +74,7 @@ Working today:
   context-injection preview, and a floating chat that answers from your memory and can save new memories.
 - **Claude Code plugin** (`/plugin install m3m0s-memory --marketplace rafaelvieiras/m3m0s`) or manual hooks: `SessionStart` (inject recent memory),
   `PreCompact` and `SessionEnd` (capture the transcript delta).
+- **Integrations** (`integrations/`): pi, opencode, Hermes, and an Open WebUI filter function ([D55](docs/decisions/D55-openwebui-filter.md)).
 - **Self-documentation**: the project's own docs are embedded in the binary and
   indexed into memory at boot.
 

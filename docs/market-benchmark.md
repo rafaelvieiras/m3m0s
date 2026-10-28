@@ -22,7 +22,7 @@ deliberately out of scope.
 
 | Feature | m3m0s | Claude-Mem | Mem0 | Cognee | Zep |
 |---|---|---|---|---|---|
-| Auto-capture from agent sessions | ✅ Claude Code, pi, opencode, Hermes (hooks/plugins) | ✅ hooks | ✅ `add()` | ✅ `remember()` | ✅ `graph.add()` |
+| Auto-capture from agent sessions | ✅ Claude Code, pi, opencode, Hermes, Open WebUI (hooks/plugins/filter) | ✅ hooks | ✅ `add()` | ✅ `remember()` | ✅ `graph.add()` |
 | LLM extraction into atomic facts | ✅ ([D12](decisions/D12-llm-fact-extraction.md)) | ✅ | ✅ | ✅ entity extraction | ✅ full graph |
 | Scope isolation | ✅ domain / source / agent / tags ([D9](decisions/D9-scope-domain-schema-four-axes.md)) | ✅ per project | ✅ user/agent/run | ✅ datasets | ✅ users and groups |
 | Vector search | ✅ in-process int8 index with exact re-rank ([D31](decisions/D31-int8-vector-index-exact-rerank.md)) | ✅ | ✅ | ✅ | ✅ |
