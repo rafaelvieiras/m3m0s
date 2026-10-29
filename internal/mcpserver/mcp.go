@@ -1,4 +1,6 @@
-// Package mcpserver implements the `m3m0s mcp` bridge described in
+// Package mcpserver implements the MCP surface of m3m0s: the `m3m0s mcp`
+// stdio bridge and (via Handler/ServeHTTP, D54) the native Streamable HTTP
+// endpoint served by `m3m0s serve`. The bridge is described in
 // docs/api-contract.md: a stateless process per host session (pi,
 // Claude Code, OpenCode), which speaks MCP over stdio on one side and HTTP
 // against `m3m0s serve` on the other (via internal/client). It keeps no
@@ -55,6 +57,7 @@ How to treat results:
 
 const (
 	errParseError     = -32700
+	errInvalidRequest = -32600
 	errMethodNotFound = -32601
 	errInvalidParams  = -32602
 )
@@ -114,6 +117,7 @@ func Run(ctx context.Context, in io.Reader, out io.Writer) error {
 	cwd, _ := os.Getwd()
 	sessionProject = project.Resolve(os.Getenv, home, cwd)
 
+	h := &Handler{c: c, readOnly: readOnly, sessionProject: sessionProject}
 	scanner := bufio.NewScanner(in)
 	scanner.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 
@@ -122,8 +126,10 @@ func Run(ctx context.Context, in io.Reader, out io.Writer) error {
 		if len(line) == 0 {
 			continue
 		}
-		if err := handleLine(ctx, c, line, out); err != nil {
-			return err
+		if resp := h.HandleMessage(ctx, line); resp != nil {
+			if err := writeResponse(out, *resp); err != nil {
+				return err
+			}
 		}
 	}
 	return scanner.Err()
@@ -145,7 +151,7 @@ var writeTools = map[string]bool{
 }
 
 // visibleTools is toolDefs minus the write tools in read-only mode.
-func visibleTools() []map[string]any {
+func visibleTools(readOnly bool) []map[string]any {
 	if !readOnly {
 		return toolDefs
 	}
@@ -166,6 +172,10 @@ var sessionProject string
 
 // defaultScope fills project/scope for a recall that specified neither.
 func defaultScope(project, scope string) (string, string) {
+	return defaultScopeFor(sessionProject, project, scope)
+}
+
+func defaultScopeFor(sessionProject, project, scope string) (string, string) {
 	if project != "" || scope != "" {
 		return project, scope
 	}
@@ -175,20 +185,54 @@ func defaultScope(project, scope string) (string, string) {
 	return "", "global"
 }
 
-func handleLine(ctx context.Context, c *client.Client, line []byte, out io.Writer) error {
+// Handler is the transport-agnostic MCP dispatcher shared by the stdio
+// bridge (Run) and the native Streamable HTTP endpoint (D54): the same tool
+// definitions, the same dispatch and the same read-only rules. It keeps no
+// per-connection state.
+type Handler struct {
+	c              *client.Client
+	readOnly       bool
+	sessionProject string
+}
+
+// NewHandler returns a Handler that executes tools through c. readOnly hides
+// and rejects the write tools (D45); sessionProject is the default recall
+// project ("" = global memory only).
+func NewHandler(c *client.Client, readOnly bool, sessionProject string) *Handler {
+	return &Handler{c: c, readOnly: readOnly, sessionProject: sessionProject}
+}
+
+// HandleMessage processes one JSON-RPC message and returns its response, or
+// nil when the message needs none (notifications, JSON-RPC responses).
+func (h *Handler) HandleMessage(ctx context.Context, line []byte) *rpcResponse {
 	var req rpcRequest
 	if err := json.Unmarshal(line, &req); err != nil {
-		return writeResponse(out, rpcResponse{
+		return &rpcResponse{
 			JSONRPC: "2.0",
 			ID:      json.RawMessage("null"),
 			Error:   &rpcError{Code: errParseError, Message: "parse error: " + err.Error()},
-		})
+		}
+	}
+	if req.Method == "" {
+		// A JSON-RPC response sent by the client (result/error, no method)
+		// needs no answer; anything else is an invalid request.
+		var probe struct {
+			Result json.RawMessage `json:"result"`
+			Error  json.RawMessage `json:"error"`
+		}
+		if json.Unmarshal(line, &probe) == nil && (probe.Result != nil || probe.Error != nil) {
+			return nil
+		}
+		return invalidRequest(req)
+	}
+	if req.JSONRPC != "2.0" {
+		return invalidRequest(req)
 	}
 
 	switch req.Method {
 	case "initialize":
-		return respondResult(out, req, map[string]any{
-			"protocolVersion": protocolVersion,
+		return h.result(req, map[string]any{
+			"protocolVersion": negotiateVersion(req.Params),
 			"capabilities":    map[string]any{"tools": map[string]any{}},
 			"serverInfo":      map[string]any{"name": "m3m0s", "version": "0.1.0"},
 			"instructions":    serverInstructions,
@@ -196,33 +240,66 @@ func handleLine(ctx context.Context, c *client.Client, line []byte, out io.Write
 	case "notifications/initialized":
 		// Notification: never responds.
 		return nil
+	case "ping":
+		return h.result(req, map[string]any{})
 	case "tools/list":
-		return respondResult(out, req, map[string]any{"tools": visibleTools()})
+		return h.result(req, map[string]any{"tools": visibleTools(h.readOnly)})
 	case "tools/call":
-		return handleToolCall(ctx, c, req, out)
+		var params toolCallParams
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return h.fail(req, errInvalidParams, "invalid params: "+err.Error())
+		}
+		return h.result(req, h.dispatchTool(ctx, params.Name, params.Arguments))
 	default:
-		if req.isNotification() {
-			return nil
-		}
-		return respondError(out, req, errMethodNotFound, fmt.Sprintf("unknown method: %s", req.Method))
+		return h.fail(req, errMethodNotFound, fmt.Sprintf("unknown method: %s", req.Method))
 	}
 }
 
-func handleToolCall(ctx context.Context, c *client.Client, req rpcRequest, out io.Writer) error {
-	var params toolCallParams
-	if err := json.Unmarshal(req.Params, &params); err != nil {
-		if req.isNotification() {
-			return nil
-		}
-		return respondError(out, req, errInvalidParams, "invalid params: "+err.Error())
+func invalidRequest(req rpcRequest) *rpcResponse {
+	id := req.ID
+	if id == nil {
+		id = json.RawMessage("null")
 	}
-
-	result := dispatchTool(ctx, c, params.Name, params.Arguments)
-	return respondResult(out, req, result)
+	return &rpcResponse{JSONRPC: "2.0", ID: id, Error: &rpcError{Code: errInvalidRequest, Message: "invalid request: jsonrpc must be \"2.0\" and method is required"}}
 }
 
-func dispatchTool(ctx context.Context, c *client.Client, name string, args json.RawMessage) toolCallResult {
-	if readOnly && writeTools[name] {
+// SupportedVersions are the MCP protocol revisions this server speaks. The
+// tool surface (initialize, ping, tools/list, tools/call) is the same in all.
+var SupportedVersions = []string{"2024-11-05", "2025-03-26", "2025-06-18", "2025-11-25"}
+
+// negotiateVersion echoes the client's protocolVersion when this server
+// supports it, otherwise answers with the default one (MCP lifecycle rule).
+func negotiateVersion(params json.RawMessage) string {
+	var p struct {
+		ProtocolVersion string `json:"protocolVersion"`
+	}
+	if json.Unmarshal(params, &p) == nil {
+		for _, v := range SupportedVersions {
+			if v == p.ProtocolVersion {
+				return v
+			}
+		}
+	}
+	return protocolVersion
+}
+
+func (h *Handler) result(req rpcRequest, result any) *rpcResponse {
+	if req.isNotification() {
+		return nil
+	}
+	return &rpcResponse{JSONRPC: "2.0", ID: req.ID, Result: result}
+}
+
+func (h *Handler) fail(req rpcRequest, code int, message string) *rpcResponse {
+	if req.isNotification() {
+		return nil
+	}
+	return &rpcResponse{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: code, Message: message}}
+}
+
+func (h *Handler) dispatchTool(ctx context.Context, name string, args json.RawMessage) toolCallResult {
+	c := h.c
+	if h.readOnly && writeTools[name] {
 		return errorResult(fmt.Errorf("%s is disabled: this MCP server runs in read-only mode", name))
 	}
 	switch name {
@@ -243,7 +320,7 @@ func dispatchTool(ctx context.Context, c *client.Client, name string, args json.
 		if err := unmarshalArgs(args, &in); err != nil {
 			return errorResult(err)
 		}
-		in.Project, in.Scope = defaultScope(in.Project, in.Scope)
+		in.Project, in.Scope = defaultScopeFor(h.sessionProject, in.Project, in.Scope)
 		resp, err := c.Search(ctx, in)
 		if err != nil {
 			return errorResult(err)
@@ -255,7 +332,7 @@ func dispatchTool(ctx context.Context, c *client.Client, name string, args json.
 		if err := unmarshalArgs(args, &in); err != nil {
 			return errorResult(err)
 		}
-		in.Project, in.Scope = defaultScope(in.Project, in.Scope)
+		in.Project, in.Scope = defaultScopeFor(h.sessionProject, in.Project, in.Scope)
 		resp, err := c.Recent(ctx, in)
 		if err != nil {
 			return errorResult(err)
@@ -370,20 +447,6 @@ func toJSON(v any) string {
 		return fmt.Sprintf(`{"marshal_error":%q}`, err.Error())
 	}
 	return string(b)
-}
-
-func respondResult(out io.Writer, req rpcRequest, result any) error {
-	if req.isNotification() {
-		return nil
-	}
-	return writeResponse(out, rpcResponse{JSONRPC: "2.0", ID: req.ID, Result: result})
-}
-
-func respondError(out io.Writer, req rpcRequest, code int, message string) error {
-	if req.isNotification() {
-		return nil
-	}
-	return writeResponse(out, rpcResponse{JSONRPC: "2.0", ID: req.ID, Error: &rpcError{Code: code, Message: message}})
 }
 
 func writeResponse(out io.Writer, resp rpcResponse) error {

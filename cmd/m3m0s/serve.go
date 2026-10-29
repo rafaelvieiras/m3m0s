@@ -18,6 +18,7 @@ import (
 	"github.com/rafaelvieiras/m3m0s/internal/extract"
 	"github.com/rafaelvieiras/m3m0s/internal/httpapi"
 	"github.com/rafaelvieiras/m3m0s/internal/jobs"
+	"github.com/rafaelvieiras/m3m0s/internal/mcpserver"
 	"github.com/rafaelvieiras/m3m0s/internal/selfindex"
 	"github.com/rafaelvieiras/m3m0s/internal/store"
 	"github.com/rafaelvieiras/m3m0s/webui"
@@ -43,6 +44,8 @@ func runServe(args []string) error {
 	chatBase := fs.String("chat-base", firstNonEmpty(os.Getenv("M3M0S_CHAT_BASE_URL"), chat.DefaultBaseURL), "OpenAI-compatible base URL for the WebUI chat")
 	chatModel := fs.String("chat-model", firstNonEmpty(os.Getenv("M3M0S_CHAT_MODEL"), chat.DefaultModel), "model used for the WebUI chat")
 	addSyncTimeout := fs.Duration("add-sync-timeout", firstNonEmptyDuration(os.Getenv("M3M0S_ADD_SYNC_TIMEOUT"), 300*time.Millisecond), "how long POST /api/v1/memories waits for Add to finish before degrading to 202 + poll on GET /memories/pending/:id (D26, docs/decisions/); <= 0 disables the async path and always waits for Add to really finish (pre-D26 behavior)")
+	mcpReadOnly := fs.Bool("mcp-read-only", os.Getenv("M3M0S_MCP_READ_ONLY") == "1", "native MCP endpoint (POST /mcp, D54): hide and reject the write tools (D45)")
+	mcpOrigins := fs.String("mcp-allowed-origins", os.Getenv("M3M0S_MCP_ALLOWED_ORIGINS"), "native MCP endpoint (D54): comma-separated browser Origins accepted besides the request's own origin (* = any); requests without an Origin header always pass")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}
@@ -316,6 +319,7 @@ func runServe(args []string) error {
 	}
 
 	srv := httpapi.New(memStore, keyStore, webUIAssets, chatClient, *addSyncTimeout, sched, memStore.DB())
+	srv.SetMCPOptions(mcpserver.HTTPOptions{ReadOnly: *mcpReadOnly, AllowedOrigins: splitCSV(*mcpOrigins)})
 	srv.StartIngest()
 	log.Printf("  async add: timeout of %s before degrading to 202 + poll (D26; <= 0 disables)", *addSyncTimeout)
 
@@ -336,6 +340,17 @@ func expandHome(path string) (string, error) {
 		return "", err
 	}
 	return filepath.Join(home, strings.TrimPrefix(path, "~")), nil
+}
+
+// splitCSV splits a comma-separated list, trimming blanks and empty items.
+func splitCSV(s string) []string {
+	var out []string
+	for _, p := range strings.Split(s, ",") {
+		if p = strings.TrimSpace(p); p != "" {
+			out = append(out, p)
+		}
+	}
+	return out
 }
 
 func firstNonEmpty(values ...string) string {
