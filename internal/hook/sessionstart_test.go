@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -22,25 +23,42 @@ import (
 // test RunSessionStart without real network/embeddings; same pattern as
 // fakeServe in hook_test.go, just for the other endpoint.
 type fakeRecentServe struct {
-	results     []schema.Entry
+	results []schema.Entry
+	// byKind lets a test serve different entries per "kind" query param
+	// (D57 digest ordering); results is the fallback for any kind.
+	byKind      map[string][]schema.Entry
 	lastDomain  string
 	lastProject string
 	lastScope   string
 	lastLimit   string
 	delay       time.Duration
-	callCount   int
 	failWithErr bool
+
+	// The digest fetches kinds in parallel (D57), so the counters need a
+	// mutex.
+	mu          sync.Mutex
+	callCount   int
+	kinds       []string
+	limitByKind map[string]string
 }
 
 func (f *fakeRecentServe) server(t *testing.T) *httptest.Server {
 	t.Helper()
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/v1/recent", func(w http.ResponseWriter, r *http.Request) {
+		kind := r.URL.Query().Get("kind")
+		f.mu.Lock()
 		f.callCount++
+		f.kinds = append(f.kinds, kind)
+		if f.limitByKind == nil {
+			f.limitByKind = map[string]string{}
+		}
+		f.limitByKind[kind] = r.URL.Query().Get("limit")
 		f.lastDomain = r.URL.Query().Get("domain")
 		f.lastProject = r.URL.Query().Get("project")
 		f.lastScope = r.URL.Query().Get("scope")
 		f.lastLimit = r.URL.Query().Get("limit")
+		f.mu.Unlock()
 		if f.delay > 0 {
 			select {
 			case <-time.After(f.delay):
@@ -52,7 +70,11 @@ func (f *fakeRecentServe) server(t *testing.T) *httptest.Server {
 			w.WriteHeader(http.StatusInternalServerError)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(apitypes.RecentResponse{Results: f.results})
+		results := f.results
+		if list, ok := f.byKind[kind]; ok {
+			results = list
+		}
+		_ = json.NewEncoder(w).Encode(apitypes.RecentResponse{Results: results})
 	})
 	srv := httptest.NewServer(mux)
 	t.Cleanup(srv.Close)
@@ -105,17 +127,22 @@ func TestRunSessionStartInjectsContextOnStartup(t *testing.T) {
 	payload := Payload{HookEventName: "SessionStart", Source: "startup", Cwd: "/path/to/repo/some-repo"}
 	RunSessionStart(context.Background(), payload, deps)
 
-	if fake.callCount != 1 {
-		t.Fatalf("expected 1 GET /recent, got %d (stderr: %s)", fake.callCount, stderr.String())
+	// D57: one plain /recent plus one per priority kind, in parallel.
+	if fake.callCount != 3 {
+		t.Fatalf("expected 3 GET /recent (plain + rule + preference), got %d (stderr: %s)", fake.callCount, stderr.String())
 	}
 	if fake.lastDomain != "code:some-repo" {
 		t.Errorf("domain = %q, want %q", fake.lastDomain, "code:some-repo")
 	}
-	// SessionStartFetchLimit (D17): asks for more than
+	// SessionStartFetchLimit (D17): the plain fetch asks for more than
 	// SessionStartRecentLimit on purpose; the InjectableEntries filter runs
-	// afterwards, in memory, not via query param.
-	if fake.lastLimit != "40" {
-		t.Errorf("limit = %q, want %q", fake.lastLimit, "40")
+	// afterwards, in memory, not via query param. The priority kinds (D57)
+	// ask for less, so the digest keeps slots for plain recency.
+	if got := fake.limitByKind[""]; got != "40" {
+		t.Errorf("plain fetch limit = %q, want %q", got, "40")
+	}
+	if got := fake.limitByKind["rule"]; got != "6" {
+		t.Errorf("rule fetch limit = %q, want %q", got, "6")
 	}
 
 	var out sessionStartOutput
@@ -142,8 +169,8 @@ func TestRunSessionStartInjectsContextOnClear(t *testing.T) {
 	payload := Payload{HookEventName: "SessionStart", Source: "clear", Cwd: "/tmp/some-repo"}
 	RunSessionStart(context.Background(), payload, deps)
 
-	if fake.callCount != 1 {
-		t.Fatalf("expected 1 GET /recent for source=clear, got %d", fake.callCount)
+	if fake.callCount != 3 {
+		t.Fatalf("expected 3 GET /recent for source=clear, got %d", fake.callCount)
 	}
 	if stdout.Len() == 0 {
 		t.Error("expected additionalContext on stdout for source=clear")
@@ -366,8 +393,8 @@ func TestRunDispatchesSessionStartFromPayload(t *testing.T) {
 	stdin := bytes.NewReader([]byte(`{"session_id":"sess-x","cwd":"/tmp/repo","hook_event_name":"SessionStart","source":"startup"}`))
 	Run(context.Background(), stdin, deps)
 
-	if fake.callCount != 1 {
-		t.Fatalf("expected Run to dispatch to RunSessionStart (1 GET /recent), got %d (stderr: %s)", fake.callCount, stderr.String())
+	if fake.callCount != 3 {
+		t.Fatalf("expected Run to dispatch to RunSessionStart (3 GET /recent), got %d (stderr: %s)", fake.callCount, stderr.String())
 	}
 	if !strings.Contains(stdout.String(), "fact via Run") {
 		t.Errorf("stdout does not contain the expected additionalContext: %q", stdout.String())
@@ -444,5 +471,60 @@ func TestRunSessionStartScopesRecallByProject(t *testing.T) {
 	RunSessionStart(context.Background(), payload, deps)
 	if fake.lastProject != "forced" {
 		t.Errorf("M3M0S_INJECT_PROJECT: project=%q", fake.lastProject)
+	}
+}
+
+// TestRunSessionStartPutsRulesAndPreferencesFirst covers D57: plain /recent
+// returns whatever was captured last, which at a high capture rate means the
+// digest never shows the project's standing rules. Rules and preferences are
+// fetched by kind and placed ahead of the recent filler.
+func TestRunSessionStartPutsRulesAndPreferencesFirst(t *testing.T) {
+	recent := []schema.Entry{extractedEntry("mem_recent", "a fact captured minutes ago")}
+	fake := &fakeRecentServe{
+		results: recent,
+		byKind: map[string][]schema.Entry{
+			"rule":       {extractedEntry("mem_rule", "always commit at the end of an implementation")},
+			"preference": {extractedEntry("mem_pref", "the user prefers summaries in ASD-STE100 style")},
+		},
+	}
+	srv := fake.server(t)
+
+	var stdout, stderr bytes.Buffer
+	deps := sessionStartDeps(t.TempDir(), srv, &stdout, &stderr)
+	RunSessionStart(context.Background(), Payload{HookEventName: "SessionStart", Source: "startup", Cwd: "/tmp/repo"}, deps)
+
+	var out sessionStartOutput
+	if err := json.Unmarshal(stdout.Bytes(), &out); err != nil {
+		t.Fatalf("stdout is not the expected JSON: %v (stderr: %s)", err, stderr.String())
+	}
+	got := out.HookSpecificOutput.AdditionalContext
+	rule := strings.Index(got, "always commit at the end")
+	pref := strings.Index(got, "prefers summaries")
+	filler := strings.Index(got, "a fact captured minutes ago")
+	if rule < 0 || pref < 0 || filler < 0 {
+		t.Fatalf("expected rule, preference and recent entries, got: %q", got)
+	}
+	if !(rule < pref && pref < filler) {
+		t.Fatalf("order must be rule < preference < recent, got rule=%d pref=%d recent=%d: %q", rule, pref, filler, got)
+	}
+}
+
+// M3M0S_INJECT_KINDS=off keeps the pre-D57 behaviour: a single plain /recent.
+func TestRunSessionStartKindsOffUsesSingleFetch(t *testing.T) {
+	fake := &fakeRecentServe{results: []schema.Entry{extractedEntry("mem_1", "any fact")}}
+	srv := fake.server(t)
+
+	var stdout, stderr bytes.Buffer
+	deps := sessionStartDeps(t.TempDir(), srv, &stdout, &stderr)
+	orig := deps.Getenv
+	deps.Getenv = func(k string) string {
+		if k == "M3M0S_INJECT_KINDS" {
+			return "off"
+		}
+		return orig(k)
+	}
+	RunSessionStart(context.Background(), Payload{HookEventName: "SessionStart", Source: "startup", Cwd: "/tmp/repo"}, deps)
+	if fake.callCount != 1 {
+		t.Fatalf("expected 1 GET /recent with M3M0S_INJECT_KINDS=off, got %d", fake.callCount)
 	}
 }

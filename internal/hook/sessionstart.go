@@ -118,24 +118,18 @@ func RunSessionStart(ctx context.Context, payload Payload, deps Deps) {
 	if proj == "" {
 		scope = "global"
 	}
-	resp, err := c.Recent(ctx, apitypes.RecentParams{
+	// D57: rules and preferences first, then plain recency as the filler.
+	budget := injectTokenBudget(deps.Getenv)
+	extracted := BuildSessionDigest(recentFetcher(ctx, c, apitypes.RecentParams{
 		Domain:  domain,
 		Limit:   SessionStartFetchLimit,
 		Source:  deps.Getenv("M3M0S_INJECT_SOURCE"),
 		Project: proj,
 		Scope:   scope,
-	})
-	if err != nil {
-		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: GET /api/v1/recent failed: %v\n", err)
-		return
-	}
-
-	budget := injectTokenBudget(deps.Getenv)
-	extracted := apitypes.FitTokenBudget(InjectableEntries(resp.Results), budget)
+	}, deps.Stderr), DigestKinds(deps.Getenv), budget)
 	if len(extracted) == 0 {
 		return
 	}
-
 	block := apitypes.BuildContextBlock(extracted)
 	_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: injected %d memories, ~%d tokens (budget %d) for %s\n", len(extracted), apitypes.EstimateTokens(block), budget, domain)
 

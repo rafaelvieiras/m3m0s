@@ -9,11 +9,14 @@ package httpapi
 import (
 	"encoding/json"
 	"net/http"
+	"os"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/rafaelvieiras/m3m0s/internal/apitypes"
 	"github.com/rafaelvieiras/m3m0s/internal/hook"
+	"github.com/rafaelvieiras/m3m0s/internal/schema"
 	"github.com/rafaelvieiras/m3m0s/internal/store"
 )
 
@@ -82,8 +85,20 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 
 	switch mode {
 	case apitypes.PreviewInjectionModeHook:
-		results := s.store.Recent(hook.SessionStartFetchLimit, filter, now)
-		extracted := apitypes.FitTokenBudget(hook.InjectableEntries(results), budget)
+		// D57: the preview must show the digest the hook would really build,
+		// priority kinds included, not a plain /recent cut.
+		var mu sync.Mutex
+		var fetched int
+		fetch := func(kind string, limit int) []schema.Entry {
+			f := filter
+			f.Kind = kind
+			list := s.store.Recent(limit, f, now)
+			mu.Lock()
+			fetched += len(list)
+			mu.Unlock()
+			return list
+		}
+		extracted := hook.BuildSessionDigest(fetch, hook.DigestKinds(os.Getenv), budget)
 
 		var out hookSessionStartOutput
 		out.HookSpecificOutput.HookEventName = "SessionStart"
@@ -101,7 +116,7 @@ func (s *Server) handlePreviewInjection(w http.ResponseWriter, r *http.Request) 
 				"before every new session or /clear, synchronous, 5s timeout. It is the only " +
 				"automatic injection mechanism that exists today; no other tool " +
 				"has an equivalent hook yet.",
-			EntriesFetched:  len(results),
+			EntriesFetched:  fetched,
 			EntriesUsed:     len(extracted),
 			EstimatedTokens: apitypes.EstimateTokens(out.HookSpecificOutput.AdditionalContext),
 			TokenBudget:     budget,
