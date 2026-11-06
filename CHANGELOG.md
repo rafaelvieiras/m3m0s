@@ -5,6 +5,19 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.6.0...v0.7.0) (2026-10-29)
+
+
+### Features
+
+* native MCP streamable http endpoint ([#115](https://github.com/rafaelvieiras/m3m0s/issues/115)) ([abb7bed](https://github.com/rafaelvieiras/m3m0s/commit/abb7bed1bfb9336e0d4d038af396196b3499e62a))
+* **openwebui:** add filter function integration ([#111](https://github.com/rafaelvieiras/m3m0s/issues/111)) ([39e8d8b](https://github.com/rafaelvieiras/m3m0s/commit/39e8d8b595c99f10a181aed866a157b633105678))
+
+
+### Bug Fixes
+
+* **webui:** contrast, focus and locale fixes ([#112](https://github.com/rafaelvieiras/m3m0s/issues/112)) ([7f5d086](https://github.com/rafaelvieiras/m3m0s/commit/7f5d086117283dc7e9b0bf7abd62600d05245085))
+
 ## [0.6.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.5.0...v0.6.0) (2026-10-24)
 
 
