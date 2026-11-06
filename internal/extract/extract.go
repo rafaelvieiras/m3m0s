@@ -209,6 +209,8 @@ Rules:
 - Return at most 10 facts: only the most durable and reusable ones, most important first. Never pad the list.
 - Keep each fact to one short sentence (about 25 words at most): the conclusion and, when it matters, the why. Do not quote or paraphrase the text at length.
 - Skip noise entirely: no boilerplate, diff trivia or descriptions of the text itself ("the text explains ...").
+- Extract facts about the world, not about the conversation. Never record what the user asked, wanted or is doing ("the user asks to ...", "the request is ..."), what the assistant intends or just did ("I will check ...", "let me look ..."), or where the session stands. That describes the transcript, not something worth recalling later.
+- Never restate metadata the store already keeps (the project, the domain, the source, the date) and never invent a label for the text or for a project ("the domain is X", "the project belongs to domain Y", "this text is about Z").
 - Give each fact a "kind", exactly one of: decision, rule, preference, gotcha, procedure, state, other.
   decision: a choice that was made and, ideally, why.
   rule: a convention, constraint or standing instruction ("always ...", "never ...").
@@ -312,7 +314,7 @@ Each fact gets exactly one kind: decision, rule, preference, gotcha, procedure, 
 - gotcha: a root cause, pitfall or non-obvious behaviour.
 - procedure: how to do something (steps, commands, configuration).
 - state: a transient status (task progress, current branch, a number that will change).
-- noise: meta-description, boilerplate or diff trivia.
+- noise: meta-description, conversation narration, boilerplate or diff trivia.
 - other: when none of the above clearly applies.
 The facts may be written in any language. Reply ONLY with a JSON object {"kinds": ["kind for fact 1", "kind for fact 2", ...]} with exactly one entry per fact, in the same order.`
 
