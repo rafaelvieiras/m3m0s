@@ -5,6 +5,21 @@ All notable changes to this project are documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.7.0...v0.8.0) (2026-11-06)
+
+
+### Features
+
+* **hook:** session-start digest prefers rules and preferences (D57) ([ff7a809](https://github.com/rafaelvieiras/m3m0s/commit/ff7a80964b2464ffdc013893cb2ac4c381f5b9f8))
+* **search:** recency breaks near-ties in the ranking (D59) ([1da4f8e](https://github.com/rafaelvieiras/m3m0s/commit/1da4f8ea593b3bc66ed6630c5a61823f88fa8671))
+* separate injection telemetry from real reads (D58) ([2a72514](https://github.com/rafaelvieiras/m3m0s/commit/2a7251487ace19edfb994deeb30a6a08af5baa33))
+
+
+### Bug Fixes
+
+* **extract:** stop recording conversation narration and metadata labels ([547f0bc](https://github.com/rafaelvieiras/m3m0s/commit/547f0bc1e1e0f204725da8d2730992a8edb13241))
+* **hook:** calibrate per-prompt recall floor to 0.55 (D56) ([f1564d4](https://github.com/rafaelvieiras/m3m0s/commit/f1564d4fcd3ed0350ea7aca7b9294cbf5c2b352f))
+
 ## [0.7.0](https://github.com/rafaelvieiras/m3m0s/compare/v0.6.0...v0.7.0) (2026-10-29)
 
 
