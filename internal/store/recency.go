@@ -18,7 +18,11 @@ import (
 // repeatedly over weeks and those near-identical hits come back in whatever
 // order the index produced, sometimes surfacing an older superseded version
 // above the current one.
-const RecencyWindow = 0.03
+//
+// 0.01 and not more: a wider band re-orders results whose scores a caller can
+// tell apart (a 0.532 above a 0.547 looks broken), while a repeated capture of
+// the same fact lands within a few thousandths of the previous one.
+const RecencyWindow = 0.01
 
 // OrderWithRecencyTieBreak re-orders runs of near-equal scored entries newest
 // first (D59). Entries without a score (keyword-only hits in hybrid mode)

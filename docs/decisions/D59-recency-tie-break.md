@@ -6,9 +6,9 @@
 
 **Decision:**
 
-- After ranking, `/search` re-orders **runs of consecutive results whose scores fall inside one 0.03 band**, newest first. A larger gap between two results is never overridden, so the ranking itself still decides what is relevant and a durable old rule keeps its place above a newer irrelevant hit.
+- After ranking, `/search` re-orders **runs of consecutive results whose scores fall inside one 0.01 band**, newest first. A larger gap between two results is never overridden, so the ranking itself still decides what is relevant and a durable old rule keeps its place above a newer irrelevant hit.
 - Entries without a score (keyword-only hits in hybrid mode) end the run and keep their position: they cannot be compared on cosine.
-- The band is `store.RecencyWindow` (0.03), overridable with `M3M0S_SEARCH_RECENCY_WINDOW` (`0` disables it).
+- The band is `store.RecencyWindow` (0.01), overridable with `M3M0S_SEARCH_RECENCY_WINDOW` (`0` disables it).
 - `score` in the response is still the exact cosine similarity; only the order can change. No field, no score rewriting, so clients that re-sort by `score` see exactly the pre-D59 behaviour.
 
 **Why not a score boost by age:** a weight on age is a policy that eventually ranks a new, vaguely-related memory above the correct old one, and it makes `score` mean two different things depending on configuration. The band only decides within noise.

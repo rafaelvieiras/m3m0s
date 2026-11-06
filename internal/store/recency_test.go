@@ -15,15 +15,15 @@ func sc(id string, score float64, ageDays int) schema.Entry {
 // D59: near-equal scores are ordered newest first; a real gap is preserved.
 func TestOrderWithRecencyTieBreakPrefersNewerInsideTheBand(t *testing.T) {
 	in := []schema.Entry{
-		sc("old", 0.70, 120),
-		sc("new", 0.69, 1),
-		sc("mid", 0.68, 40),
-		sc("far-old", 0.50, 200),
-		sc("far-new", 0.49, 2),
+		sc("old", 0.703, 120),
+		sc("new", 0.700, 1),
+		sc("mid", 0.697, 40),
+		sc("far-old", 0.500, 200),
+		sc("far-new", 0.496, 2),
 		sc("much-older", 0.20, 300),
 	}
 	got := OrderWithRecencyTieBreak(in, RecencyWindow)
-	// old 0.70 @120d, new 0.69 @1d and mid 0.68 @40d fall inside one band:
+	// old, new and mid fall inside one 0.01 band:
 	// newest first, even though old has the best cosine.
 	want := []string{"new", "mid", "old", "far-new", "far-old", "much-older"}
 	for i, id := range want {
@@ -56,11 +56,11 @@ func TestOrderWithRecencyTieBreakNoopCases(t *testing.T) {
 // Unscored entries (keyword-only hits) keep their position.
 func TestOrderWithRecencyTieBreakLeavesUnscoredInPlace(t *testing.T) {
 	in := []schema.Entry{
-		sc("old", 0.70, 90),
-		sc("new", 0.69, 1),
+		sc("old", 0.703, 90),
+		sc("new", 0.700, 1),
 		{ID: "keyword", CreatedAt: time.Now()},
-		sc("old2", 0.60, 60),
-		sc("new2", 0.59, 2),
+		sc("old2", 0.603, 60),
+		sc("new2", 0.600, 2),
 	}
 	got := OrderWithRecencyTieBreak(in, RecencyWindow)
 	if got[2].ID != "keyword" {
