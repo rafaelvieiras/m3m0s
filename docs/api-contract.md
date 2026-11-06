@@ -324,6 +324,11 @@ absent on results that were ranked without an embedding.
 characters per token; only the 240-character snippet that `contextBlock`
 renders is counted). Lower-ranked results are dropped first; `0` means no cap.
 
+Results come back ranked by similarity, except that runs of results whose
+scores are within 0.03 of each other are re-ordered newest first (D59); a
+larger gap is never overridden, and `score` stays the exact cosine. Unscored
+keyword-only hits keep their position.
+
 `purpose: "inject"` declares that the results go straight into a model's
 context (a hook or an MCP client), not a deliberate lookup (D58). It only
 changes the telemetry counter the returned entries get: `inject_count` and

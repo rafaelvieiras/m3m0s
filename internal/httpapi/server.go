@@ -16,6 +16,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"os"
 	"runtime"
 	"strconv"
 	"strings"
@@ -437,6 +438,8 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusInternalServerError, "search_failed", err.Error())
 		return
 	}
+	// D59: inside a band of near-equal cosine the newer entry wins.
+	results = store.OrderWithRecencyTieBreak(results, searchRecencyWindow())
 
 	results = apitypes.FitTokenBudget(results, req.MaxTokens)
 	block := apitypes.BuildContextBlock(results)
@@ -916,4 +919,15 @@ func writeJSON(w http.ResponseWriter, status int, data any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	_ = json.NewEncoder(w).Encode(data)
+}
+
+// searchRecencyWindow reads M3M0S_SEARCH_RECENCY_WINDOW (a non-negative
+// number; "0" disables it), falling back to store.RecencyWindow (D59).
+func searchRecencyWindow() float64 {
+	if v := strings.TrimSpace(os.Getenv("M3M0S_SEARCH_RECENCY_WINDOW")); v != "" {
+		if f, err := strconv.ParseFloat(v, 64); err == nil && f >= 0 {
+			return f
+		}
+	}
+	return store.RecencyWindow
 }
