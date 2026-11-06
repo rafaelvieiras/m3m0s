@@ -34,6 +34,12 @@ type InsightsTotals struct {
 	Raw              int     `json:"raw"`
 	NeverAccessed    int     `json:"never_accessed"`
 	NeverAccessedPct float64 `json:"never_accessed_pct"`
+	// Injected/NeverInjected split the automatic injections (D58) from the
+	// deliberate reads above: a memory served into a model's context is not
+	// the same signal as one someone looked up.
+	Injected         int     `json:"injected"`
+	NeverInjected    int     `json:"never_injected"`
+	NeverInjectedPct float64 `json:"never_injected_pct"`
 }
 
 // InsightsText summarizes the length of the stored text, in characters.

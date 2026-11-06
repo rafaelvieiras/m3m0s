@@ -431,6 +431,7 @@ func (s *Server) handleSearch(w http.ResponseWriter, r *http.Request) {
 		writeError(w, http.StatusBadRequest, "invalid_mode", "invalid mode: "+req.Mode+" (expected hybrid, vector or keyword)")
 		return
 	}
+	filter.Inject = apitypes.IsInjection(req.Purpose)
 	results, corrected, err := s.store.SearchCorrected(r.Context(), req.Query, req.Limit, filter, time.Now())
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "search_failed", err.Error())
@@ -470,6 +471,7 @@ func (s *Server) handleRecent(w http.ResponseWriter, r *http.Request) {
 		Project:        q.Get("project"),
 		Scope:          q.Get("scope"),
 		Kind:           q.Get("kind"),
+		Inject:         apitypes.IsInjection(q.Get("purpose")),
 	}
 	if err := filter.Validate(); err != nil {
 		writeStoreError(w, err)

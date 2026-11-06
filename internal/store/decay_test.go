@@ -467,3 +467,45 @@ func containsID(ids []string, target string) bool {
 	}
 	return false
 }
+
+// D58: an automatic injection must not look like a deliberate read. The two
+// counters are independent, and only the read one feeds decay.
+func TestInjectionTelemetryIsSeparateFromAccess(t *testing.T) {
+	s := newTestStore(t)
+	e := mustAdd(t, s, AddInput{Content: "entry handed to a model automatically", Domain: "code:inject-telemetry"})
+
+	// Recent with Inject marks an injection, not an access.
+	got := s.Recent(5, Filter{Domain: "code:inject-telemetry", Inject: true}, time.Now())
+	if len(got) != 1 || got[0].ID != e.ID {
+		t.Fatalf("expected the entry back from Recent, got %+v", got)
+	}
+	after := getIndexEntry(t, s, e.ID)
+	if after.Metadata[metadataKeyInjectCount] != "1" {
+		t.Errorf("inject_count = %q, want 1", after.Metadata[metadataKeyInjectCount])
+	}
+	if after.Metadata[metadataKeyLastInjected] == "" {
+		t.Error("last_injected_at was not written")
+	}
+	if after.Metadata[metadataKeyAccessCount] != "" {
+		t.Errorf("inject_count must not touch access_count, got %q", after.Metadata[metadataKeyAccessCount])
+	}
+
+	// A plain Recent (no Inject) touches neither counter.
+	s.Recent(5, Filter{Domain: "code:inject-telemetry"}, time.Now())
+	after = getIndexEntry(t, s, e.ID)
+	if after.Metadata[metadataKeyInjectCount] != "1" || after.Metadata[metadataKeyAccessCount] != "" {
+		t.Errorf("plain Recent must not count as injection nor access: %+v", after.Metadata)
+	}
+
+	// An explicit Get only bumps the read counter.
+	if _, err := s.Get(e.ID, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	after = getIndexEntry(t, s, e.ID)
+	if after.Metadata[metadataKeyAccessCount] != "1" {
+		t.Errorf("access_count = %q, want 1", after.Metadata[metadataKeyAccessCount])
+	}
+	if after.Metadata[metadataKeyInjectCount] != "1" {
+		t.Errorf("Get must not bump inject_count, got %q", after.Metadata[metadataKeyInjectCount])
+	}
+}

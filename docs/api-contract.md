@@ -304,7 +304,7 @@ survive a restart of `m3m0s serve` (D26).
 
 ### `memory_search` · `POST /api/v1/search` · `m3m0s search`
 
-Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "model"?: string, "project"?: string, "scope"?: "global" | "project-only", "tags"?: string[], "kind"?: string, "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0 }`
+Input: `{ "query": string, "limit"?: number = 5, "domain"?: string, "domainCategory"?: string, "source"?: string, "agent"?: string, "model"?: string, "project"?: string, "scope"?: "global" | "project-only", "tags"?: string[], "kind"?: string, "mode"?: "hybrid" | "vector" | "keyword" = "hybrid", "maxTokens"?: number = 0, "purpose"?: "inject" }`
 
 `domain` restricts the candidate set before ranking (D28, D31);
 `domainCategory`/`source`/`agent`/`model`/`project`/`tags`/`kind` are a Go post-filter over the ranked
@@ -324,6 +324,13 @@ absent on results that were ranked without an embedding.
 characters per token; only the 240-character snippet that `contextBlock`
 renders is counted). Lower-ranked results are dropped first; `0` means no cap.
 
+`purpose: "inject"` declares that the results go straight into a model's
+context (a hook or an MCP client), not a deliberate lookup (D58). It only
+changes the telemetry counter the returned entries get: `inject_count` and
+`last_injected_at` instead of `access_count` and `last_accessed_at`. Only the
+latter feeds decay, so an entry that keeps being injected cannot keep itself
+alive.
+
 Response:
 ```json
 {
@@ -342,9 +349,10 @@ without `--json` it prints the context block; with it, it prints raw `results`.
 
 ### `memory_recent` · `GET /api/v1/recent` · `m3m0s recent`
 
-Input: `limit` (default 10), `domain`, `domainCategory`, `source`, `agent`, `model`, `project`, `scope`, `kind` —
-the same exact filters as `search`, without a similarity `query`; ordered by
-`createdAt` descending.
+Input: `limit` (default 10), `domain`, `domainCategory`, `source`, `agent`, `model`, `project`, `scope`, `kind`,
+`purpose` — the same exact filters as `search`, without a similarity `query`;
+ordered by `createdAt` descending. `purpose=inject` marks the returned entries
+as injected (D58), same semantics as on `search`.
 
 Response: `{ "results": [ "...MemoryEntry..." ] }` (no `score`).
 
@@ -1167,7 +1175,8 @@ counted). All lists may be empty, never missing.
   "generated_at": "2026-10-08T22:00:00Z",
   "totals": {"total": 77253, "active": 76392, "soft_deleted": 861, "with_valid_until": 9912,
              "expired": 9359, "pinned": 0, "extracted": 76293, "raw": 99,
-             "never_accessed": 73823, "never_accessed_pct": 96.6},
+             "never_accessed": 73823, "never_accessed_pct": 96.6,
+             "injected": 1204, "never_injected": 75188, "never_injected_pct": 98.4},
   "text": {"avg_chars": 133.0, "median_chars": 117, "p90_chars": 208, "max_chars": 9000},
   "soft_deleted_by_day": [{"key": "2026-10-07", "count": 247}],
   "by_category": [{"key": "code", "count": 76392}],

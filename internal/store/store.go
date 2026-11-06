@@ -1336,6 +1336,11 @@ type Filter struct {
 	// Mode selects the ranking for Search: "" or "hybrid" (default: vector +
 	// keyword fused with RRF), "vector" or "keyword". Ignored by Recent.
 	Mode string
+	// Inject marks a call whose results are handed to a model automatically
+	// (a hook or an MCP client), instead of a deliberate lookup (D58). It
+	// only changes which reinforcement counter the returned entries get:
+	// inject_count/last_injected_at instead of access_count/last_accessed_at.
+	Inject bool
 }
 
 func (f Filter) matchesIndexEntry(e schema.Entry) bool {
@@ -1479,9 +1484,15 @@ func (s *MemoryStore) SearchCorrected(ctx context.Context, query string, limit i
 	}
 
 	// Reinforcement (D22): only the PRIMARY results of the search count as
-	// "access" — entries brought in by 1-hop expansion were not deliberately
-	// found by this query, they are incidental.
+	// an event — entries brought in by 1-hop expansion were not deliberately
+	// found by this query, they are incidental. D58 separates the two kinds
+	// of event: an injection (automatic, into a model's context) is not a
+	// deliberate read, and only the latter reinforces decay.
 	for _, id := range primaryIDs {
+		if filter.Inject {
+			s.touchInjection(ctx, id, now)
+			continue
+		}
 		s.touchAccess(ctx, id, now)
 	}
 
@@ -1512,6 +1523,12 @@ func (s *MemoryStore) Recent(limit int, filter Filter, now time.Time) []schema.E
 	})
 	if len(all) > limit {
 		all = all[:limit]
+	}
+
+	if filter.Inject {
+		for _, e := range all {
+			s.touchInjection(context.Background(), e.ID, now)
+		}
 	}
 
 	seen := make(map[string]struct{}, len(all))

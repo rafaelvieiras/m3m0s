@@ -112,6 +112,8 @@ func recentFetcher(ctx context.Context, c recentCaller, params apitypes.RecentPa
 		p := params
 		p.Kind = kind
 		p.Limit = limit
+		// D58: the digest is injected without anyone asking for it.
+		p.Purpose = apitypes.PurposeInject
 		resp, err := c.Recent(ctx, p)
 		if err != nil {
 			once.Do(func() {

@@ -35,6 +35,12 @@ import (
 const (
 	metadataKeyAccessCount  = "access_count"
 	metadataKeyLastAccessed = "last_accessed_at"
+	// D58: injections are counted separately from reads. Access means a
+	// deliberate lookup; injection means the entry was handed to a model
+	// automatically by a hook or an MCP client. Only access reinforces decay,
+	// so an entry that keeps being injected cannot keep itself alive.
+	metadataKeyInjectCount  = "inject_count"
+	metadataKeyLastInjected = "last_injected_at"
 	metadataKeyPinned       = "pinned"
 	metadataKeyDeletedAt    = "deleted_at"
 )
@@ -193,6 +199,36 @@ func bumpAccessMetadata(base map[string]string, now time.Time) map[string]string
 	md[metadataKeyAccessCount] = strconv.Itoa(parseAccessCount(md[metadataKeyAccessCount]) + 1)
 	md[metadataKeyLastAccessed] = now.UTC().Format(time.RFC3339)
 	return md
+}
+
+// touchInjection records 1 injection of id (D58): the entry was returned to
+// a caller that declared itself an automatic injection (hook or MCP client),
+// not a deliberate lookup. Same best-effort contract as touchAccess, but it
+// never feeds decay — log only, never propagated.
+func (s *MemoryStore) touchInjection(ctx context.Context, id string, now time.Time) {
+	s.mu.Lock()
+	entry, ok := s.index[id]
+	s.mu.Unlock()
+	if !ok || isSoftDeleted(entry) {
+		return
+	}
+
+	md := make(map[string]string, len(entry.Metadata)+2)
+	for k, v := range entry.Metadata {
+		md[k] = v
+	}
+	md[metadataKeyInjectCount] = strconv.Itoa(parseAccessCount(md[metadataKeyInjectCount]) + 1)
+	md[metadataKeyLastInjected] = now.UTC().Format(time.RFC3339)
+	entry.Metadata = md
+
+	if err := s.db.UpdateMetadata(ctx, entry.ID, entry.Metadata, entry.UpdatedAt); err != nil {
+		log.Printf("m3m0s: inject telemetry on %s: %v", id, err)
+		return
+	}
+
+	s.mu.Lock()
+	s.index[entry.ID] = entry
+	s.mu.Unlock()
 }
 
 // touchAccess records 1 real read of id (Get, or a primary Search result)

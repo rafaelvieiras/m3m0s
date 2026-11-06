@@ -51,6 +51,11 @@ func neverAccessed(e schema.Entry) bool {
 	return parseAccessCount(e.Metadata[metadataKeyAccessCount]) == 0
 }
 
+// neverInjected mirrors neverAccessed for the injection counter (D58).
+func neverInjected(e schema.Entry) bool {
+	return parseAccessCount(e.Metadata[metadataKeyInjectCount]) == 0
+}
+
 func topCounts(m map[string]int, n int) []apitypes.CountItem {
 	out := make([]apitypes.CountItem, 0, len(m))
 	for k, v := range m {
@@ -140,6 +145,11 @@ func (s *MemoryStore) InsightsOverviewExcluding(now time.Time, excludeSource str
 			out.Totals.NeverAccessed++
 			ds.NeverAccessed++
 		}
+		if neverInjected(e) {
+			out.Totals.NeverInjected++
+		} else {
+			out.Totals.Injected++
+		}
 
 		ageDays := now.Sub(e.CreatedAt).Hours() / 24
 		for i, b := range ageBuckets {
@@ -160,6 +170,7 @@ func (s *MemoryStore) InsightsOverviewExcluding(now time.Time, excludeSource str
 
 	if a := out.Totals.Active; a > 0 {
 		out.Totals.NeverAccessedPct = float64(out.Totals.NeverAccessed) / float64(a) * 100
+		out.Totals.NeverInjectedPct = float64(out.Totals.NeverInjected) / float64(a) * 100
 		out.Text = apitypes.InsightsText{
 			AvgChars:    float64(sumChars) / float64(a),
 			MedianChars: histPercentile(lenHist, a, 0.5),

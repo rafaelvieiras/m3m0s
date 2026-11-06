@@ -115,6 +115,10 @@ type SearchRequest struct {
 	// MaxTokens caps the estimated tokens of the returned results (content
 	// only, 0 = no cap); lower-ranked results are dropped first.
 	MaxTokens int `json:"maxTokens,omitempty"`
+	// Purpose marks the call as an automatic injection ("inject") instead of
+	// a deliberate lookup (""); it only changes the telemetry counter the
+	// returned entries get (D58).
+	Purpose string `json:"purpose,omitempty"`
 }
 
 // SearchResponse is the 200 response of POST /search.
@@ -140,6 +144,9 @@ type RecentParams struct {
 	Project        string
 	Scope          string
 	Kind           string
+	// Purpose is "inject" when the results are handed to a model
+	// automatically (D58); it only changes the telemetry counter.
+	Purpose string
 }
 
 // RecentResponse is the 200 response of GET /recent.
@@ -763,3 +770,13 @@ type ReembedStartResponse struct {
 type ReembedCancelResponse struct {
 	Cancelled bool `json:"cancelled"`
 }
+
+// PurposeInject is the "purpose" value a client sends when the results of a
+// search or recent call are handed to a model automatically (a hook or an MCP
+// client), instead of a deliberate lookup (D58). It only selects the
+// telemetry counter the returned entries get.
+const PurposeInject = "inject"
+
+// IsInjection reports whether a "purpose" value means an automatic
+// injection (D58).
+func IsInjection(v string) bool { return v == PurposeInject }

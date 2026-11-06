@@ -119,8 +119,11 @@ func TestInsightsOverviewCountsAndForgettingMatchesSweep(t *testing.T) {
 
 	ov := s.InsightsOverview(now)
 	tot := ov.Totals
-	want := apitypes.InsightsTotals{Total: 8, Active: 6, SoftDeleted: 2, WithValidUntil: 2, Expired: 1, Pinned: 1, Extracted: 5, Raw: 1, NeverAccessed: 5}
+	// D58: nothing was injected in this fixture, so all 6 active entries are
+	// never-injected while 5 of them are also never-accessed.
+	want := apitypes.InsightsTotals{Total: 8, Active: 6, SoftDeleted: 2, WithValidUntil: 2, Expired: 1, Pinned: 1, Extracted: 5, Raw: 1, NeverAccessed: 5, NeverInjected: 6}
 	want.NeverAccessedPct = tot.NeverAccessedPct
+	want.NeverInjectedPct = tot.NeverInjectedPct
 	if tot != want {
 		t.Errorf("totals = %+v, want %+v", tot, want)
 	}

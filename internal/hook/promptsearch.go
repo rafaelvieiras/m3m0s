@@ -104,6 +104,8 @@ func RunPromptSearch(ctx context.Context, payload Payload, deps Deps) {
 		Mode:    "vector",
 		Project: proj,
 		Scope:   scope,
+		// D58: this is an automatic injection, not a deliberate lookup.
+		Purpose: apitypes.PurposeInject,
 	})
 	if err != nil {
 		_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: prompt search failed: %v\n", err)
