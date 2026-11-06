@@ -16,3 +16,5 @@
 **Cost:** one embedding call plus a lookup on every non-trivial prompt, synchronously (≤4s worst case, normally well under 1s), and up to ~500 tokens per prompt that matches.
 
 **Not done:** query rewriting from conversation context (a prompt like "pode seguir" has no topic), reranking, per-kind weighting, and cross-session dedup.
+
+**Update (06 Nov 2026):** the 0.60 floor was calibrated on 4 prompts; a wider sample showed it missed relevant hits just below it. The floor is now 0.55 and the foreign-project penalty exempts a project the prompt names. See [D56](D56-recall-floor-calibration.md).

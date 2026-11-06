@@ -27,7 +27,7 @@ const (
 	promptSearchLimit   = 5    // candidates asked from the server
 	promptMaxInjected   = 3    // entries injected per prompt
 	promptTokenBudget   = 500  // estimated tokens injected per prompt
-	promptDefaultScore  = 0.60 // cosine floor; see D44
+	promptDefaultScore  = 0.55 // cosine floor; see D44 and D56
 	promptForeignBoost  = 0.10 // extra floor for memories of another code project
 )
 
@@ -124,13 +124,21 @@ func RunPromptSearch(ctx context.Context, payload Payload, deps Deps) {
 		foreignFloor = floor + promptForeignBoost
 	}
 	seenPath, seen := loadSeen(deps.HomeDir, payload.SessionID)
+	folded := foldText(prompt)
 	var hits []schema.Entry
 	for _, e := range InjectableEntries(resp.Results) {
 		if e.Score == nil || *e.Score < floor || seen[e.ID] {
 			continue
 		}
 		if e.Domain != own && strings.HasPrefix(e.Domain, "code:") && *e.Score < foreignFloor {
-			continue
+			// D56: a prompt that names the other project ("deploy of
+			// project-a" asked from another repo) is a deliberate
+			// cross-project read. The penalty exists to keep unrelated
+			// auth/token talk from dragging in a different repo's notes,
+			// not to block this.
+			if !promptNamesProject(folded, e.Domain) {
+				continue
+			}
 		}
 		if terms != nil && !sharesTerm(e.Content, terms) {
 			continue
@@ -160,6 +168,17 @@ func RunPromptSearch(ctx context.Context, payload Payload, deps Deps) {
 	}
 	_, _ = fmt.Fprintf(deps.Stderr, "m3m0s hook claude-code: prompt search injected %d memories, ~%d tokens\n", len(hits), apitypes.EstimateTokens(block))
 	_, _ = fmt.Fprintln(deps.Stdout, string(data))
+}
+
+// promptNamesProject reports whether the prompt mentions the memory's code
+// project by name ("playheadtv" for code:playheadtv), accent-folded and
+// case-insensitive. See D56.
+func promptNamesProject(foldedPrompt, domain string) bool {
+	name := strings.TrimPrefix(domain, "code:")
+	if name == "" {
+		return false
+	}
+	return strings.Contains(foldedPrompt, foldText(name))
 }
 
 // loadSeen returns the ids already injected by prompt search in this

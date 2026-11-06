@@ -201,3 +201,21 @@ func TestRunPromptSearchRaisesFloorForOtherProjects(t *testing.T) {
 		t.Fatalf("other-project hit below the raised floor must be dropped: %q", got)
 	}
 }
+
+// D55: naming the other project in the prompt is a deliberate cross-project
+// read, so the +0.10 foreign floor does not apply to that project's hits.
+func TestRunPromptSearchAcceptsOtherProjectNamedInPrompt(t *testing.T) {
+	other := extractedEntry("mem_other", "other-repo deploys with docker compose from the deploy folder.")
+	other.Domain = "code:other-repo"
+	results := []schema.Entry{scored(other, 0.63)}
+	var calls int
+	var mode string
+	srv := promptServer(t, results, &calls, &mode)
+
+	var out, errb bytes.Buffer
+	payload := Payload{SessionID: "named", Cwd: "/x/some-repo", Prompt: "como funciona o deploy do other-repo em producao?"}
+	RunPromptSearch(context.Background(), payload, sessionStartDeps(t.TempDir(), srv, &out, &errb))
+	if !strings.Contains(out.String(), "deploys with docker compose") {
+		t.Fatalf("hit of a project named in the prompt must be injected: %q (stderr: %s)", out.String(), errb.String())
+	}
+}

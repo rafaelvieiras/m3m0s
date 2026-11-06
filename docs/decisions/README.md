@@ -69,6 +69,7 @@ A lightweight decision log (the equivalent of ADRs, without the heavy format yet
 | D53 | Reversible manual delete: trash and undo | Accepted | [D53-reversible-manual-delete-trash.md](D53-reversible-manual-delete-trash.md) |
 | D54 | Native MCP Streamable HTTP endpoint | Accepted | [D54-mcp-streamable-http.md](D54-mcp-streamable-http.md) |
 | D55 | Open WebUI integration as a Filter Function | Accepted | [D55-openwebui-filter.md](D55-openwebui-filter.md) |
+| D56 | Recall floor calibration (0.55, foreign project named in the prompt) | Accepted | [D56-recall-floor-calibration.md](D56-recall-floor-calibration.md) |
 | A6 | Embeddings provider | Closed (16 Jul 2026) | [A6-embeddings-provider.md](A6-embeddings-provider.md) |
 | A7 | `metadata.source_content` duplicates the original text per extracted fact | Closed (16 Jul 2026), see [D21](D21-deduplicated-source-blob-store.md) | [A7-source-content-duplication.md](A7-source-content-duplication.md) |
 | A8 | Phase 7 (light KG + temporal fact) | Closed (16 Jul 2026), see [D15](D15-light-kg-temporal-fact.md) | [A8-light-kg-temporal-fact.md](A8-light-kg-temporal-fact.md) |
